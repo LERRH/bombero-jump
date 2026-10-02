@@ -126,10 +126,10 @@ function gen() {
   while (S.genY > S.camY - 120 && !S.goalPlaced && !S.eppLock) {
     const ev = S.events[0];
     let y = S.genY - (S.phase === 1 ? rand(50, 85) : rand(60, 100));
-    if (ev && y <= ev.y + 75 && ev.t === 'door') {
+    if (ev && y <= ev.y + STAIR_DROP && ev.t === 'door') {
       S.events.shift();
       // Techo completo: solo se sube por la escalera del costado, tras forzar su puerta
-      const side = Math.random() < 0.5 ? -1 : 1, ly = ev.y + 75;
+      const side = Math.random() < 0.5 ? -1 : 1, ly = ev.y + STAIR_DROP;
       const lx = side > 0 ? W - STAIR_LANDING : 0;
       S.plats = S.plats.filter(o => o.ground || Math.abs(o.y - ly) >= ART_H || lx + STAIR_LANDING + 12 < o.x || o.x + o.w + 12 < lx);
       // Si al hacer espacio quedó un salto demasiado alto hasta el descanso, se agrega un apoyo
@@ -137,7 +137,10 @@ function gen() {
       if (below > 120) { const hx = freeX(ly + 90, 80); if (hx !== null) addPlat(hx, ly + 90, 80, { kind: 'window' }); }
       addPlat(lx, ly, STAIR_LANDING, { kind: 'landing' });
       addPlat(0, ev.y, W, { kind: 'slab' });   // piso de arriba: se pisa al salir por la escalera
-      S.bars.push({ t: 'door', y: ev.y, side, open: false, warned: false });
+      const bar = { t: 'door', y: ev.y, side, open: false, warned: false };
+      S.bars.push(bar);
+      // Escalón a mitad de la caja de la escalera: solo se puede pisar con la puerta abierta
+      addPlat(lx + (side > 0 ? STAIR_LANDING - STAIR_GAP : 0) + 5, ev.y + STAIR_DROP / 2, STAIR_GAP - 10, { kind: 'stairstep', bar });
       S.genY = ev.y + 40;
       continue;
     }
@@ -192,6 +195,8 @@ function gen() {
 const ART_H = 80;
 // Escalera lateral de los techos cerrados: ancho del hueco y del descanso
 const STAIR_GAP = 70, STAIR_LANDING = 110;
+// Altura entre el techo y el descanso de la puerta: espacio para llegar saltando sin chocar
+const STAIR_DROP = 140;
 const stairX = b => b.side > 0 ? W - STAIR_GAP : 0;
 // ¿El bombero cabe por el hueco de la escalera?
 const inStair = (b, x) => b.side > 0 ? x - 9 >= W - STAIR_GAP : x + 9 <= STAIR_GAP;
@@ -224,7 +229,7 @@ function nearBar() {
   const p = S.p;
   return S.bars.find(b => {
     if (b.open) return false;
-    if (b.t === 'door') return Math.abs(p.y - (b.y + 75)) < 25 && Math.abs(p.x - (stairX(b) + STAIR_GAP / 2)) < 50;
+    if (b.t === 'door') return Math.abs(p.y - (b.y + STAIR_DROP)) < 25 && Math.abs(p.x - (stairX(b) + STAIR_GAP / 2)) < 50;
     return b.y < p.y && p.y - b.y < 220;
   });
 }
@@ -339,7 +344,7 @@ function halliganHit() {
   if (b.t === 'door') {
     const dx = stairX(b) + STAIR_GAP / 2;
     for (let i = 0; i < 30; i++) {
-      S.parts.push({ x: dx + rand(-14, 14), y: b.y + 75 - rand(5, 55), vx: rand(-2.5, 2.5), vy: rand(-3, 0.5), g: 0.3,
+      S.parts.push({ x: dx + rand(-14, 14), y: b.y + STAIR_DROP - rand(5, 55), vx: rand(-2.5, 2.5), vy: rand(-3, 0.5), g: 0.3,
         life: 45, max: 45, c: ['#3a3f4a', '#8a6a3a', '#bbb'][i % 3], s: rand(2, 5) });
     }
     S.shake = 6;
@@ -422,7 +427,7 @@ function update() {
 
   if (!p.ground && p.vy > 0) {
     for (const pl of S.plats) {
-      if (pl.broken) continue;
+      if (pl.broken || (pl.kind === 'stairstep' && !pl.bar.open)) continue;
       if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) {
         p.y = pl.y; p.vy = 0; p.ground = pl; S.landT = 10;
         if (pl.fragile) { if (!pl.crackT) pl.crackT = 1; } else S.lastSafe = pl;
@@ -621,7 +626,7 @@ function dyingFall() {
   const py = p.y;
   p.vy = Math.min(p.vy + 0.4, 12); p.y += p.vy;
   for (const pl of S.plats) {
-    if (!pl.broken && py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) { p.y = pl.y; p.vy = 0; p.ground = pl; return; }
+    if (!pl.broken && !(pl.kind === 'stairstep' && !pl.bar.open) && py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) { p.y = pl.y; p.vy = 0; p.ground = pl; return; }
   }
   if (p.y > S.camY + H - 10 && S.lastSafe) { p.y = S.lastSafe.y; p.x = S.lastSafe.x + S.lastSafe.w / 2; p.vy = 0; p.ground = S.lastSafe; }
 }
@@ -786,7 +791,7 @@ function drawWorld() {
   drawDecor();
   for (const pl of S.plats) {
     if (pl.ground) continue;
-    if (pl.kind === 'slab') continue;
+    if (pl.kind === 'slab' || pl.kind === 'stairstep') continue;   // los dibuja el techo de la escalera
     if (pl.kind === 'landing') { drawSill(pl.x, pl.y, pl.w); continue; }
     if (pl.roof) {
       ctx.fillStyle = '#777'; ctx.fillRect(pl.x, pl.y, pl.w, 20);
@@ -1029,23 +1034,28 @@ function drawFlame(f) {
 
 // Techo cerrado con escalera lateral: losa + caja de escalera con puerta
 function drawStairCeiling(b) {
-  const y = b.y, gx = stairX(b), ly = y + 75;
+  const y = b.y, gx = stairX(b), ly = y + STAIR_DROP, my = y + STAIR_DROP / 2;
   // Caja de la escalera (entre la losa y el descanso)
   box(gx, y + 14, STAIR_GAP, ly - y - 14, '#3a3a40');
-  const dw = 34, dh = 54, dx = gx + (STAIR_GAP - dw) / 2;
+  ctx.fillStyle = '#4a4a52'; ctx.fillRect(gx, my - 2, STAIR_GAP, 3);   // línea del piso intermedio
+  const dw = 40, dh = 56, dx = gx + (STAIR_GAP - dw) / 2;
   if (b.open) {
-    // Vano abierto: escalones que suben hacia el hueco de la losa
+    // Vano abierto: tramos de escalera hasta el escalón intermedio y hacia el hueco de la losa
     ctx.fillStyle = '#141416'; ctx.fillRect(gx + 3, y - 2, STAIR_GAP - 6, ly - y + 2);
     ctx.fillStyle = '#4a4a52';
-    for (let k = 0; k < 7; k++) ctx.fillRect(gx + 6 + (b.side > 0 ? k * 7 : (6 - k) * 7), ly - 6 - k * 11, 16, 3);
+    for (let k = 0; k < 6; k++) {
+      ctx.fillRect(gx + 6 + (b.side > 0 ? k * 8 : (5 - k) * 8), ly - 6 - k * 11, 16, 3);
+      ctx.fillRect(gx + 6 + (b.side > 0 ? (5 - k) * 8 : k * 8), my - 6 - k * 10, 16, 3);
+    }
+    drawSill(gx + 5, my, STAIR_GAP - 10);   // escalón intermedio
     ctx.fillStyle = '#7a4a24';   // hoja de la puerta forzada, abierta contra el marco
     ctx.fillRect(b.side > 0 ? dx - 2 : dx + dw - 4, ly - dh, 6, dh);
   } else {
     box(dx, ly - dh, dw, dh, '#8a2b22');
     ctx.fillStyle = '#6e2019'; ctx.fillRect(dx + 4, ly - dh + 4, dw - 8, dh - 8);
-    box(dx + 6, ly - dh + 8, dw - 12, 9, '#e8e0c8');
-    ctx.fillStyle = '#2b2b2b'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('ESCALERA', dx + dw / 2, ly - dh + 13);
+    box(dx + 4, ly - dh + 8, dw - 8, 10, '#e8e0c8');
+    ctx.fillStyle = '#2b2b2b'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('ESCALERA', dx + dw / 2, ly - dh + 13.5, dw - 10);
     ctx.fillStyle = '#d0d0d0'; ctx.fillRect(dx + dw - 9, ly - dh / 2, 5, 2);
   }
   // Losa del techo (con hueco sobre la escalera si ya se abrió)
