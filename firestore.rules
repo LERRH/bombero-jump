@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Ranking de Fire Jump: todos pueden ver y anotar puntajes, nadie puede cambiarlos ni borrarlos
+    match /ranking/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['n', 's', 'd'])
+        && request.resource.data.n is string
+        && request.resource.data.n.matches('^[A-Z0-9ÑÁÉÍÓÚÜ]{1,8}$')
+        && request.resource.data.s is int
+        && request.resource.data.s >= 1 && request.resource.data.s <= 1000
+        && request.resource.data.d is int;
+      allow update, delete: if false;
+    }
+  }
+}

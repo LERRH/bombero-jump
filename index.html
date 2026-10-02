@@ -143,20 +143,59 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 let S;
 
-// Ranking TOP 10. Las funciones son asíncronas para poder cambiar el almacenamiento
-// local por una base de datos en línea sin tocar el resto del juego.
-const RANK_KEY = 'firejump_rank';
+// Ranking TOP 10 compartido en Firebase (Firestore, por su API REST). Si no hay conexión,
+// se usa una copia guardada en el celular y el puntaje se sube cuando vuelva internet.
+const FB = {
+  key: 'AIzaSyAo8vumb113MdaACTVL0C8bsM8dSf6IDA8',
+  base: 'https://firestore.googleapis.com/v1/projects/firejump-c7901/databases/(default)/documents'
+};
+const RANK_KEY = 'firejump_rank', PENDING_KEY = 'firejump_pending';
+const local = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const sortTop = l => l.sort((a, b) => b.s - a.s || a.d - b.d).slice(0, 10);
 const Ranking = {
+  online: false,
   async load() {
-    try { return JSON.parse(localStorage.getItem(RANK_KEY)) || []; } catch (e) { return []; }
+    try {
+      await this.flush();
+      const r = await fetch(`${FB.base}:runQuery?key=${FB.key}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'ranking' }],
+          orderBy: [{ field: { fieldPath: 's' }, direction: 'DESCENDING' }], limit: 10 } })
+      });
+      if (!r.ok) throw new Error(r.status);
+      const top = (await r.json()).filter(x => x.document).map(x => {
+        const f = x.document.fields;
+        return { n: f.n.stringValue, s: +f.s.integerValue, d: +f.d.integerValue };
+      });
+      this.online = true;
+      local.set(RANK_KEY, top);
+      return sortTop(top.concat(local.get(PENDING_KEY)));
+    } catch (e) {
+      this.online = false;
+      return sortTop(local.get(RANK_KEY).concat(local.get(PENDING_KEY)));
+    }
+  },
+  async send(e) {
+    const r = await fetch(`${FB.base}/ranking?key=${FB.key}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { n: { stringValue: e.n }, s: { integerValue: String(e.s) }, d: { integerValue: String(e.d) } } })
+    });
+    if (!r.ok) throw new Error(r.status);
+  },
+  // Sube los puntajes que quedaron pendientes por falta de conexión
+  async flush() {
+    const pend = local.get(PENDING_KEY), left = [];
+    for (const e of pend) { try { await this.send(e); } catch (err) { left.push(e); } }
+    local.set(PENDING_KEY, left);
   },
   async add(name, score) {
-    const list = await this.load();
     const entry = { n: name, s: score, d: Date.now() };
-    list.push(entry);
-    list.sort((a, b) => b.s - a.s || a.d - b.d);
-    const top = list.slice(0, 10);
-    try { localStorage.setItem(RANK_KEY, JSON.stringify(top)); } catch (e) {}
+    try { await this.send(entry); }
+    catch (e) { local.set(PENDING_KEY, local.get(PENDING_KEY).concat(entry)); }
+    const top = await this.load();
     return { top, entry };
   }
 };
@@ -1809,6 +1848,8 @@ function drawRankScreen(fromMenu) {
     ctx.textAlign = 'right'; ctx.fillStyle = e ? '#ffd166' : '#555'; ctx.fillText(e ? e.s : '', W - 42, y);
   }
   ctx.textAlign = 'center';
+  ctx.font = font(12); ctx.fillStyle = Ranking.online ? '#7f7' : '#aaa';
+  ctx.fillText(Ranking.online ? '● RANKING MUNDIAL' : '○ SIN CONEXIÓN · ranking guardado en este celular', W / 2, 455);
   if (fromMenu) {
     ctx.font = font(15); ctx.fillStyle = '#aaa'; ctx.fillText('Toca para volver', W / 2, 560);
     return;
