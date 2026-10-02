@@ -31,11 +31,19 @@
   #controls:not(.tools) .tool{opacity:.35;filter:grayscale(.7)}
   #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
   #controls.on{display:flex}
+  #nameBox{position:fixed;display:none;gap:8px;align-items:center;z-index:5}
+  #nameBox.on{display:flex}
+  #nameBox input{width:150px;font:24px Bangers,Impact,sans-serif;letter-spacing:2px;text-transform:uppercase;
+    padding:6px 10px;border:3px solid #ffb000;border-radius:8px;background:#1a1410;color:#ffd166;outline:none;
+    user-select:text;-webkit-user-select:text}
+  #nameBox button{font:22px Bangers,Impact,sans-serif;padding:7px 14px;border:0;border-radius:8px;
+    background:linear-gradient(#ffb000,#e8430c);color:#fff;text-shadow:1px 2px #3a0d00}
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="c"></canvas>
+  <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
   <div id="controls">
     <div class="row">
       <div class="grp">
@@ -135,13 +143,74 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 let S;
 
+// Ranking TOP 10. Las funciones son asíncronas para poder cambiar el almacenamiento
+// local por una base de datos en línea sin tocar el resto del juego.
+const RANK_KEY = 'firejump_rank';
+const Ranking = {
+  async load() {
+    try { return JSON.parse(localStorage.getItem(RANK_KEY)) || []; } catch (e) { return []; }
+  },
+  async add(name, score) {
+    const list = await this.load();
+    const entry = { n: name, s: score, d: Date.now() };
+    list.push(entry);
+    list.sort((a, b) => b.s - a.s || a.d - b.d);
+    const top = list.slice(0, 10);
+    try { localStorage.setItem(RANK_KEY, JSON.stringify(top)); } catch (e) {}
+    return { top, entry };
+  }
+};
+let rankList = [];
+const refreshRank = () => Ranking.load().then(l => { rankList = l; });
+refreshRank();
+const qualifies = score => score > 0 && (rankList.length < 10 || score > rankList[rankList.length - 1].s);
+
+const nameBox = document.getElementById('nameBox'), nameIn = document.getElementById('nameIn');
+nameIn.addEventListener('input', () => { nameIn.value = nameIn.value.toUpperCase().replace(/[^A-Z0-9ÑÁÉÍÓÚÜ]/g, '').slice(0, 8); });
+async function saveName() {
+  const name = nameIn.value.trim();
+  if (!name || !S.final || S.savedEntry) return;
+  S.savedEntry = true;
+  const r = await Ranking.add(name, S.final.total);
+  rankList = r.top; S.myEntry = r.entry;
+  nameBox.classList.remove('on'); nameIn.blur();
+}
+document.getElementById('nameOk').addEventListener('click', saveName);
+nameIn.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') saveName(); });
+// Coloca la caja del nombre sobre el canvas, en coordenadas del juego
+function placeNameBox(y) {
+  const r = cv.getBoundingClientRect(), k = r.width / W;
+  nameBox.style.left = (r.left + r.width / 2 - 125) + 'px';
+  nameBox.style.top = (r.top + y * k - 24) + 'px';
+}
+
+// Toques sobre el canvas en las pantallas de inicio y final
+function handleTap(e) {
+  const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) * H / r.height;
+  if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
+  if (S.state === 'menu') {
+    if (S.view === 'rank') { S.view = 'menu'; return; }
+    if (Math.abs(y - 600) < 24) { refreshRank(); S.view = 'rank'; return; }
+    newGame(); return;
+  }
+  if (S.state === 'over' || S.state === 'win') {
+    if (S.view !== 'rank') {
+      S.view = 'rank';
+      if (qualifies(S.final.total) && !S.savedEntry) { nameIn.value = ''; nameBox.classList.add('on'); setTimeout(() => nameIn.focus(), 50); }
+      return;
+    }
+    if (nameBox.classList.contains('on')) return;
+    if (Math.abs(y - 590) < 30) newGame();
+  }
+}
+
 function newGame(state = 'play') {
   S = {
     state, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, lamp: false
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -620,10 +689,7 @@ const KMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'righ
 addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
-  if (S.state !== 'play') {
-    if (e.code === 'Space' || e.code === 'Enter') newGame();
-    return;
-  }
+  if (S.state !== 'play') return;
   if (KMAP[e.code]) {
     if (KMAP[e.code] === 'jump' && !keys.jump) S.p.buf = 8;
     keys[KMAP[e.code]] = true;
@@ -632,7 +698,7 @@ addEventListener('keydown', e => {
   if (!e.repeat && e.code === 'KeyL') toggleLamp();
 });
 addEventListener('keyup', e => { if (KMAP[e.code]) keys[KMAP[e.code]] = false; });
-cv.addEventListener('pointerdown', () => { if (S.state !== 'play' && S.state !== 'dying' && !(S.state === 'win' && S.winT < 170)) newGame(); });
+cv.addEventListener('pointerdown', handleTap);
 (function placeToolArc() {
   const box = 196, jump = 92, tool = 54, R = 118;
   const cx = box - jump / 2, cy = box - jump / 2;
@@ -1693,6 +1759,10 @@ function drawMenu() {
   ctx.font = font(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffd166'; ctx.fillText('EQUÍPATE · APAGA · RESCATA', W / 2, 430);
   tapButton('TOCA PARA JUGAR', 520);
+  ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#000a'; ctx.fillRect(W / 2 - 80, 584, 160, 32);
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 80, 584, 160, 32);
+  ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 601);
 }
 
 // Pantalla final: desglose del puntaje, total sobre 1000 y récord
@@ -1719,7 +1789,41 @@ function drawScoreScreen(title, color) {
   ctx.font = font(15);
   ctx.fillStyle = F.record ? '#7f7' : '#bbb';
   ctx.fillText(F.record ? '¡NUEVO RÉCORD!' : `Récord: ${F.best}`, W / 2, 488);
-  tapButton('JUGAR DE NUEVO', 560);
+  tapButton(qualifies(F.total) && !S.savedEntry ? '¡TOP 10! ANOTA TU NOMBRE' : 'VER RANKING', 560);
+}
+
+// Pantalla del ranking: los 10 mejores; si el puntaje entra, pide el nombre
+function drawRankScreen(fromMenu) {
+  ctx.fillStyle = '#000e'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(36); ctx.fillStyle = '#3a0d00'; ctx.fillText('🏆 TOP 10', W / 2 + 2, 72);
+  ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 TOP 10', W / 2, 70);
+  for (let i = 0; i < 10; i++) {
+    const e = rankList[i], y = 125 + i * 33, mine = e && S.myEntry && e.d === S.myEntry.d;
+    ctx.fillStyle = mine ? 'rgba(255,176,0,0.35)' : i % 2 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.08)';
+    ctx.fillRect(30, y - 14, W - 60, 28);
+    ctx.font = font(17);
+    ctx.textAlign = 'left'; ctx.fillStyle = i < 3 ? ['#ffd166', '#d9d9e0', '#e0a070'][i] : '#aaa';
+    ctx.fillText(`${i + 1}.`, 42, y);
+    ctx.fillStyle = e ? '#fff' : '#555'; ctx.fillText(e ? e.n : '— — —', 80, y);
+    ctx.textAlign = 'right'; ctx.fillStyle = e ? '#ffd166' : '#555'; ctx.fillText(e ? e.s : '', W - 42, y);
+  }
+  ctx.textAlign = 'center';
+  if (fromMenu) {
+    ctx.font = font(15); ctx.fillStyle = '#aaa'; ctx.fillText('Toca para volver', W / 2, 560);
+    return;
+  }
+  const pending = nameBox.classList.contains('on');
+  if (pending) {
+    ctx.font = font(18); ctx.fillStyle = '#7f7';
+    ctx.fillText(`¡Entraste al TOP 10 con ${S.final.total} puntos!`, W / 2, 470);
+    ctx.font = font(14); ctx.fillStyle = '#ccc'; ctx.fillText('Escribe tu nombre (máx. 8 letras)', W / 2, 494);
+    placeNameBox(535);
+  } else {
+    ctx.font = font(16); ctx.fillStyle = '#ccc';
+    ctx.fillText(S.myEntry ? '¡Quedaste en el ranking!' : `Tu puntaje: ${S.final.total}`, W / 2, 490);
+    tapButton('JUGAR DE NUEVO', 590);
+  }
 }
 
 function drawScreen(title, lines, color) {
@@ -1740,17 +1844,17 @@ function draw() {
   drawDarkness();
   ctx.restore();
   if (S.state === 'menu') {
-    drawMenu();
+    if (S.view === 'rank') drawRankScreen(true); else drawMenu();
   } else {
     drawHUD();
     if (S.state === 'over') {
-      drawScoreScreen('FIN DEL TURNO', '#ff6b6b');
+      if (S.view === 'rank') drawRankScreen(false); else drawScoreScreen('FIN DEL TURNO', '#ff6b6b');
     } else if (S.state === 'win' && S.winT < 170) {
       ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
       ctx.fillStyle = '#7f7'; ctx.fillText('¡RESCATE COMPLETO!', W / 2, 90);
     } else if (S.state === 'win') {
-      drawScoreScreen('¡VÍCTIMA RESCATADA!', '#7f7');
+      if (S.view === 'rank') drawRankScreen(false); else drawScoreScreen('¡VÍCTIMA RESCATADA!', '#7f7');
     }
   }
 }
