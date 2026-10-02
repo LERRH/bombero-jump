@@ -97,7 +97,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
+    goalPlaced: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -181,6 +181,11 @@ function gen() {
       S.lockCamY = p.y - 140;   // la pantalla no sube más allá de esta pieza hasta recogerla
     } else if (p.kind === 'window' && !S.lastFragile && p.y < H - 250 && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.18) {
       p.fragile = true;   // alféizar agrietado: se rompe al pisarlo una vez
+    } else if (S.phase === 2 && p.kind === 'window' && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.14) {
+      // Humo denso a punto de backdraft: se ventila rompiendo con el hacha el techo de arriba
+      p.smokeWin = 'sealed';
+      p.vent = addPlat(p.x - 4, p.y - 64, p.w + 8, { kind: 'ventroof', win: p });
+      S.genY = p.vent.y;
     } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
       p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
     } else if (S.phase === 2 && Math.random() < 0.25) {
@@ -324,9 +329,59 @@ function breakOpen(pl) {
   toast(`¡${door ? 'Puerta' : 'Ventana'} rota! Ahora apaga el fuego con el pitón (F)`, '#ffb347');
 }
 
+// Ventana con humo denso al alcance del bombero
+function smokeWinNear() {
+  const p = S.p;
+  return S.plats.find(pl => {
+    if (pl.smokeWin !== 'sealed') return false;
+    const r = opening(pl);
+    return Math.abs(r.x + r.w / 2 - p.x) < r.w / 2 + 40 && Math.abs(pl.y - p.y) < 40;
+  });
+}
+
+// Techo con trampilla sobre el que está parado el bombero
+function ventTarget() {
+  const p = S.p;
+  return S.plats.find(pl => pl.kind === 'ventroof' && !pl.opened &&
+    (p.ground === pl || (Math.abs(p.y - pl.y) < 30 && p.x > pl.x - 10 && p.x < pl.x + pl.w + 10)));
+}
+
+// Abrir una ventana con humo denso: backdraft
+function backdraftWindow(pl) {
+  const r = opening(pl), cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  pl.smokeWin = 'blown';
+  breakOpen(pl);   // queda ardiendo: luego hay que apagarla con el pitón
+  for (let i = 0; i < 110; i++) {
+    const a = rand(0, Math.PI * 2), v = rand(1, 8);
+    S.parts.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, g: 0.04, life: rand(25, 55), max: 55,
+      c: ['#ff3d00', '#ff8c00', '#ffd23f', '#fff1a8'][i % 4], s: rand(5, 13) });
+  }
+  for (let k = 0; k < 10; k++) addSmoke(cx + rand(-30, 30), cy + rand(-20, 10), 'dark', 1.8);
+  S.shake = 28;
+  const p = S.p;
+  p.ground = null; p.vy = -6; p.vx = (p.x < cx ? -1 : 1) * 7;
+  hurt('¡BACKDRAFT! Esa ventana había que ventilarla primero con el hacha (X)', true);
+}
+
+// Golpe del hacha: rompe la trampilla del techo y ventila la ventana de abajo
+function axeHit() {
+  const roof = ventTarget();
+  if (!roof) { toast('Aquí no hay nada que romper con el hacha', '#ccc'); return; }
+  roof.opened = true;
+  roof.win.smokeWin = 'venting'; roof.win.ventT = 0;
+  const hx = roof.x + roof.w / 2;
+  for (let i = 0; i < 24; i++) {
+    S.parts.push({ x: hx + rand(-14, 14), y: roof.y + rand(0, 8), vx: rand(-2.5, 2.5), vy: rand(-4, -1), g: 0.3,
+      life: 45, max: 45, c: ['#5d636e', '#8a8a90', '#3a3a40'][i % 3], s: rand(2, 4.5) });
+  }
+  toast('¡Ventilación vertical! El humo sale por el techo', '#8cf');
+}
+
 function halliganHit() {
   const ip = innerTarget(['closed']);
   if (ip) { breakOpen(ip); return; }
+  const sw = smokeWinNear();
+  if (sw) { backdraftWindow(sw); return; }
   const b = nearBar();
   if (!b) { toast('Aquí no hay nada que forzar', '#ccc'); return; }
   if (b.t === 'smoke' && !b.vented) {
@@ -530,6 +585,26 @@ function update() {
       addSmoke(r.x + rand(4, r.w - 4), r.y + rand(0, 6), kind, pl.inner === 'open' ? 1.15 : 1);
     }
   }
+  for (const pl of S.plats) {
+    if (!pl.smokeWin || pl.y < S.camY - 80 || pl.y > S.camY + H + 80) continue;
+    const r = opening(pl);
+    if (pl.smokeWin === 'sealed') {
+      if (!S.smokeWarned) {
+        S.smokeWarned = true;
+        toast('⚠ Ventana con humo denso: ¡no la abras! Sube al techo de arriba y ventila con el hacha (X)', '#ff9a6b');
+      }
+      // "respira": el humo sale a pulsos por los bordes del marco
+      if (Math.sin(S.t / 18 + pl.x) > 0.6 && S.t % 4 === 0) {
+        const side = Math.random() < 0.5 ? r.x - 3 : r.x + r.w + 3;
+        addSmoke(Math.random() < 0.5 ? side : r.x + rand(0, r.w), Math.random() < 0.5 ? r.y + rand(0, r.h) : r.y - 3, 'dark', 0.55);
+      }
+    } else if (pl.smokeWin === 'venting') {
+      pl.ventT++;
+      const v = pl.vent, k = pl.ventT;
+      if (k % 2 === 0) addSmoke(v.x + v.w / 2 + rand(-8, 8), v.y - 2, k < 120 ? 'dark' : k < 200 ? 'mid' : 'light', 1.3 - k / 400);
+      if (k >= 240) pl.smokeWin = 'vented';
+    }
+  }
   updateSmoke();
 
   // Alféizares agrietados: al pisarlos crujen y a los ~0,4 s se desmoronan
@@ -606,7 +681,7 @@ function update() {
   if (S.halT > 0 && --S.halT === HAL_HIT) {
     burst(S.p.x + S.p.dir * 30, S.p.y - 10, 8, ['#ffe066', '#ccc'], 3, 0.15, 18, 2.5);
     if (S.tool === 'halligan') halliganHit();
-    // Hacha: por ahora solo la animación (sus usos se definirán después)
+    if (S.tool === 'hacha') axeHit();
   }
   if (S.landT > 0) S.landT--;
   if (S.hurtT > 0) S.hurtT--;
@@ -793,6 +868,7 @@ function drawWorld() {
     if (pl.ground) continue;
     if (pl.kind === 'slab' || pl.kind === 'stairstep') continue;   // los dibuja el techo de la escalera
     if (pl.kind === 'landing') { drawSill(pl.x, pl.y, pl.w); continue; }
+    if (pl.kind === 'ventroof') { drawVentRoof(pl); continue; }
     if (pl.roof) {
       ctx.fillStyle = '#777'; ctx.fillRect(pl.x, pl.y, pl.w, 20);
       ctx.fillStyle = '#999'; ctx.fillRect(pl.x, pl.y, pl.w, 3);
@@ -827,12 +903,15 @@ function drawWorld() {
   const nb = S.state === 'play' && nearBar();
   const ipc = S.state === 'play' && hasTools() && innerTarget(['closed']);
   const ipo = S.state === 'play' && hasTools() && !ipc && innerTarget(['open']);
-  if (nb || ipc || ipo) {
-    const txt = ipc ? `[H] Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}` : ipo ? '[F] Apagar fuego' : '[H] Forzar puerta';
-    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const vr = S.state === 'play' && hasTools() && ventTarget();
+  const swn = S.state === 'play' && hasTools() && smokeWinNear();
+  if (nb || ipc || ipo || vr || swn) {
+    const txt = vr ? '[X] Romper techo y ventilar' : ipc ? `[H] Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}`
+      : swn ? '⚠ ¡No abrir! Ventila arriba (X)' : ipo ? '[F] Apagar fuego' : '[H] Forzar puerta';
+    ctx.font = `bold 12px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(txt).width + 12;
     ctx.fillStyle = '#000b'; ctx.fillRect(S.p.x - w / 2, S.p.y - PH - 30, w, 18);
-    ctx.fillStyle = '#ffd166'; ctx.fillText(txt, S.p.x, S.p.y - PH - 21);
+    ctx.fillStyle = swn && !vr && !ipc ? '#ff8a6b' : '#ffd166'; ctx.fillText(txt, S.p.x, S.p.y - PH - 21);
   }
 }
 
@@ -929,7 +1008,8 @@ function drawRoof(pl) {
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + sx * 12, cy); ctx.lineTo(cx, cy + sy * 9); ctx.fill();
       }
     } else {
-      glass(wx, wy, ww, wh, fire, x);
+      if (pl.smokeWin === 'sealed' || pl.smokeWin === 'venting') drawSmokyGlass(pl, wx, wy, ww, wh);
+      else glass(wx, wy, ww, wh, fire, x);
       ctx.fillStyle = '#a3a3a8';
       ctx.fillRect(wx + ww / 2 - 2, wy, 4, wh); ctx.fillRect(wx, wy + wh / 2 - 2, ww, 4);
     }
@@ -1006,6 +1086,50 @@ function drawJet() {
   mist(j.sx, j.sy, 7, 0.6);
   if (L >= 1) mist(j.tx, j.ty, 16 + Math.sin(S.t / 2) * 3, j.hit ? 0.55 : 0.35);
   ctx.restore();
+}
+
+// Vidrio de una ventana llena de humo denso: humo negro arremolinándose y un brillo de brasas que late
+function drawSmokyGlass(pl, wx, wy, ww, wh) {
+  const clear = pl.smokeWin === 'venting' ? Math.min(1, pl.ventT / 240) : 0;
+  glass(wx, wy, ww, wh, false, wx);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+  ctx.globalAlpha = 1 - clear;
+  ctx.fillStyle = '#0f0d0c'; ctx.fillRect(wx, wy, ww, wh);
+  const pulse = 0.5 + Math.sin(S.t / 18 + pl.x) * 0.5;
+  const g = ctx.createLinearGradient(0, wy + wh, 0, wy);
+  g.addColorStop(0, `rgba(110,30,10,${0.08 + pulse * 0.14})`); g.addColorStop(1, 'rgba(110,30,10,0)');
+  ctx.fillStyle = g; ctx.fillRect(wx, wy, ww, wh);
+  for (let i = 0; i < 5; i++) {
+    const t = S.t / 40 + i * 1.7 + pl.x;
+    const px = wx + ww / 2 + Math.sin(t) * ww * 0.35, py = wy + wh / 2 + Math.cos(t * 0.8) * wh * 0.3, d = 34 + i * 4;
+    ctx.globalAlpha = (1 - clear) * 0.8;
+    ctx.drawImage(PUFF.dark[i % 3], px - d / 2, py - d / 2, d, d);
+  }
+  ctx.restore();
+  // Hollín sobre el marco
+  ctx.fillStyle = `rgba(20,16,14,${0.5 * (1 - clear)})`; ctx.fillRect(wx - 4, wy - 4, ww + 8, 6);
+}
+
+// Techo sobre la ventana con humo: losa con trampilla que se rompe con el hacha
+function drawVentRoof(pl) {
+  const { x, y, w } = pl, hx = x + w / 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x + 4, y + 11, w - 8, 6);
+  box(x, y, w, 10, '#7c7c82');
+  ctx.fillStyle = '#9a9aa0'; ctx.fillRect(x, y, w, 2);
+  if (!pl.opened) {
+    box(hx - 14, y + 1, 28, 6, '#5d636e');
+    ctx.fillStyle = '#c9ccd2';
+    for (const k of [-11, -4, 4, 11]) ctx.fillRect(hx + k - 0.5, y + 3, 1.5, 1.5);
+    if (pl.win.smokeWin === 'sealed') {   // humo que se cuela por la trampilla
+      ctx.fillStyle = `rgba(30,26,24,${0.4 + Math.sin(S.t / 18 + x) * 0.2})`; ctx.fillRect(hx - 14, y + 7, 28, 2);
+    }
+  } else {
+    ctx.fillStyle = '#0e0c0b'; ctx.fillRect(hx - 15, y, 30, 10);
+    ctx.fillStyle = '#7c7c82';
+    ctx.beginPath(); ctx.moveTo(hx - 15, y); ctx.lineTo(hx - 9, y + 4); ctx.lineTo(hx - 15, y + 8); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx + 15, y + 2); ctx.lineTo(hx + 8, y + 5); ctx.lineTo(hx + 15, y + 10); ctx.fill();
+  }
 }
 
 // Fuego dentro de una ventana/puerta rota, recortado a la abertura
@@ -1274,6 +1398,8 @@ function draw() {
       '3. Apaga llamas con el pitón (F)',
       '4. Techo cerrado → fuerza la puerta de la',
       '   escalera del costado con la halligan (H)',
+      '   Humo negro en ventana: ¡no la abras!',
+      '   Rompe el techo de arriba con hacha (X)',
       '5. En el humo, enciende tu linterna (L)',
       '6. Rescata a la víctima en la azotea',
       '',
