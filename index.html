@@ -172,7 +172,7 @@ function gen() {
       S.items.push({ i: S.itemToPlace, x: p.x + p.w / 2, y: p.y - 24 });
       S.itemToPlace = -1;
       S.eppLock = true;
-      S.bars.push({ t: 'epp', y: p.y - 100, open: false });
+      S.lockCamY = p.y - 140;   // la pantalla no sube más allá de esta pieza hasta recogerla
     } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
       p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
     } else if (S.phase === 2 && Math.random() < 0.25) {
@@ -216,7 +216,7 @@ function startPhase2() {
 function nearBar() {
   const p = S.p;
   return S.bars.find(b => {
-    if (b.open || b.t === 'epp') return false;
+    if (b.open) return false;
     if (b.t === 'door') return Math.abs(p.y - (b.y + 75)) < 25 && Math.abs(p.x - (stairX(b) + STAIR_GAP / 2)) < 50;
     return b.y < p.y && p.y - b.y < 220;
   });
@@ -428,15 +428,20 @@ function update() {
       if (py - PH >= bot && p.y - PH < bot) {
         p.y = bot + PH; p.vy = 1.5;
         burst(p.x, bot, 5, ['#aaa'], 2, 0.2, 20, 3);
-        if (b.t === 'epp' && (!S.msg || S.msg.t < 120)) toast('No puedes subir sin tu EPP', '#ffd166');
         if (b.t === 'door' && !b.open && (!S.msg || S.msg.t < 120)) toast('No puedes pasar el techo: fuerza la puerta de la escalera (H)', '#ffd166');
       }
     }
   }
 
   // Cámara
-  const target = p.y - H * 0.42;
+  let target = p.y - H * 0.42;
+  if (S.eppLock) target = Math.max(target, S.lockCamY);
   if (target < S.camY) S.camY += (target - S.camY) * 0.2;
+  // Sin la pieza del EPP, el bombero no puede salir por arriba de la pantalla
+  if (S.eppLock && p.y - PH < S.camY + 36) {
+    p.y = S.camY + 36 + PH; p.vy = Math.max(p.vy, 1); p.ground = null;
+    if (!S.msg || S.msg.t < 120) toast('Recoge tu EPP para seguir subiendo', '#ffd166');
+  }
   gen();
 
   // EPP
@@ -450,13 +455,8 @@ function update() {
         S.itemToPlace = S.epp;
         S.nextItemMinY = S.genY - 350;
       }
-      // Se abre la losa que bloqueaba el paso
+      // Con la pieza recogida, la pantalla vuelve a subir
       S.eppLock = false;
-      for (const b of S.bars) if (b.t === 'epp' && !b.open) {
-        b.open = true;
-        for (let k = 0; k < 30; k++) S.parts.push({ x: rand(0, W), y: b.y + 7, vx: rand(-1.5, 1.5), vy: rand(-2, 1),
-          g: 0.25, life: 45, max: 45, c: '#9a9aa0', s: rand(3, 7) });
-      }
       if (S.epp >= EPP.length) startPhase2();
     }
   }
@@ -516,7 +516,7 @@ function update() {
 
   // Avisos de puertas y humo
   for (const b of S.bars) {
-    if (b.warned || b.open || b.t === 'epp' || b.y > p.y || p.y - b.y > 260) continue;
+    if (b.warned || b.open || b.y > p.y || p.y - b.y > 260) continue;
     b.warned = true;
     toast(b.t === 'door'
       ? 'Techo cerrado: busca la puerta de la escalera al costado y fuérzala con la halligan (H)'
@@ -918,19 +918,6 @@ function drawBar(b) {
   if (b.t === 'door') { drawStairCeiling(b); return; }
   if (b.open) return;
   const y = b.y;
-  if (b.t === 'epp') {
-    // Losa que bloquea el paso hasta recoger la pieza del EPP
-    box(0, y, W, 14, '#6e6e74');
-    ctx.fillStyle = '#8a8a90'; ctx.fillRect(0, y, W, 3);
-    ctx.fillStyle = '#55555a';
-    for (let x = 30; x < W; x += 60) ctx.fillRect(x, y + 5, 2, 9);
-    // Candado + dibujo de la pieza que falta
-    ctx.fillStyle = '#000c'; ctx.fillRect(W / 2 - 30, y - 30, 60, 28);
-    ctx.font = `15px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('🔒', W / 2 - 14, y - 16);
-    if (EPP[S.epp]) drawImgH(IMG[EPP[S.epp].f], W / 2 + 12, y - 4, 22);
-    return;
-  }
   ctx.fillStyle = b.t === 'door' ? '#6b3f1f' : '#3b3330';
   ctx.fillRect(0, y, W, 14);
   ctx.strokeStyle = '#00000055'; ctx.lineWidth = 1;
