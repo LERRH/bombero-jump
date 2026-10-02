@@ -999,38 +999,39 @@ function drawDarkness() {
   if (d <= 0) return;
   dctx.globalCompositeOperation = 'source-over';
   dctx.clearRect(0, 0, W, H);
-  dctx.fillStyle = `rgba(10,10,12,${0.97 * d})`;
+  dctx.fillStyle = `rgba(6,6,8,${d})`;   // sin linterna: oscuridad total
   dctx.fillRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'destination-out';
-  const hole = (x, y, r) => {
+  // Luz que atraviesa el humo; k = cuánto aclara (1 = totalmente)
+  const hole = (x, y, r, k = 1) => {
     const g = dctx.createRadialGradient(x, y, r * 0.3, x, y, r);
-    g.addColorStop(0, '#000'); g.addColorStop(1, '#0000');
+    g.addColorStop(0, `rgba(0,0,0,${k})`); g.addColorStop(1, '#0000');
     dctx.fillStyle = g; dctx.beginPath(); dctx.arc(x, y, r, 0, 7); dctx.fill();
   };
   const hx = p.x, hy = p.y - 32 - S.camY;
   if (S.lamp) {
     // Haz de la linterna: hacia arriba y adelante, según hacia dónde mira el bombero
-    const a = p.dir > 0 ? -Math.PI * 0.36 : -Math.PI * 0.64, half = 0.42, len = 330;
-    const g = dctx.createRadialGradient(hx, hy, 20, hx, hy, len);
-    g.addColorStop(0, '#000'); g.addColorStop(0.75, '#000c'); g.addColorStop(1, '#0000');
+    // Haz tenue: aclara solo en parte, así el humo sigue viéndose oscuro
+    const a = p.dir > 0 ? -Math.PI * 0.36 : -Math.PI * 0.64, half = 0.38, len = 250;
+    const fl = 0.95 + Math.sin(S.t / 7) * 0.03;
+    const g = dctx.createRadialGradient(hx, hy, 15, hx, hy, len);
+    g.addColorStop(0, `rgba(0,0,0,${0.62 * fl})`); g.addColorStop(0.6, `rgba(0,0,0,${0.42 * fl})`); g.addColorStop(1, '#0000');
     dctx.fillStyle = g;
     dctx.beginPath(); dctx.moveTo(hx, hy); dctx.arc(hx, hy, len, a - half, a + half); dctx.closePath(); dctx.fill();
-    hole(hx, hy, 95);
-  } else {
-    hole(hx, hy, 60 + Math.sin(S.t / 9) * 3);
+    hole(hx, hy, 55, 0.5);
   }
-  for (const f of S.flames) hole(f.x, f.y - 12 - S.camY, 60);
-  for (const pl of S.plats) if (pl.inner === 'closed') { const r = opening(pl); hole(r.x + r.w / 2, r.y + r.h / 2 - S.camY, 45); }
+  for (const f of S.flames) if (f.hp > 0) hole(f.x, f.y - 12 - S.camY, 45, 0.7);   // el fuego da algo de luz
+  for (const pl of S.plats) if (pl.inner === 'closed') { const r = opening(pl); hole(r.x + r.w / 2, r.y + r.h / 2 - S.camY, 35, 0.6); }
   ctx.drawImage(dark, 0, 0, W, H);
   ctx.fillStyle = `rgba(90,90,90,${0.15 * d})`;
   ctx.fillRect(0, 0, W, H);
   if (S.lamp) {
     // Brillo cálido del haz sobre el humo
     const a = p.dir > 0 ? -Math.PI * 0.36 : -Math.PI * 0.64;
-    const g = ctx.createRadialGradient(hx, hy, 10, hx, hy, 300);
-    g.addColorStop(0, 'rgba(255,240,190,0.22)'); g.addColorStop(1, 'rgba(255,240,190,0)');
+    const g = ctx.createRadialGradient(hx, hy, 10, hx, hy, 240);
+    g.addColorStop(0, 'rgba(255,235,180,0.12)'); g.addColorStop(1, 'rgba(255,235,180,0)');
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.arc(hx, hy, 300, a - 0.42, a + 0.42); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.arc(hx, hy, 240, a - 0.38, a + 0.38); ctx.closePath(); ctx.fill();
   }
 }
 
