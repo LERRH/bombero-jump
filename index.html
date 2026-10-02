@@ -16,6 +16,10 @@
   #controls button.wide{grid-column:1/-1;width:auto;border-radius:29px}
   #controls button.tool{display:none}
   #controls.tools button.tool{display:block}
+  #controls button.lamp{display:none}
+  #controls.dark button.lamp{display:block}
+  #controls.dark button.wide{grid-column:span 2}
+  #controls button.lamp.on{background:#ffd16699;border-color:#ffd166}
   #controls button{width:58px;height:58px;border-radius:50%;border:2px solid #fff6;background:#0007;
     color:#fff;font-size:26px;touch-action:none}
   #controls button:active{background:#fff3}
@@ -34,6 +38,7 @@
       <button data-k="hose" class="tool" title="Pitón"><img src="img/piton.png" alt="Pitón" style="width:48px;pointer-events:none"></button>
       <button data-a="hal" class="tool" title="Halligan"><img src="img/halligan.png" alt="Halligan" style="width:46px;transform:rotate(-35deg);pointer-events:none"></button>
       <button data-a="axe" class="tool" title="Hacha"><img src="img/hacha.png" alt="Hacha" style="width:46px;transform:rotate(-35deg);pointer-events:none"></button>
+      <button data-a="lamp" class="lamp" title="Linterna">🔦</button>
       <button data-k="jump" class="wide" title="Saltar" style="background:#ff7b0088">⬆</button>
     </div>
   </div>
@@ -92,7 +97,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false
+    goalPlaced: false, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -243,7 +248,27 @@ function burst(x, y, n, colors, spd = 4, g = 0.1, life = 40, size = 4) {
 const HAL_T = 36, HAL_HIT = 14;
 // Pitón, halligan y hacha se entregan al completar el EPP
 const hasTools = () => S.epp >= EPP.length;
-function updateControls() { document.getElementById('controls').classList.toggle('tools', hasTools()); }
+function updateControls() {
+  const c = document.getElementById('controls');
+  c.classList.toggle('tools', hasTools());
+  c.classList.toggle('dark', darkLevel() > 0);
+  c.querySelector('.lamp').classList.toggle('on', S.lamp);
+}
+
+// Qué tan oscuro está donde va el bombero (0 = normal, 1 = humo total)
+function darkLevel() {
+  const p = S.p;
+  let d = clamp((S.darkY - p.y) / 250, 0, 1);
+  if (S.goalPlaced) d *= clamp((p.y - S.roofY) / 150, 0, 1);
+  return d;
+}
+
+// Linterna: solo se puede usar en la zona oscura
+function toggleLamp() {
+  if (S.state !== 'play' || darkLevel() <= 0) return;
+  S.lamp = !S.lamp;
+  updateControls();
+}
 function useTool(tool) {
   if (S.state !== 'play' || S.halT > 0 || !hasTools()) return;
   S.tool = tool; S.halT = HAL_T;
@@ -338,6 +363,7 @@ addEventListener('keydown', e => {
   }
   if (!e.repeat && (e.code === 'KeyH' || e.code === 'KeyK')) halligan();
   if (!e.repeat && e.code === 'KeyX') axe();
+  if (!e.repeat && e.code === 'KeyL') toggleLamp();
 });
 addEventListener('keyup', e => { if (KMAP[e.code]) keys[KMAP[e.code]] = false; });
 cv.addEventListener('pointerdown', () => { if (S.state !== 'play' && S.state !== 'dying') newGame(); });
@@ -351,6 +377,7 @@ document.querySelectorAll('#controls button').forEach(btn => {
     if (k) keys[k] = true;
     if (a === 'hal') halligan();
     if (a === 'axe') axe();
+    if (a === 'lamp') toggleLamp();
   });
   if (k) for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => keys[k] = false);
 });
@@ -506,8 +533,11 @@ function update() {
   // Zona de visibilidad baja
   if (!S.darkWarned && p.y < S.darkY) {
     S.darkWarned = true;
-    toast('Humo en toda la escalera: visibilidad baja. ¡Sigue subiendo!', '#ccc');
+    toast('Humo denso: no se ve nada. Enciende tu linterna (L) 🔦', '#ffd166');
   }
+  // Mostrar u ocultar el botón de linterna al entrar o salir de la oscuridad
+  const isDark = darkLevel() > 0;
+  if (isDark !== S.wasDark) { S.wasDark = isDark; if (!isDark) S.lamp = false; updateControls(); }
 
   // Víctima
   if (S.victim && Math.abs(S.victim.x - p.x) < 24 && Math.abs(S.victim.y - p.y) < 40) {
@@ -965,9 +995,7 @@ function drawPlayer() {
 }
 
 function drawDarkness() {
-  const p = S.p;
-  let d = clamp((S.darkY - p.y) / 250, 0, 1);
-  if (S.goalPlaced) d *= clamp((p.y - S.roofY) / 150, 0, 1);
+  const p = S.p, d = darkLevel();
   if (d <= 0) return;
   dctx.globalCompositeOperation = 'source-over';
   dctx.clearRect(0, 0, W, H);
@@ -979,12 +1007,31 @@ function drawDarkness() {
     g.addColorStop(0, '#000'); g.addColorStop(1, '#0000');
     dctx.fillStyle = g; dctx.beginPath(); dctx.arc(x, y, r, 0, 7); dctx.fill();
   };
-  hole(p.x, p.y - 32 - S.camY, 115 + Math.sin(S.t / 9) * 5);
+  const hx = p.x, hy = p.y - 32 - S.camY;
+  if (S.lamp) {
+    // Haz de la linterna: hacia arriba y adelante, según hacia dónde mira el bombero
+    const a = p.dir > 0 ? -Math.PI * 0.36 : -Math.PI * 0.64, half = 0.42, len = 330;
+    const g = dctx.createRadialGradient(hx, hy, 20, hx, hy, len);
+    g.addColorStop(0, '#000'); g.addColorStop(0.75, '#000c'); g.addColorStop(1, '#0000');
+    dctx.fillStyle = g;
+    dctx.beginPath(); dctx.moveTo(hx, hy); dctx.arc(hx, hy, len, a - half, a + half); dctx.closePath(); dctx.fill();
+    hole(hx, hy, 95);
+  } else {
+    hole(hx, hy, 60 + Math.sin(S.t / 9) * 3);
+  }
   for (const f of S.flames) hole(f.x, f.y - 12 - S.camY, 60);
   for (const pl of S.plats) if (pl.inner === 'closed') { const r = opening(pl); hole(r.x + r.w / 2, r.y + r.h / 2 - S.camY, 45); }
   ctx.drawImage(dark, 0, 0, W, H);
   ctx.fillStyle = `rgba(90,90,90,${0.15 * d})`;
   ctx.fillRect(0, 0, W, H);
+  if (S.lamp) {
+    // Brillo cálido del haz sobre el humo
+    const a = p.dir > 0 ? -Math.PI * 0.36 : -Math.PI * 0.64;
+    const g = ctx.createRadialGradient(hx, hy, 10, hx, hy, 300);
+    g.addColorStop(0, 'rgba(255,240,190,0.22)'); g.addColorStop(1, 'rgba(255,240,190,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.arc(hx, hy, 300, a - 0.42, a + 0.42); ctx.closePath(); ctx.fill();
+  }
 }
 
 function drawHUD() {
@@ -1014,7 +1061,7 @@ function drawHUD() {
 
   if (!matchMedia('(pointer:coarse)').matches) {
     ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fffa';
-    ctx.fillText(S.epp >= EPP.length ? '← → mover · ↑ saltar · F pitón · H halligan · X hacha' : '← → mover · ↑ saltar', W / 2, H - 10);
+    ctx.fillText(S.epp >= EPP.length ? `← → · ↑ saltar · F pitón · H halligan · X hacha${darkLevel() > 0 ? ' · L linterna' : ''}` : '← → mover · ↑ saltar', W / 2, H - 10);
   }
 }
 
@@ -1056,7 +1103,7 @@ function draw() {
       '3. Apaga llamas con el pitón (F)',
       '4. Techo cerrado → fuerza la puerta de la',
       '   escalera del costado con la halligan (H)',
-      '5. Sube con poca visibilidad',
+      '5. En el humo, enciende tu linterna (L)',
       '6. Rescata a la víctima en la azotea',
       '',
       'PC: ← → · ↑ saltar · F · H · X'
