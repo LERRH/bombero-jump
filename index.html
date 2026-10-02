@@ -81,6 +81,18 @@ for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`)
 for (let f = 1; f <= 3; f++) { loadImg(`llama_${f}`, `img/fuego/llama_${f}.png`); loadImg(`apaga_${f}`, `img/fuego/apaga_${f}.png`); }
 for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
 loadImg('camion', 'img/camion.png');
+for (const who of ['hombre', 'mujer'])
+  for (const pose of ['atrapado', 'huida', 'victoria']) loadImg(`${who}_${pose}`, `img/personas/${who}_${pose}.png`);
+const pickWho = () => Math.random() < 0.5 ? 'hombre' : 'mujer';
+// Dibuja un sprite de persona apoyado en (x, y), mirando a la izquierda (dir -1) o a la derecha (dir 1)
+function drawWho(key, x, y, h, dir = -1) {
+  const im = IMG[key];
+  if (!im || !im.complete || !im.naturalWidth) return;
+  const w = im.naturalWidth * h / im.naturalHeight;
+  ctx.save(); ctx.translate(x, y); ctx.scale(dir < 0 ? 1 : -1, 1);
+  ctx.drawImage(im, -w / 2, -h, w, h);
+  ctx.restore();
+}
 function drawImgH(im, cx, bottom, h) {
   if (!im || !im.complete || !im.naturalWidth) return;
   const w = im.naturalWidth * h / im.naturalHeight;
@@ -97,7 +109,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, people: [], rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
+    goalPlaced: false, people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -158,7 +170,7 @@ function gen() {
       }
       if (ev.t === 'goal') {
         addPlat(-20, ev.y, W + 40, { roof: true });
-        S.victim = { x: W * 0.75, y: ev.y };
+        S.victim = { x: W * 0.75, y: ev.y, who: pickWho() };
         S.goalPlaced = true;
         break;
       }
@@ -189,7 +201,7 @@ function gen() {
     } else if (S.phase === 2 && p.kind === 'window' && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.13) {
       // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
       p.trapped = 'inside';
-      p.pc = ['#3a7bd5', '#2e9e6a', '#c2476b', '#d98e1f', '#7a5bc4'][Math.floor(Math.random() * 5)];
+      p.who = pickWho();
       p.ph = Math.random() * 6;
     } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
       p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
@@ -355,7 +367,8 @@ function freePerson(pl) {
       life: 45, max: 45, c: ['#bcd3ea', '#e8f2fb'][i % 2], s: rand(2, 4) });
   }
   const dir = r.x + r.w / 2 < W / 2 ? -1 : 1;   // escapa por el costado más cercano
-  S.people.push({ x: r.x + r.w / 2, y: pl.y, dir, pc: pl.pc, t: 0, pl });
+  S.people.push({ x: r.x + r.w / 2, y: pl.y, dir, who: pl.who, t: 0, pl });
+  S.saved.push(pl.who);
   S.rescued++;
   S.shake = 5;
   toast(`¡Persona rescatada! (${S.rescued})`, '#7f7');
@@ -375,26 +388,11 @@ function updatePeople() {
   S.people = S.people.filter(m => !m.fade || m.fade < 20);
 }
 
-// Persona (dibujo sencillo); up = cuánto se ve desde abajo (para cuando está detrás del vidrio)
-function drawPerson(x, y, pc, wave, run, dir = 1) {
-  const leg = run ? Math.sin(run / 3) * 4 : 0;
-  ctx.fillStyle = '#2b2f3a';
-  ctx.fillRect(x - 5 + leg * 0.5, y - 14, 4, 14); ctx.fillRect(x + 1 - leg * 0.5, y - 14, 4, 14);
-  box(x - 7, y - 30, 14, 17, pc, '#151515');
-  ctx.strokeStyle = '#f1c27d'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(x + 6, y - 27); ctx.lineTo(x + 12 + wave, y - 41 + Math.abs(wave) * 0.3); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x - 6, y - 27); ctx.lineTo(x - 10, y - (run ? 22 : 17)); ctx.stroke();
-  ctx.lineCap = 'butt';
-  ctx.fillStyle = '#151515'; ctx.beginPath(); ctx.arc(x, y - 37, 7.5, 0, 7); ctx.fill();
-  ctx.fillStyle = '#f1c27d'; ctx.beginPath(); ctx.arc(x, y - 37, 6.5, 0, 7); ctx.fill();
-  ctx.fillStyle = '#3b2a1e'; ctx.beginPath(); ctx.arc(x, y - 40, 6.5, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#222'; ctx.fillRect(x - 3 + dir, y - 38, 1.5, 1.5); ctx.fillRect(x + 2 + dir, y - 38, 1.5, 1.5);
-}
-
 function drawPeople() {
   for (const m of S.people) {
     ctx.globalAlpha = m.fade ? clamp(1 - m.fade / 20, 0, 1) : 1;
-    drawPerson(m.x + (m.fade || 0) * m.dir * 0.8, m.y, m.pc, Math.sin(m.t / 3) * 3, m.t > 18 ? m.t : 0, m.dir);
+    const run = m.t > 18, bob = run ? -Math.abs(Math.sin(m.t / 4)) * 3 : 0;
+    drawWho(run ? `${m.who}_huida` : `${m.who}_atrapado`, m.x + (m.fade || 0) * m.dir * 0.8, m.y + bob, run ? 56 : 58, m.dir);
     ctx.globalAlpha = 1;
   }
 }
@@ -491,7 +489,7 @@ const KMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'righ
   ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose' };
 addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
-  if (S.state === 'dying') return;
+  if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
   if (S.state !== 'play') {
     if (e.code === 'Space' || e.code === 'Enter') newGame();
     return;
@@ -505,12 +503,12 @@ addEventListener('keydown', e => {
   if (!e.repeat && e.code === 'KeyL') toggleLamp();
 });
 addEventListener('keyup', e => { if (KMAP[e.code]) keys[KMAP[e.code]] = false; });
-cv.addEventListener('pointerdown', () => { if (S.state !== 'play' && S.state !== 'dying') newGame(); });
+cv.addEventListener('pointerdown', () => { if (S.state !== 'play' && S.state !== 'dying' && !(S.state === 'win' && S.winT < 170)) newGame(); });
 document.querySelectorAll('#controls button').forEach(btn => {
   const k = btn.dataset.k, a = btn.dataset.a;
   btn.addEventListener('pointerdown', e => {
     e.preventDefault();
-    if (S.state === 'dying') return;
+    if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
     if (S.state !== 'play') { newGame(); return; }
     if (k === 'jump') S.p.buf = 8;
     if (k) keys[k] = true;
@@ -740,7 +738,7 @@ function update() {
 
   // Víctima
   if (S.victim && Math.abs(S.victim.x - p.x) < 24 && Math.abs(S.victim.y - p.y) < 40) {
-    S.state = 'win';
+    S.state = 'win'; S.winT = 0;
     burst(S.victim.x, S.victim.y - 30, 60, ['#ffd166', '#7f7', '#7fd3ff', '#fff'], 5, 0.1, 80, 4);
   }
 
@@ -1175,8 +1173,8 @@ function drawTrappedGlass(pl, wx, wy, ww, wh) {
   ctx.fillStyle = room; ctx.fillRect(wx, wy, ww, wh);
   ctx.save();
   ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
-  ctx.translate(wx + ww / 2, wy + wh + 10); ctx.scale(1.25, 1.25);
-  drawPerson(0, 0, pl.pc, Math.sin(S.t / 5 + pl.ph) * 5, 0);
+  // Asomada al vidrio con las manos en alto (se ve de la cintura para arriba)
+  drawWho(`${pl.who}_atrapado`, wx + ww / 2 + Math.sin(S.t / 9 + pl.ph) * 2, wy + wh + 30, 70, pl.ph > 3 ? -1 : 1);
   ctx.restore();
   ctx.save();
   ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
@@ -1355,14 +1353,26 @@ function drawBar(b) {
 }
 
 function drawVictim(v) {
-  const wave = Math.sin(S.t / 6) * 6;
-  ctx.fillStyle = '#4a7'; ctx.fillRect(v.x - 6, v.y - 30, 12, 16);
-  ctx.fillStyle = '#335'; ctx.fillRect(v.x - 6, v.y - 14, 5, 14); ctx.fillRect(v.x + 1, v.y - 14, 5, 14);
-  ctx.strokeStyle = '#f1c27d'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(v.x + 6, v.y - 28); ctx.lineTo(v.x + 14 + wave / 2, v.y - 42); ctx.stroke();
-  ctx.fillStyle = '#f1c27d'; ctx.beginPath(); ctx.arc(v.x, v.y - 36, 6, 0, 7); ctx.fill();
-  ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  ctx.fillText('¡AYUDA!', v.x, v.y - 56);
+  if (S.state === 'win') { drawCelebration(v); return; }
+  drawWho(`${v.who}_atrapado`, v.x + Math.sin(S.t / 9) * 1.5, v.y, 60);
+  if (Math.floor(S.t / 30) % 3 !== 2) {
+    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText('¡AYUDA!').width + 10;
+    box(v.x - tw / 2, v.y - 82, tw, 15, '#ffffff');
+    ctx.fillStyle = '#c1121f'; ctx.fillText('¡AYUDA!', v.x, v.y - 74);
+  }
+}
+
+// En la azotea: la víctima y todas las personas rescatadas celebran
+function drawCelebration(v) {
+  const crew = [v.who, ...S.saved].slice(0, 8);
+  const n = crew.length, span = Math.min(W - 60, n * 46);
+  crew.forEach((who, i) => {
+    let x = W / 2 - span / 2 + span * (i + 0.5) / n;
+    if (Math.abs(x - S.p.x) < 22) x += x < S.p.x ? -22 : 22;
+    const hop = Math.abs(Math.sin(S.winT / 7 + i * 1.3)) * 9;
+    drawWho(`${who}_victoria`, x, v.y - hop, 60, i % 2 ? 1 : -1);
+  });
 }
 
 function drawPlayer() {
@@ -1522,6 +1532,10 @@ function draw() {
         `Personas rescatadas: ${S.rescued}`,
         'Equípate bien y vuelve a intentarlo.'
       ], '#ff6b6b');
+    } else if (S.state === 'win' && S.winT < 170) {
+      ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
+      ctx.fillStyle = '#7f7'; ctx.fillText('¡RESCATE COMPLETO!', W / 2, 90);
     } else if (S.state === 'win') {
       drawScreen('¡VÍCTIMA RESCATADA!', [
         `Tiempo: ${Math.round(S.t / 60)} s`,
@@ -1540,6 +1554,7 @@ function loop(now) {
   while (acc >= 1000 / 60) {
     if (S.state === 'play') update();
     else {
+      if (S.state === 'win') S.winT++;
       if (S.state === 'dying') {
         S.t++;
         dyingFall();
