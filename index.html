@@ -97,7 +97,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
+    goalPlaced: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -481,12 +481,13 @@ function update() {
     if (best && S.jetLen >= 1) {
       best.hp -= 1.2;
       if (best.hp <= 0) {
-        burst(best.x, best.y - 10, 15, ['#ddd', '#bbb'], 1.5, -0.05, 40, 6);
+        for (let k = 0; k < 7; k++) addSmoke(best.x + rand(-12, 12), best.y - rand(4, 20), 'steam', 1.2);
         S.flamesOut++;
       }
     }
     // Salpicadura donde pega y gotas que se desprenden del chorro
     if (S.jetLen >= 1) {
+      if (best && S.t % 4 === 0) addSmoke(tx + rand(-8, 8), ty - rand(0, 10), 'steam', 0.8);   // vapor al mojar el fuego
       for (let k = 0; k < 3; k++) {
         S.parts.push({ x: tx + rand(-5, 5), y: ty + rand(-5, 5), vx: rand(-2.2, 2.2) + p.dir * 0.6, vy: rand(-2.8, 0.3),
           g: 0.18, life: rand(12, 24), max: 24, c: k ? '#d6f0ff' : '#8fd0ff', s: rand(1.1, 2.2) });
@@ -501,16 +502,21 @@ function update() {
     f.age++;
     if (f.hp <= 0) { f.dead++; if (f.inner) f.pl.inner = 'out'; }
   }
-  // Humo que sale de las ventanas/puertas con fuego dentro
+  // Humo que sale de las ventanas/puertas con fuego: denso con el fuego a la vista, tenue al apagarlo
   for (const pl of S.plats) {
-    if (pl.inner !== 'closed' || pl.y < S.camY - 60 || pl.y > S.camY + H + 60) continue;
-    if (!S.innerWarned) { S.innerWarned = true; toast('¡Hay fuego dentro! Rompe con la halligan (H) y apaga con el pitón (F)', '#ffb347'); }
-    if ((S.t + Math.floor(pl.x)) % 14 === 0) {
-      const r = opening(pl);
-      S.parts.push({ x: r.x + rand(4, r.w - 4), y: r.y, vx: rand(-0.3, 0.3), vy: rand(-1.2, -0.6), g: 0,
-        life: 60, max: 60, c: '#5c5c62', s: rand(4, 7) });
+    if (!pl.inner || pl.y < S.camY - 60 || pl.y > S.camY + H + 80) continue;
+    if (pl.inner === 'closed' && !S.innerWarned) { S.innerWarned = true; toast('¡Hay fuego dentro! Rompe con la halligan (H) y apaga con el pitón (F)', '#ffb347'); }
+    if (pl.inner === 'out') pl.outT = (pl.outT || 0) + 1;
+    const r = opening(pl);
+    const every = pl.inner === 'open' ? 3 : pl.inner === 'closed' ? 5 : 10;
+    if (pl.inner === 'out' && pl.outT > 360) continue;
+    if ((S.t + Math.floor(pl.x)) % every === 0) {
+      // por el borde de arriba de la abertura (por las rendijas si sigue cerrada)
+      const kind = pl.inner === 'open' ? 'dark' : pl.inner === 'closed' ? 'mid' : 'light';
+      addSmoke(r.x + rand(4, r.w - 4), r.y + rand(0, 6), kind, pl.inner === 'open' ? 1.15 : 1);
     }
   }
+  updateSmoke();
   S.flames = S.flames.filter(f => f.dead < 70 && f.y < S.camY + H + 100);
 
   // Daño por llamas
@@ -589,6 +595,64 @@ function dyingFall() {
     if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) { p.y = pl.y; p.vy = 0; p.ground = pl; return; }
   }
   if (p.y > S.camY + H - 10 && S.lastSafe) { p.y = S.lastSafe.y; p.x = S.lastSafe.x + S.lastSafe.w / 2; p.vy = 0; p.ground = S.lastSafe; }
+}
+
+// Texturas de humo: bocanadas de bordes suaves y forma irregular, en varios tonos
+const PUFF = {};
+function makePuffs() {
+  const tones = { dark: [84, 82, 86], mid: [118, 116, 122], light: [168, 168, 174], steam: [236, 240, 245] };
+  for (const [k, [r, g, b]] of Object.entries(tones)) {
+    PUFF[k] = [];
+    for (let v = 0; v < 3; v++) {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const x = c.getContext('2d');
+      for (let i = 0; i < 7; i++) {
+        const px = 32 + rand(-12, 12), py = 32 + rand(-12, 12), pr = rand(12, 22);
+        const gr = x.createRadialGradient(px, py, 0, px, py, pr);
+        gr.addColorStop(0, `rgba(${r},${g},${b},0.72)`); gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        x.fillStyle = gr; x.beginPath(); x.arc(px, py, pr, 0, 7); x.fill();
+      }
+      PUFF[k].push(c);
+    }
+  }
+}
+makePuffs();
+
+function addSmoke(x, y, kind, scale = 1) {
+  if (S.smoke.length > 320) return;
+  const steam = kind === 'steam';
+  S.smoke.push({
+    x, y, kind, v: Math.floor(Math.random() * 3),
+    vx: rand(-0.25, 0.25), vy: steam ? rand(-1.3, -0.8) : rand(-0.75, -0.45),
+    r: rand(6, 9) * scale, grow: (steam ? 0.32 : 0.3) * scale,
+    rot: rand(0, 6.3), vr: rand(-0.02, 0.02), seed: rand(0, 100),
+    age: 0, max: steam ? rand(45, 70) : rand(160, 220)
+  });
+}
+
+function updateSmoke() {
+  for (const m of S.smoke) {
+    m.age++;
+    m.x += m.vx + Math.sin(m.age / 22 + m.seed) * 0.28;   // se ondula al subir
+    m.y += m.vy; m.vy *= 0.993;
+    m.r += m.grow; m.grow *= 0.995;
+    m.rot += m.vr;
+  }
+  S.smoke = S.smoke.filter(m => m.age < m.max);
+}
+
+function drawSmoke() {
+  for (const m of S.smoke) {
+    const k = m.age / m.max;
+    const a = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * (m.kind === 'steam' ? 0.8 : 0.9);
+    if (a <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.translate(m.x, m.y); ctx.rotate(m.rot);
+    const d = m.r * 2.4;
+    ctx.drawImage(PUFF[m.kind][m.v], -d / 2, -d / 2, d, d);
+    ctx.restore();
+  }
 }
 
 function updateParts() {
@@ -709,6 +773,7 @@ function drawWorld() {
   }
 
   for (const f of S.flames) if (!f.inner) drawFlame(f);
+  drawSmoke();
 
   for (const b of S.bars) drawBar(b);
 
