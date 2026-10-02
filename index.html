@@ -45,7 +45,6 @@
       <div class="action">
         <button data-k="hose" class="tool" aria-label="Pitón"><img src="img/botones/piton.png" alt=""></button>
         <button data-a="hal" class="tool" aria-label="Halligan"><img src="img/botones/halligan.png" alt=""></button>
-        <button data-a="axe" class="tool" aria-label="Hacha"><img src="img/botones/hacha.png" alt=""></button>
         <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
         <button data-k="jump" class="jump" aria-label="Saltar" style="right:0;bottom:0"><img src="img/botones/saltar.png" alt=""></button>
       </div>
@@ -88,7 +87,6 @@ for (let i = 1; i <= 7; i++)
 for (let f = 1; f <= 5; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`halligan_${f}`, `img/bombero/halligan_${f}.png`);
-for (let f = 1; f <= 3; f++) loadImg(`hacha_${f}`, `img/bombero/hacha_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`);
 const AIMS = ['frente', 'arriba45', 'arriba', 'abajo45', 'abajo'];
 for (const a of AIMS) loadImg(`apunta_${a}`, `img/bombero/apunta_${a}.png`);
@@ -113,7 +111,7 @@ for (let f = 1; f <= 3; f++) { loadImg(`llama_${f}`, `img/fuego/llama_${f}.png`)
 for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
 loadImg('camion', 'img/camion.png');
 loadImg('logo', 'img/logo.png');
-for (const t of ['piton', 'halligan', 'hacha']) loadImg(`tool_${t}`, `img/${t}.png`);
+for (const t of ['piton', 'halligan']) loadImg(`tool_${t}`, `img/${t}.png`);
 for (const who of ['hombre', 'mujer'])
   for (const pose of ['atrapado', 'huida', 'victoria']) loadImg(`${who}_${pose}`, `img/personas/${who}_${pose}.png`);
 const pickWho = () => Math.random() < 0.5 ? 'hombre' : 'mujer';
@@ -232,7 +230,7 @@ function gen() {
         // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
         p.trapped = 'inside'; p.who = pickWho(); p.ph = Math.random() * 6;
       } else if (take(pr.smoke, win && !nearEvent)) {
-        // Humo denso a punto de backdraft: se ventila rompiendo con el hacha el techo de arriba
+        // Humo denso a punto de backdraft: se ventila rompiendo con la halligan el techo de arriba
         p.smokeWin = 'sealed';
         p.vent = addPlat(p.x - 4, p.y - VENT_DY, p.w + 8, { kind: 'ventroof', win: p });
         S.genY = p.vent.y;
@@ -279,7 +277,7 @@ const LEVELS = [
     p: { trapped: 0.15, flame: 0.35 } },
   { name: 'Fuego interno', hint: 'Rompe con la halligan y apaga con el pitón', len: 1300, doors: 0,
     p: { trapped: 0.15, inner: 0.30, flame: 0.20 } },
-  { name: 'Humo denso', hint: '¡No abras las ventanas con humo negro! Ventila arriba con el hacha', len: 1300, doors: 0,
+  { name: 'Humo denso', hint: '¡No abras las ventanas con humo negro! Ventila arriba con la halligan', len: 1300, doors: 0,
     p: { trapped: 0.15, smoke: 0.20, inner: 0.15, flame: 0.15 } },
   { name: 'Puertas cerradas', hint: 'Fuerza la puerta de la escalera con la halligan', len: 1500, doors: 3,
     p: { trapped: 0.15, smoke: 0.10, inner: 0.15, flame: 0.15 } },
@@ -331,7 +329,7 @@ function startPhase2() {
   S.events.push({ t: 'goal', y });
   S.roofY = y;
   updateControls();
-  toast('¡EPP completo! Recibes pitón, halligan y hacha. ¡A la emergencia!', '#7f7');
+  toast('¡EPP completo! Recibes pitón, halligan y linterna. ¡A la emergencia!', '#7f7');
 }
 
 function nearBar() {
@@ -365,9 +363,9 @@ function burst(x, y, n, colors, spd = 4, g = 0.1, life = 40, size = 4) {
   }
 }
 
-// Acciones con herramienta (halligan o hacha): preparar → levantar → golpear (36 cuadros)
+// Acción con la halligan: preparar → levantar → golpear (36 cuadros)
 const HAL_T = 36, HAL_HIT = 14;
-// Pitón, halligan y hacha se entregan al completar el EPP
+// Pitón, halligan y linterna se entregan al completar el EPP
 const hasTools = () => S.epp >= EPP.length;
 function updateControls() {
   const c = document.getElementById('controls');
@@ -395,7 +393,6 @@ function useTool(tool) {
   S.tool = tool; S.halT = HAL_T;
 }
 const halligan = () => useTool('halligan');
-const axe = () => useTool('hacha');
 
 // Efecto del golpe de la halligan (se ejecuta en el cuadro del impacto)
 // Abertura (vidrio de la ventana o hoja de la puerta) de una plataforma
@@ -513,13 +510,12 @@ function backdraftWindow(pl) {
   S.shake = 28;
   const p = S.p;
   p.ground = null; p.vy = -6; p.vx = (p.x < cx ? -1 : 1) * 7;
-  hurt('¡BACKDRAFT! Esa ventana había que ventilarla primero con el hacha', true);
+  hurt('¡BACKDRAFT! Esa ventana había que ventilarla primero con la halligan', true);
 }
 
-// Golpe del hacha: rompe la trampilla del techo y ventila la ventana de abajo
-function axeHit() {
+// Golpe de la halligan sobre el techo: rompe la trampilla y ventila la ventana de abajo
+function ventRoof() {
   const roof = ventTarget();
-  if (!roof) { toast('Aquí no hay nada que romper con el hacha', '#ccc'); return; }
   roof.opened = true;
   roof.win.smokeWin = 'venting'; roof.win.ventT = 0;
   const hx = roof.x + roof.w / 2;
@@ -531,6 +527,7 @@ function axeHit() {
 }
 
 function halliganHit() {
+  if (ventTarget()) { ventRoof(); return; }   // la halligan también rompe el techo para ventilar
   const ip = innerTarget(['closed']);
   if (ip) { breakOpen(ip); return; }
   const sw = smokeWinNear();
@@ -584,7 +581,6 @@ addEventListener('keydown', e => {
     keys[KMAP[e.code]] = true;
   }
   if (!e.repeat && (e.code === 'KeyH' || e.code === 'KeyK')) halligan();
-  if (!e.repeat && e.code === 'KeyX') axe();
   if (!e.repeat && e.code === 'KeyL') toggleLamp();
 });
 addEventListener('keyup', e => { if (KMAP[e.code]) keys[KMAP[e.code]] = false; });
@@ -593,7 +589,7 @@ cv.addEventListener('pointerdown', () => { if (S.state !== 'play' && S.state !==
   const box = 196, jump = 92, tool = 54, R = 118;
   const cx = box - jump / 2, cy = box - jump / 2;
   document.querySelectorAll('#controls .action .tool').forEach((b, i) => {
-    const a = (180 - i * 30) * Math.PI / 180;   // 180°, 150°, 120°, 90°
+    const a = (180 - i * 45) * Math.PI / 180;   // 180°, 135°, 90°
     b.style.left = (cx + R * Math.cos(a) - tool / 2) + 'px';
     b.style.top = (cy - R * Math.sin(a) - tool / 2) + 'px';
   });
@@ -608,7 +604,6 @@ document.querySelectorAll('#controls button').forEach(btn => {
     if (k === 'jump') S.p.buf = 8;
     if (k) keys[k] = true;
     if (a === 'hal') halligan();
-    if (a === 'axe') axe();
     if (a === 'lamp') toggleLamp();
   });
   if (k) for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => keys[k] = false);
@@ -758,7 +753,7 @@ function update() {
     if (pl.smokeWin === 'sealed') {
       if (!S.smokeWarned) {
         S.smokeWarned = true;
-        toast('⚠ Ventana con humo denso: ¡no la abras! Sube al techo de arriba y ventila con el hacha', '#ff9a6b');
+        toast('⚠ Ventana con humo denso: ¡no la abras! Sube al techo de arriba y ventila con la halligan', '#ff9a6b');
       }
       // "respira": el humo sale a pulsos por los bordes del marco
       if (Math.sin(S.t / 18 + pl.x) > 0.6 && S.t % 4 === 0) {
@@ -855,8 +850,7 @@ function update() {
   if (S.inv > 0) S.inv--;
   if (S.halT > 0 && --S.halT === HAL_HIT) {
     burst(S.p.x + S.p.dir * 30, S.p.y - 10, 8, ['#ffe066', '#ccc'], 3, 0.15, 18, 2.5);
-    if (S.tool === 'halligan') halliganHit();
-    if (S.tool === 'hacha') axeHit();
+    halliganHit();
   }
   if (S.landT > 0) S.landT--;
   if (S.hurtT > 0) S.hurtT--;
@@ -1084,9 +1078,9 @@ function drawWorld() {
   const trn = S.state === 'play' && hasTools() && trappedNear();
   if (nb || ipc || ipo || vr || swn || trn) {
     // Indicación con el dibujo de la herramienta que hay que usar
-    const [tool, txt] = vr ? ['hacha', 'Romper techo y ventilar'] : trn ? ['halligan', 'Romper ventana y rescatar']
+    const [tool, txt] = vr ? ['halligan', 'Romper techo y ventilar'] : trn ? ['halligan', 'Romper ventana y rescatar']
       : ipc ? ['halligan', `Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}`]
-      : swn ? [null, '⚠ ¡No abrir! Ventila arriba con el hacha'] : ipo ? ['piton', 'Apagar fuego'] : ['halligan', 'Forzar puerta'];
+      : swn ? [null, '⚠ ¡No abrir! Ventila arriba con la halligan'] : ipo ? ['piton', 'Apagar fuego'] : ['halligan', 'Forzar puerta'];
     ctx.font = font(12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const im = tool && IMG[`tool_${tool}`], iw = im ? 30 : 0;
     const w = ctx.measureText(txt).width + iw + 14, bx = S.p.x - w / 2, by = S.p.y - PH - 34;
@@ -1321,7 +1315,7 @@ function drawSmokyGlass(pl, wx, wy, ww, wh) {
   ctx.fillStyle = `rgba(20,16,14,${0.5 * (1 - clear)})`; ctx.fillRect(wx - 4, wy - 4, ww + 8, 6);
 }
 
-// Techo sobre la ventana con humo: losa con trampilla que se rompe con el hacha
+// Techo sobre la ventana con humo: losa con trampilla que se rompe con la halligan
 function drawVentRoof(pl) {
   const { x, y, w } = pl, hx = x + w / 2;
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x + 4, y + 11, w - 8, 6);
