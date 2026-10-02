@@ -97,7 +97,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
+    goalPlaced: false, people: [], rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -186,6 +186,11 @@ function gen() {
       p.smokeWin = 'sealed';
       p.vent = addPlat(p.x - 4, p.y - VENT_DY, p.w + 8, { kind: 'ventroof', win: p });
       S.genY = p.vent.y;
+    } else if (S.phase === 2 && p.kind === 'window' && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.13) {
+      // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
+      p.trapped = 'inside';
+      p.pc = ['#3a7bd5', '#2e9e6a', '#c2476b', '#d98e1f', '#7a5bc4'][Math.floor(Math.random() * 5)];
+      p.ph = Math.random() * 6;
     } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
       p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
     } else if (S.phase === 2 && Math.random() < 0.25) {
@@ -331,6 +336,69 @@ function breakOpen(pl) {
   toast(`¡${door ? 'Puerta' : 'Ventana'} rota! Ahora apaga el fuego con el pitón (F)`, '#ffb347');
 }
 
+// Ventana con una persona atrapada al alcance del bombero
+function trappedNear() {
+  const p = S.p;
+  return S.plats.find(pl => {
+    if (pl.trapped !== 'inside') return false;
+    const r = opening(pl);
+    return Math.abs(r.x + r.w / 2 - p.x) < r.w / 2 + 40 && Math.abs(pl.y - p.y) < 40;
+  });
+}
+
+// Rompe el vidrio: la persona sale al alféizar y escapa corriendo hacia el costado
+function freePerson(pl) {
+  const r = opening(pl);
+  pl.trapped = 'freed'; pl.glassBroken = true;
+  for (let i = 0; i < 26; i++) {
+    S.parts.push({ x: rand(r.x, r.x + r.w), y: rand(r.y, r.y + r.h), vx: rand(-2.5, 2.5), vy: rand(-3, 0.5), g: 0.3,
+      life: 45, max: 45, c: ['#bcd3ea', '#e8f2fb'][i % 2], s: rand(2, 4) });
+  }
+  const dir = r.x + r.w / 2 < W / 2 ? -1 : 1;   // escapa por el costado más cercano
+  S.people.push({ x: r.x + r.w / 2, y: pl.y, dir, pc: pl.pc, t: 0, pl });
+  S.rescued++;
+  S.shake = 5;
+  toast(`¡Persona rescatada! (${S.rescued})`, '#7f7');
+}
+
+// Personas que escapan: salen de la ventana y corren por el alféizar hacia el costado
+function updatePeople() {
+  for (const m of S.people) {
+    m.t++;
+    const edge = m.dir > 0 ? m.pl.x + m.pl.w - 4 : m.pl.x + 4;
+    if (m.t > 18 && !m.fade) {
+      m.x += m.dir * 2.6;
+      if ((m.x - edge) * m.dir >= 0) { m.x = edge; m.fade = 1; }   // llega al borde del alféizar y sale por el costado
+    }
+    if (m.fade) m.fade++;
+  }
+  S.people = S.people.filter(m => !m.fade || m.fade < 20);
+}
+
+// Persona (dibujo sencillo); up = cuánto se ve desde abajo (para cuando está detrás del vidrio)
+function drawPerson(x, y, pc, wave, run, dir = 1) {
+  const leg = run ? Math.sin(run / 3) * 4 : 0;
+  ctx.fillStyle = '#2b2f3a';
+  ctx.fillRect(x - 5 + leg * 0.5, y - 14, 4, 14); ctx.fillRect(x + 1 - leg * 0.5, y - 14, 4, 14);
+  box(x - 7, y - 30, 14, 17, pc, '#151515');
+  ctx.strokeStyle = '#f1c27d'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x + 6, y - 27); ctx.lineTo(x + 12 + wave, y - 41 + Math.abs(wave) * 0.3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 6, y - 27); ctx.lineTo(x - 10, y - (run ? 22 : 17)); ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.fillStyle = '#151515'; ctx.beginPath(); ctx.arc(x, y - 37, 7.5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f1c27d'; ctx.beginPath(); ctx.arc(x, y - 37, 6.5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#3b2a1e'; ctx.beginPath(); ctx.arc(x, y - 40, 6.5, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#222'; ctx.fillRect(x - 3 + dir, y - 38, 1.5, 1.5); ctx.fillRect(x + 2 + dir, y - 38, 1.5, 1.5);
+}
+
+function drawPeople() {
+  for (const m of S.people) {
+    ctx.globalAlpha = m.fade ? clamp(1 - m.fade / 20, 0, 1) : 1;
+    drawPerson(m.x + (m.fade || 0) * m.dir * 0.8, m.y, m.pc, Math.sin(m.t / 3) * 3, m.t > 18 ? m.t : 0, m.dir);
+    ctx.globalAlpha = 1;
+  }
+}
+
 // Ventana con humo denso al alcance del bombero
 function smokeWinNear() {
   const p = S.p;
@@ -384,6 +452,8 @@ function halliganHit() {
   if (ip) { breakOpen(ip); return; }
   const sw = smokeWinNear();
   if (sw) { backdraftWindow(sw); return; }
+  const tw = trappedNear();
+  if (tw) { freePerson(tw); return; }
   const b = nearBar();
   if (!b) { toast('Aquí no hay nada que forzar', '#ccc'); return; }
   if (b.t === 'smoke' && !b.vented) {
@@ -606,6 +676,11 @@ function update() {
       if (k % 2 === 0) addSmoke(v.x + v.w / 2 + rand(-8, 8), v.y - 2, k < 120 ? 'dark' : k < 200 ? 'mid' : 'light', 1.3 - k / 400);
       if (k >= 240) pl.smokeWin = 'vented';
     }
+  }
+  updatePeople();
+  if (!S.trappedWarned && S.plats.some(pl => pl.trapped === 'inside' && pl.y > S.camY + 60 && pl.y < S.camY + H)) {
+    S.trappedWarned = true;
+    toast('¡Hay personas atrapadas! Rompe la ventana con la halligan (H) para que salgan', '#7fd3ff');
   }
   updateSmoke();
 
@@ -891,6 +966,7 @@ function drawWorld() {
 
   if (S.victim) drawVictim(S.victim);
 
+  drawPeople();
   drawPlayer();
   drawJet();
 
@@ -907,8 +983,9 @@ function drawWorld() {
   const ipo = S.state === 'play' && hasTools() && !ipc && innerTarget(['open']);
   const vr = S.state === 'play' && hasTools() && ventTarget();
   const swn = S.state === 'play' && hasTools() && smokeWinNear();
-  if (nb || ipc || ipo || vr || swn) {
-    const txt = vr ? '[X] Romper techo y ventilar' : ipc ? `[H] Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}`
+  const trn = S.state === 'play' && hasTools() && trappedNear();
+  if (nb || ipc || ipo || vr || swn || trn) {
+    const txt = vr ? '[X] Romper techo y ventilar' : trn ? '[H] Romper ventana y rescatar' : ipc ? `[H] Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}`
       : swn ? '⚠ ¡No abrir! Ventila arriba (X)' : ipo ? '[F] Apagar fuego' : '[H] Forzar puerta';
     ctx.font = `bold 12px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(txt).width + 12;
@@ -951,7 +1028,7 @@ function glass(x, y, w, h, fire, seed) {
 function drawRoof(pl) {
   const { x, y, w } = pl;
   const fire = pl.inner === 'closed';
-  const broken = pl.inner === 'open' || pl.inner === 'out';
+  const broken = pl.inner === 'open' || pl.inner === 'out' || pl.glassBroken;
   if (pl.kind === 'door') {
     // Balcón con puerta, baranda y maceta
     const dw = 34, dh = 56, dx = pl.side > 0 ? x + 12 : x + w - 12 - dw;
@@ -1003,7 +1080,7 @@ function drawRoof(pl) {
     box(wx - 4, wy - 4, ww + 8, wh + 4, '#a3a3a8');
     if (broken) {
       // Ventana rota: interior oscuro con el fuego (o restos) y trozos de vidrio en las esquinas
-      ctx.fillStyle = pl.inner === 'open' ? '#1a0d08' : '#151517'; ctx.fillRect(wx, wy, ww, wh);
+      ctx.fillStyle = pl.inner === 'open' ? '#1a0d08' : pl.glassBroken && !pl.inner ? '#2a221d' : '#151517'; ctx.fillRect(wx, wy, ww, wh);
       drawInnerFlame(pl);
       ctx.fillStyle = 'rgba(190,215,240,0.7)';
       for (const [cx, cy, sx, sy] of [[wx, wy, 1, 1], [wx + ww, wy, -1, 1], [wx, wy + wh, 1, -1], [wx + ww, wy + wh, -1, -1]]) {
@@ -1011,6 +1088,7 @@ function drawRoof(pl) {
       }
     } else {
       if (pl.smokeWin === 'sealed' || pl.smokeWin === 'venting') drawSmokyGlass(pl, wx, wy, ww, wh);
+      else if (pl.trapped === 'inside') drawTrappedGlass(pl, wx, wy, ww, wh);
       else glass(wx, wy, ww, wh, fire, x);
       ctx.fillStyle = '#a3a3a8';
       ctx.fillRect(wx + ww / 2 - 2, wy, 4, wh); ctx.fillRect(wx, wy + wh / 2 - 2, ww, 4);
@@ -1088,6 +1166,34 @@ function drawJet() {
   mist(j.sx, j.sy, 7, 0.6);
   if (L >= 1) mist(j.tx, j.ty, 16 + Math.sin(S.t / 2) * 3, j.hit ? 0.55 : 0.35);
   ctx.restore();
+}
+
+// Persona atrapada detrás del vidrio, moviendo el brazo, con globo de "¡AYUDA!"
+function drawTrappedGlass(pl, wx, wy, ww, wh) {
+  const room = ctx.createLinearGradient(0, wy, 0, wy + wh);
+  room.addColorStop(0, '#8a6a44'); room.addColorStop(1, '#5a4430');   // habitación con luz cálida
+  ctx.fillStyle = room; ctx.fillRect(wx, wy, ww, wh);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+  ctx.translate(wx + ww / 2, wy + wh + 10); ctx.scale(1.25, 1.25);
+  drawPerson(0, 0, pl.pc, Math.sin(S.t / 5 + pl.ph) * 5, 0);
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+  ctx.fillStyle = 'rgba(160,200,235,0.18)'; ctx.fillRect(wx, wy, ww, wh);   // reflejo del vidrio
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.beginPath(); ctx.moveTo(wx + 3, wy + wh - 3); ctx.lineTo(wx + 14, wy + 3); ctx.lineTo(wx + 20, wy + 3); ctx.lineTo(wx + 9, wy + wh - 3); ctx.fill();
+  ctx.restore();
+  // Globo de ayuda que parpadea
+  if (Math.floor(S.t / 30 + pl.ph) % 3 !== 2) {
+    const bx = wx + ww / 2, by = wy - 16;
+    ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText('¡AYUDA!').width + 10;
+    box(bx - tw / 2, by - 7, tw, 14, '#ffffff');
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(bx - 4, by + 8.5); ctx.lineTo(bx + 4, by + 8.5); ctx.lineTo(bx, by + 13); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(bx - 3, by + 7); ctx.lineTo(bx + 3, by + 7); ctx.lineTo(bx, by + 11); ctx.fill();
+    ctx.fillStyle = '#c1121f'; ctx.fillText('¡AYUDA!', bx, by + 0.5);
+  }
 }
 
 // Vidrio de una ventana llena de humo denso: humo negro arremolinándose y un brillo de brasas que late
@@ -1413,12 +1519,14 @@ function draw() {
       drawScreen('FIN DEL TURNO', [
         `Altura: ${Math.round((H - 20 - S.p.y) / 30)} m`,
         `EPP: ${S.epp}/6 · Llamas apagadas: ${S.flamesOut}`,
+        `Personas rescatadas: ${S.rescued}`,
         'Equípate bien y vuelve a intentarlo.'
       ], '#ff6b6b');
     } else if (S.state === 'win') {
       drawScreen('¡VÍCTIMA RESCATADA!', [
         `Tiempo: ${Math.round(S.t / 60)} s`,
         `Llamas apagadas: ${S.flamesOut} · Vidas: ${S.lives}`,
+        `Personas rescatadas: ${S.rescued}`,
         'Excelente trabajo, bombero 👨‍🚒'
       ], '#7f7');
     }
