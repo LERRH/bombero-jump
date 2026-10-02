@@ -97,7 +97,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
+    goalPlaced: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -164,8 +164,11 @@ function gen() {
       continue;
     }
     const w = S.phase === 1 ? rand(70, 95) : rand(60, 85);
+    // Tras un alféizar agrietado, la siguiente plataforma debe alcanzarse también desde la anterior
+    if (S.lastFragile) y = Math.max(y, S.preFragileY - 145);
     let x = freeX(y, w);
     while (x === null) { y -= 10; x = freeX(y, w); }
+    const prevY = S.genY;
     const p = addPlat(x, y, w);
     S.genY = y;
     if (S.phase === 1 && S.itemToPlace >= 0 && y < S.nextItemMinY) {
@@ -173,11 +176,15 @@ function gen() {
       S.itemToPlace = -1;
       S.eppLock = true;
       S.lockCamY = p.y - 140;   // la pantalla no sube más allá de esta pieza hasta recogerla
+    } else if (p.kind === 'window' && !S.lastFragile && p.y < H - 250 && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.18) {
+      p.fragile = true;   // alféizar agrietado: se rompe al pisarlo una vez
     } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
       p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
     } else if (S.phase === 2 && Math.random() < 0.25) {
       S.flames.push({ x: p.x + rand(14, p.w - 14), y: p.y, hp: 40, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 });
     }
+    S.lastFragile = !!p.fragile;
+    if (p.fragile) S.preFragileY = prevY;
   }
 }
 
@@ -398,7 +405,7 @@ function update() {
   if (p.x > W + 15) p.x = -15;
 
   // ¿Sigue parado sobre el techo?
-  if (p.ground && !(p.x + 8 > p.ground.x && p.x - 8 < p.ground.x + p.ground.w)) p.ground = null;
+  if (p.ground && (p.ground.broken || !(p.x + 8 > p.ground.x && p.x - 8 < p.ground.x + p.ground.w))) p.ground = null;
   if (p.ground) p.coyote = 6; else if (p.coyote > 0) p.coyote--;
   if (p.buf > 0) p.buf--;
   if (p.buf > 0 && p.coyote > 0) {
@@ -415,8 +422,10 @@ function update() {
 
   if (!p.ground && p.vy > 0) {
     for (const pl of S.plats) {
+      if (pl.broken) continue;
       if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) {
-        p.y = pl.y; p.vy = 0; p.ground = pl; S.lastSafe = pl; S.landT = 10;
+        p.y = pl.y; p.vy = 0; p.ground = pl; S.landT = 10;
+        if (pl.fragile) { if (!pl.crackT) pl.crackT = 1; } else S.lastSafe = pl;
         burst(p.x, p.y, 4, ['#ccc'], 1.5, 0, 15, 3);
         break;
       }
@@ -517,6 +526,26 @@ function update() {
     }
   }
   updateSmoke();
+
+  // Alféizares agrietados: al pisarlos crujen y a los ~0,4 s se desmoronan
+  for (const pl of S.plats) {
+    if (pl.fragile && !pl.broken && !S.fragileWarned && pl.y > S.camY && pl.y < S.camY + H) {
+      S.fragileWarned = true;
+      toast('¡Cuidado! Los alféizares agrietados se rompen al pisarlos', '#ffd166');
+    }
+    if (!pl.crackT || pl.broken) continue;
+    pl.crackT++;
+    if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
+    if (pl.crackT >= 24) {
+      pl.broken = true;
+      for (let k = 0; k < 22; k++) {
+        S.parts.push({ x: pl.x + rand(0, pl.w), y: pl.y + rand(0, 10), vx: rand(-1.5, 1.5), vy: rand(-1.5, 1), g: 0.35,
+          life: 50, max: 50, c: ['#c9c9c9', '#8d8d8d', '#a9a9a9'][k % 3], s: rand(1.8, 4) });
+      }
+      addSmoke(pl.x + pl.w / 2, pl.y + 4, 'light', 0.9);
+      if (p.ground === pl) p.ground = null;
+    }
+  }
   S.flames = S.flames.filter(f => f.dead < 70 && f.y < S.camY + H + 100);
 
   // Daño por llamas
@@ -592,7 +621,7 @@ function dyingFall() {
   const py = p.y;
   p.vy = Math.min(p.vy + 0.4, 12); p.y += p.vy;
   for (const pl of S.plats) {
-    if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) { p.y = pl.y; p.vy = 0; p.ground = pl; return; }
+    if (!pl.broken && py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) { p.y = pl.y; p.vy = 0; p.ground = pl; return; }
   }
   if (p.y > S.camY + H - 10 && S.lastSafe) { p.y = S.lastSafe.y; p.x = S.lastSafe.x + S.lastSafe.w / 2; p.vy = 0; p.ground = S.lastSafe; }
 }
@@ -899,7 +928,28 @@ function drawRoof(pl) {
       ctx.fillStyle = '#a3a3a8';
       ctx.fillRect(wx + ww / 2 - 2, wy, 4, wh); ctx.fillRect(wx, wy + wh / 2 - 2, ww, 4);
     }
-    drawSill(x - 3, y, w + 6);
+    if (!pl.fragile) drawSill(x - 3, y, w + 6);
+    else if (!pl.broken) {
+      // Agrietado (y temblando si ya lo pisaron)
+      const j = pl.crackT ? rand(-1, 1) * Math.min(2, pl.crackT / 8) : 0;
+      ctx.save(); ctx.translate(j, pl.crackT ? Math.min(3, pl.crackT / 8) : 0);
+      drawSill(x - 3, y, w + 6);
+      ctx.fillStyle = 'rgba(70,60,50,0.18)'; ctx.fillRect(x - 3, y, w + 6, 12);   // concreto gastado
+      ctx.strokeStyle = '#1e1e22'; ctx.lineWidth = 1.7;
+      ctx.beginPath();
+      for (const cx of [x + w * 0.28, x + w * 0.66]) {
+        ctx.moveTo(cx, y); ctx.lineTo(cx + 3, y + 3); ctx.lineTo(cx - 2, y + 6); ctx.lineTo(cx + 2, y + 11);
+      }
+      ctx.moveTo(x + w * 0.45, y + 2); ctx.lineTo(x + w * 0.52, y + 5); ctx.lineTo(x + w * 0.6, y + 4);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      // Roto: solo quedan dos muñones en los extremos
+      box(x - 3, y, 10, 6, '#a9a9a9'); box(x + w - 7, y, 10, 6, '#a9a9a9');
+      ctx.fillStyle = '#a9a9a9';
+      ctx.beginPath(); ctx.moveTo(x + 7, y); ctx.lineTo(x + 13, y + 3); ctx.lineTo(x + 7, y + 6); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x + w - 7, y); ctx.lineTo(x + w - 12, y + 2); ctx.lineTo(x + w - 7, y + 6); ctx.fill();
+    }
   }
 }
 

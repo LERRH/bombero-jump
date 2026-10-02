@@ -11,6 +11,7 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 3. Apaga las llamas con el pitón.
 4. Cuando un techo cerrado no te deje pasar, fuerza la puerta de la escalera del costado con la halligan y sube por ahí.
 5. Si hay fuego dentro de una ventana o puerta, rómpela con la halligan y apágalo con el pitón.
+   Ojo con los alféizares agrietados: se rompen al pisarlos una vez.
 6. En la zona de humo enciende tu linterna para ver el camino y rescata a la víctima en la azotea.
 
 ## Controles
