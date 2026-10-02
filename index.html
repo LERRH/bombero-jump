@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Bombero Jump</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;overflow:hidden;touch-action:none;
+    font-family:system-ui,Segoe UI,sans-serif;user-select:none;-webkit-user-select:none}
+  #wrap{position:relative;height:100%;display:flex;align-items:center;justify-content:center}
+  canvas{display:block}
+  #controls{position:absolute;left:0;right:0;bottom:12px;display:none;justify-content:space-between;align-items:flex-end;
+    padding:0 12px;pointer-events:none}
+  #controls .grp{display:flex;gap:10px;pointer-events:auto}
+  #controls .acts{display:grid;grid-template-columns:repeat(3,58px);gap:8px}
+  #controls button.wide{grid-column:1/-1;width:auto;border-radius:29px}
+  #controls button.tool{display:none}
+  #controls.tools button.tool{display:block}
+  #controls button{width:58px;height:58px;border-radius:50%;border:2px solid #fff6;background:#0007;
+    color:#fff;font-size:26px;touch-action:none}
+  #controls button:active{background:#fff3}
+  @media (pointer:coarse){#controls{display:flex}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="controls">
+    <div class="grp">
+      <button data-k="left">◀</button>
+      <button data-k="right">▶</button>
+    </div>
+    <div class="grp acts">
+      <button data-k="hose" class="tool" title="Pitón"><img src="img/piton.png" alt="Pitón" style="width:48px;pointer-events:none"></button>
+      <button data-a="hal" class="tool" title="Halligan"><img src="img/halligan.png" alt="Halligan" style="width:46px;transform:rotate(-35deg);pointer-events:none"></button>
+      <button data-a="axe" class="tool" title="Hacha"><img src="img/hacha.png" alt="Hacha" style="width:46px;transform:rotate(-35deg);pointer-events:none"></button>
+      <button data-k="jump" class="wide" title="Saltar" style="background:#ff7b0088">⬆</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const W = 400, H = 640;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
+dark.width = W; dark.height = H;
+const EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+
+function resize() {
+  const s = Math.min(innerWidth / W, innerHeight / H), d = devicePixelRatio || 1;
+  cv.width = Math.round(W * s * d); cv.height = Math.round(H * s * d);
+  cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
+  ctx.setTransform(s * d, 0, 0, s * d, 0, 0);
+}
+addEventListener('resize', resize); resize();
+
+// EPP a recoger, en orden (el bombero parte con las botas puestas)
+const EPP = [
+  { n: 'Pantalón', f: 'pantalon' }, { n: 'Chaqueta', f: 'chaqueta' }, { n: 'EPR', f: 'epr' },
+  { n: 'Capucha', f: 'capucha' }, { n: 'Casco', f: 'casco' }, { n: 'Guantes', f: 'guantes' }
+];
+
+// Sprites: etapa 1 (solo botas) a 7 (equipo completo); exportados al doble de tamaño
+const PH = 58; // alto de la caja de colisión del bombero
+const IMG = {};
+function loadImg(key, src) { const im = new Image(); im.src = src; IMG[key] = im; }
+for (const pose of ['idle', 'salto', 'aire', 'aterriza'])
+  for (let i = 1; i <= 7; i++) loadImg(`${pose}_${i}`, `img/bombero/${pose}_${i}.png`);
+for (let i = 1; i <= 7; i++)
+  for (let f = 1; f <= 6; f++) loadImg(`camina_${i}_${f}`, `img/bombero/camina_${i}_${f}.png`);
+for (let f = 1; f <= 5; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
+for (let f = 1; f <= 3; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
+for (let f = 1; f <= 3; f++) loadImg(`halligan_${f}`, `img/bombero/halligan_${f}.png`);
+for (let f = 1; f <= 3; f++) loadImg(`hacha_${f}`, `img/bombero/hacha_${f}.png`);
+for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`);
+for (let f = 1; f <= 3; f++) { loadImg(`llama_${f}`, `img/fuego/llama_${f}.png`); loadImg(`apaga_${f}`, `img/fuego/apaga_${f}.png`); }
+for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
+loadImg('camion', 'img/camion.png');
+function drawImgH(im, cx, bottom, h) {
+  if (!im || !im.complete || !im.naturalWidth) return;
+  const w = im.naturalWidth * h / im.naturalHeight;
+  ctx.drawImage(im, cx - w / 2, bottom - h, w, h);
+}
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+let S;
+
+function newGame(state = 'play') {
+  S = {
+    state, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
+    camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
+    victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
+    itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
+    goalPlaced: false, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false
+  };
+  addPlat(-20, H - 20, W + 40, { ground: true });
+  gen();
+  S.p.ground = S.lastSafe = S.plats[0];
+  updateControls();
+  if (state === 'play') toast('Salta de ventana en ventana (↑) y recoge tu EPP', '#ffd166');
+}
+
+const DOOR_COLORS = ['#6b3f1f', '#4a5d3a', '#3b4a6b', '#7a2e2e'];
+function addPlat(x, y, w, o = {}) {
+  const p = Object.assign({
+    x, y, w,
+    // alféizar de ventana, balcón con puerta o repisa con aire acondicionado
+    kind: (r => r < 0.25 ? 'door' : r < 0.37 ? 'ac' : 'window')(Math.random()),
+    plant: Math.random() < 0.5, side: Math.random() < 0.5 ? -1 : 1,
+    c: DOOR_COLORS[Math.floor(Math.random() * DOOR_COLORS.length)],
+    lit: Math.random() < 0.5
+  }, o);
+  S.plats.push(p); return p;
+}
+function toast(text, color = '#fff') { S.msg = { text, color, t: 200 }; }
+
+// Genera plataformas hacia arriba, insertando puertas / humo / azotea
+function gen() {
+  // Mientras haya una pieza del EPP sin recoger, no se genera nada por encima de ella
+  while (S.genY > S.camY - 120 && !S.goalPlaced && !S.eppLock) {
+    const ev = S.events[0];
+    let y = S.genY - (S.phase === 1 ? rand(50, 85) : rand(60, 100));
+    if (ev && y <= ev.y + 75) {
+      S.events.shift();
+      {
+        // Plataforma bajo la puerta: si no hay espacio libre, se quitan las que estorban
+        const ey = ev.y + 75;
+        let ex = freeX(ey, 80);
+        if (ex === null) {
+          ex = rand(0, W - 80);
+          S.plats = S.plats.filter(o => o.ground || Math.abs(o.y - ey) >= ART_H || ex + 80 + 12 < o.x || o.x + o.w + 12 < ex);
+        }
+        addPlat(ex, ey, 80, { kind: 'window' });
+      }
+      if (ev.t === 'goal') {
+        addPlat(-20, ev.y, W + 40, { roof: true });
+        S.victim = { x: W * 0.75, y: ev.y };
+        S.goalPlaced = true;
+        break;
+      }
+      S.bars.push({ t: ev.t, y: ev.y, open: false, vented: false, smoke: ev.t === 'smoke' ? 1 : 0, warned: false });
+      S.genY = ev.y + 40;
+      continue;
+    }
+    const w = S.phase === 1 ? rand(70, 95) : rand(60, 85);
+    let x = freeX(y, w);
+    while (x === null) { y -= 10; x = freeX(y, w); }
+    const p = addPlat(x, y, w);
+    S.genY = y;
+    if (S.phase === 1 && S.itemToPlace >= 0 && y < S.nextItemMinY) {
+      S.items.push({ i: S.itemToPlace, x: p.x + p.w / 2, y: p.y - 24 });
+      S.itemToPlace = -1;
+      S.eppLock = true;
+      S.bars.push({ t: 'epp', y: p.y - 100, open: false });
+    } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
+      p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
+    } else if (S.phase === 2 && Math.random() < 0.25) {
+      S.flames.push({ x: p.x + rand(14, p.w - 14), y: p.y, hp: 40, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 });
+    }
+  }
+}
+
+// Alto total del dibujo de una plataforma (puerta o ventana + alféizar) más un margen
+const ART_H = 80;
+const TRUCK_ZONE = { x: W - 225, w: 220, y: H - 20 };
+// Busca una x donde la ventana/puerta no se monte sobre otra plataforma cercana
+function freeX(y, w) {
+  const near = S.plats.filter(o => !o.ground && !o.roof && Math.abs(o.y - y) < ART_H);
+  // El carro bomba de la calle también ocupa espacio: ninguna ventana puede taparlo
+  if (Math.abs(TRUCK_ZONE.y - y) < ART_H) near.push(TRUCK_ZONE);
+  const free = [];
+  for (let x = 0; x <= W - w; x += 4)
+    if (near.every(o => x + w + 12 < o.x || o.x + o.w + 12 < x)) free.push(x);
+  return free.length ? free[Math.floor(Math.random() * free.length)] : null;
+}
+
+function startPhase2() {
+  S.phase = 2;
+  const b = S.genY - 300;
+  S.events = [
+    // Las habitaciones con humo se retomarán más adelante con otra mecánica
+    { t: 'door', y: b }, { t: 'door', y: b - 1400 }, { t: 'door', y: b - 2900 }, { t: 'goal', y: b - 3500 }
+  ];
+  S.darkY = b - 1800;
+  S.roofY = b - 3500;
+  updateControls();
+  toast('¡EPP completo! Recibes pitón (F), halligan (H) y hacha (X). ¡A la emergencia!', '#7f7');
+}
+
+function nearBar() {
+  const p = S.p;
+  return S.bars.find(b => !b.open && b.t !== 'epp' && b.y < p.y && p.y - b.y < 220);
+}
+
+function hurt(msg, force) {
+  if (S.inv > 0 && !force) return;
+  S.lives--; S.inv = 100; S.shake = 12; S.hurtT = 40;
+  toast(msg, '#ff8a8a');
+  if (S.lives <= 0) {
+    // Derrota: el bombero cae y queda en el suelo antes de la pantalla final
+    S.state = 'dying'; S.dieT = 0; S.inv = 0;
+    const p = S.p, pl = S.lastSafe;
+    if (p.y > S.camY + H && pl) { p.x = pl.x + pl.w / 2; p.y = pl.y; }
+    p.vx = 0;
+    for (const k in keys) keys[k] = false;
+  }
+}
+
+function burst(x, y, n, colors, spd = 4, g = 0.1, life = 40, size = 4) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = Math.random() * spd;
+    S.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g, life: life * rand(0.6, 1),
+      max: life, c: colors[i % colors.length], s: size * rand(0.6, 1.2) });
+  }
+}
+
+// Acciones con herramienta (halligan o hacha): preparar → levantar → golpear (36 cuadros)
+const HAL_T = 36, HAL_HIT = 14;
+// Pitón, halligan y hacha se entregan al completar el EPP
+const hasTools = () => S.epp >= EPP.length;
+function updateControls() { document.getElementById('controls').classList.toggle('tools', hasTools()); }
+function useTool(tool) {
+  if (S.state !== 'play' || S.halT > 0 || !hasTools()) return;
+  S.tool = tool; S.halT = HAL_T;
+}
+const halligan = () => useTool('halligan');
+const axe = () => useTool('hacha');
+
+// Efecto del golpe de la halligan (se ejecuta en el cuadro del impacto)
+// Abertura (vidrio de la ventana o hoja de la puerta) de una plataforma
+function opening(pl) {
+  if (pl.kind === 'door') {
+    const dw = 34, dh = 56;
+    return { x: pl.side > 0 ? pl.x + 12 : pl.x + pl.w - 12 - dw, y: pl.y - dh, w: dw, h: dh };
+  }
+  return { x: pl.x + 7, y: pl.y - 44, w: pl.w - 14, h: 44 };
+}
+
+// Ventana o puerta con fuego dentro, en el estado pedido, al alcance del bombero
+function innerTarget(states) {
+  const p = S.p;
+  let best = null, bd = 1e9;
+  for (const pl of S.plats) {
+    if (!states.includes(pl.inner)) continue;
+    const r = opening(pl), dx = Math.abs(r.x + r.w / 2 - p.x), dy = Math.abs(pl.y - p.y);
+    if (dx < r.w / 2 + 40 && dy < 40 && dx + dy < bd) { bd = dx + dy; best = pl; }
+  }
+  return best;
+}
+
+// Rompe la ventana o puerta: el fuego queda a la vista y ya se puede apagar
+function breakOpen(pl) {
+  const r = opening(pl), door = pl.kind === 'door';
+  pl.inner = 'open';
+  for (let i = 0; i < 26; i++) {
+    S.parts.push({ x: rand(r.x, r.x + r.w), y: rand(r.y, r.y + r.h), vx: rand(-2.5, 2.5), vy: rand(-3, 0.5), g: 0.3,
+      life: 45, max: 45, c: door ? ['#2a2d33', '#5a3a22'][i % 2] : ['#bcd3ea', '#e8f2fb'][i % 2], s: rand(2, 4) });
+  }
+  const f = { x: r.x + r.w / 2, y: pl.y, hp: 40, inner: true, pl, ph: Math.random() * 6, age: 300, dead: 0 };
+  pl.flame = f; S.flames.push(f);
+  S.shake = 6;
+  toast(`¡${door ? 'Puerta' : 'Ventana'} rota! Ahora apaga el fuego con el pitón (F)`, '#ffb347');
+}
+
+function halliganHit() {
+  const ip = innerTarget(['closed']);
+  if (ip) { breakOpen(ip); return; }
+  const b = nearBar();
+  if (!b) { toast('Aquí no hay nada que forzar', '#ccc'); return; }
+  if (b.t === 'smoke' && !b.vented) {
+    if (S.inv > 0) return;
+    for (let i = 0; i < 90; i++) {
+      S.parts.push({ x: rand(0, W), y: b.y + 14, vx: rand(-2, 2), vy: rand(1, 7), g: 0.05, life: rand(30, 60),
+        max: 60, c: ['#ff4d00', '#ffb000', '#ffe066'][i % 3], s: rand(6, 14) });
+    }
+    S.shake = 25;
+    hurt('¡BACKDRAFT!', true);
+    S.p.vy = 7;
+    return;
+  }
+  b.open = true;
+  for (let i = 0; i < 40; i++) {
+    S.parts.push({ x: rand(0, W), y: b.y + 7, vx: rand(-2, 2), vy: rand(-3, 1), g: 0.3, life: 50, max: 50,
+      c: b.t === 'door' ? '#7a4a24' : '#555', s: rand(4, 9) });
+  }
+  toast(b.t === 'door' ? '¡Entrada forzada con Halligan! 🪓' : 'Puerta abierta sin backdraft. ¡Bien hecho!', '#8f8');
+}
+
+// ---------- Entrada ----------
+const keys = {};
+const KMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
+  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose' };
+addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (S.state === 'dying') return;
+  if (S.state !== 'play') {
+    if (e.code === 'Space' || e.code === 'Enter') newGame();
+    return;
+  }
+  if (KMAP[e.code]) {
+    if (KMAP[e.code] === 'jump' && !keys.jump) S.p.buf = 8;
+    keys[KMAP[e.code]] = true;
+  }
+  if (!e.repeat && (e.code === 'KeyH' || e.code === 'KeyK')) halligan();
+  if (!e.repeat && e.code === 'KeyX') axe();
+});
+addEventListener('keyup', e => { if (KMAP[e.code]) keys[KMAP[e.code]] = false; });
+cv.addEventListener('pointerdown', () => { if (S.state !== 'play' && S.state !== 'dying') newGame(); });
+document.querySelectorAll('#controls button').forEach(btn => {
+  const k = btn.dataset.k, a = btn.dataset.a;
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (S.state === 'dying') return;
+    if (S.state !== 'play') { newGame(); return; }
+    if (k === 'jump') S.p.buf = 8;
+    if (k) keys[k] = true;
+    if (a === 'hal') halligan();
+    if (a === 'axe') axe();
+  });
+  if (k) for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => keys[k] = false);
+});
+
+// ---------- Lógica ----------
+function update() {
+  S.t++;
+  const p = S.p;
+  // Mientras usa la halligan en el suelo, no camina
+  // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
+  if (keys.hose && S.halT === 0 && hasTools()) S.hoseT++; else S.hoseT = 0;
+  const busy = S.halT > 0 || S.hoseT > 0;
+  const ix = busy && p.ground ? 0 : (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
+  if (ix) p.dir = ix;
+  p.vx += (ix * 5 - p.vx) * 0.25;
+  p.x += p.vx;
+  if (p.x < -15) p.x = W + 15;
+  if (p.x > W + 15) p.x = -15;
+
+  // ¿Sigue parado sobre el techo?
+  if (p.ground && !(p.x + 8 > p.ground.x && p.x - 8 < p.ground.x + p.ground.w)) p.ground = null;
+  if (p.ground) p.coyote = 6; else if (p.coyote > 0) p.coyote--;
+  if (p.buf > 0) p.buf--;
+  if (p.buf > 0 && p.coyote > 0) {
+    p.vy = -11.5; p.ground = null; p.coyote = 0; p.buf = 0;
+  }
+  // Salto corto si suelta el botón
+  if (!keys.jump && p.vy < -5) p.vy = -5;
+
+  const py = p.y;
+  if (!p.ground) {
+    p.vy = Math.min(p.vy + 0.4, 12);
+    p.y += p.vy;
+  }
+
+  if (!p.ground && p.vy > 0) {
+    for (const pl of S.plats) {
+      if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) {
+        p.y = pl.y; p.vy = 0; p.ground = pl; S.lastSafe = pl; S.landT = 10;
+        burst(p.x, p.y, 4, ['#ccc'], 1.5, 0, 15, 3);
+        break;
+      }
+    }
+  } else if (p.vy < 0) {
+    for (const b of S.bars) {
+      const bot = b.y + 14;
+      if (!b.open && py - PH >= bot && p.y - PH < bot) {
+        p.y = bot + PH; p.vy = 1.5;
+        burst(p.x, bot, 5, ['#aaa'], 2, 0.2, 20, 3);
+        if (b.t === 'epp' && (!S.msg || S.msg.t < 120)) toast('No puedes subir sin tu EPP', '#ffd166');
+      }
+    }
+  }
+
+  // Cámara
+  const target = p.y - H * 0.42;
+  if (target < S.camY) S.camY += (target - S.camY) * 0.2;
+  gen();
+
+  // EPP
+  for (const it of S.items) {
+    if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
+      it.got = true;
+      S.epp++;
+      burst(it.x, it.y, 20, ['#ffd166', '#fff'], 3, 0, 30, 3);
+      if (S.epp < EPP.length) {
+        toast(`¡Equipado! (${S.epp}/6)`, '#ffd166');
+        S.itemToPlace = S.epp;
+        S.nextItemMinY = S.genY - 350;
+      }
+      // Se abre la losa que bloqueaba el paso
+      S.eppLock = false;
+      for (const b of S.bars) if (b.t === 'epp' && !b.open) {
+        b.open = true;
+        for (let k = 0; k < 30; k++) S.parts.push({ x: rand(0, W), y: b.y + 7, vx: rand(-1.5, 1.5), vy: rand(-2, 1),
+          g: 0.25, life: 45, max: 45, c: '#9a9aa0', s: rand(3, 7) });
+      }
+      if (S.epp >= EPP.length) startPhase2();
+    }
+  }
+  S.items = S.items.filter(i => !i.got);
+
+  // Manguera
+  if (S.hoseT >= 12) {
+    let best = null, bd = 230;
+    for (const f of S.flames) {
+      if (f.hp <= 0) continue;
+      const d = Math.hypot(f.x - p.x, (f.y - 15) - (p.y - 30));
+      if (d < bd) { bd = d; best = f; }
+    }
+    if (!best && innerTarget(['closed']) && (!S.msg || S.msg.t < 120)) toast('El fuego está adentro: primero rompe con la halligan (H)', '#ffd166');
+    const sx = p.x + p.dir * 34, sy = p.y - 34; // punta del pitón
+    let tx = p.x + p.dir * 120, ty = p.y - 160;
+    if (best) {
+      tx = best.x; ty = best.y - 12;
+      best.hp -= 1.2;
+      p.dir = best.x >= p.x ? 1 : -1;
+      if (best.hp <= 0) {
+        burst(best.x, best.y - 10, 15, ['#ddd', '#bbb'], 1.5, -0.05, 40, 6);
+        S.flamesOut++;
+      }
+    }
+    const a = Math.atan2(ty - sy, tx - sx), dist = Math.hypot(tx - sx, ty - sy);
+    for (let i = 0; i < 2; i++) {
+      const aa = a + rand(-0.08, 0.08);
+      S.parts.push({ x: sx, y: sy, vx: Math.cos(aa) * 9, vy: Math.sin(aa) * 9, g: 0, life: dist / 9, max: 30,
+        c: '#7fd3ff', s: rand(2, 4) });
+    }
+  }
+  // Las llamas crecen con el tiempo; las apagadas quedan como brasas un momento y desaparecen
+  for (const f of S.flames) {
+    f.age++;
+    if (f.hp <= 0) { f.dead++; if (f.inner) f.pl.inner = 'out'; }
+  }
+  // Humo que sale de las ventanas/puertas con fuego dentro
+  for (const pl of S.plats) {
+    if (pl.inner !== 'closed' || pl.y < S.camY - 60 || pl.y > S.camY + H + 60) continue;
+    if (!S.innerWarned) { S.innerWarned = true; toast('¡Hay fuego dentro! Rompe con la halligan (H) y apaga con el pitón (F)', '#ffb347'); }
+    if ((S.t + Math.floor(pl.x)) % 14 === 0) {
+      const r = opening(pl);
+      S.parts.push({ x: r.x + rand(4, r.w - 4), y: r.y, vx: rand(-0.3, 0.3), vy: rand(-1.2, -0.6), g: 0,
+        life: 60, max: 60, c: '#5c5c62', s: rand(4, 7) });
+    }
+  }
+  S.flames = S.flames.filter(f => f.dead < 70 && f.y < S.camY + H + 100);
+
+  // Daño por llamas
+  for (const f of S.flames) {
+    if (f.hp <= 12 || f.inner) continue;   // brasas o fuego dentro de la abertura: no quema
+    if (Math.abs(f.x - p.x) < 20 && p.y > f.y - 28 && p.y - PH < f.y) {
+      hurt('¡Te quemaste! Apaga las llamas con el pitón (F)');
+    }
+  }
+
+  // Avisos de puertas y humo
+  const nb = nearBar();
+  if (nb && !nb.warned) {
+    nb.warned = true;
+    toast(nb.t === 'door'
+      ? 'Puerta cerrada: entrada forzada con Halligan (H) 🪓'
+      : '⚠ Humo denso: riesgo de backdraft', '#ffd166');
+  }
+  for (const b of S.bars) {
+    if (b.vented && b.smoke > 0) {
+      b.smoke = Math.max(0, b.smoke - 0.008);
+      if (S.t % 2 === 0) S.parts.push({ x: W / 2 + rand(-20, 20), y: b.y - 210, vx: rand(-0.5, 0.5), vy: rand(-2, -1),
+        g: 0, life: 70, max: 70, c: '#777', s: rand(8, 14) });
+    }
+  }
+
+  // Zona de visibilidad baja
+  if (!S.darkWarned && p.y < S.darkY) {
+    S.darkWarned = true;
+    toast('Humo en toda la escalera: visibilidad baja. ¡Sigue subiendo!', '#ccc');
+  }
+
+  // Víctima
+  if (S.victim && Math.abs(S.victim.x - p.x) < 24 && Math.abs(S.victim.y - p.y) < 40) {
+    S.state = 'win';
+    burst(S.victim.x, S.victim.y - 30, 60, ['#ffd166', '#7f7', '#7fd3ff', '#fff'], 5, 0.1, 80, 4);
+  }
+
+  // Caída
+  if (p.y > S.camY + H + 40) {
+    hurt('¡Caíste! -1 vida', true);
+    if (S.state === 'play') {
+      const pl = S.lastSafe;
+      if (pl && pl.y < S.camY + H) { p.x = pl.x + pl.w / 2; p.y = pl.y; p.vy = 0; p.ground = pl; }
+      else { p.y = S.camY + H + 10; p.vy = -17; }
+    }
+  }
+
+  if (S.inv > 0) S.inv--;
+  if (S.halT > 0 && --S.halT === HAL_HIT) {
+    burst(S.p.x + S.p.dir * 30, S.p.y - 10, 8, ['#ffe066', '#ccc'], 3, 0.15, 18, 2.5);
+    if (S.tool === 'halligan') halliganHit();
+    // Hacha: por ahora solo la animación (sus usos se definirán después)
+  }
+  if (S.landT > 0) S.landT--;
+  if (S.hurtT > 0) S.hurtT--;
+  if (S.shake > 0) S.shake--;
+  if (S.msg && --S.msg.t <= 0) S.msg = null;
+
+  const bottom = S.camY + H + 100;
+  S.plats = S.plats.filter(pl => pl.y < bottom);
+  S.bars = S.bars.filter(b => b.y < bottom);
+  updateParts();
+}
+
+// Si se quema en el aire, cae hasta el techo de abajo
+function dyingFall() {
+  const p = S.p;
+  if (p.ground) return;
+  const py = p.y;
+  p.vy = Math.min(p.vy + 0.4, 12); p.y += p.vy;
+  for (const pl of S.plats) {
+    if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) { p.y = pl.y; p.vy = 0; p.ground = pl; return; }
+  }
+  if (p.y > S.camY + H - 10 && S.lastSafe) { p.y = S.lastSafe.y; p.x = S.lastSafe.x + S.lastSafe.w / 2; p.vy = 0; p.ground = S.lastSafe; }
+}
+
+function updateParts() {
+  for (const q of S.parts) { q.x += q.vx; q.y += q.vy; q.vy += q.g; q.life--; }
+  S.parts = S.parts.filter(q => q.life > 0);
+}
+
+// ---------- Dibujo ----------
+// Número pseudoaleatorio estable a partir de coordenadas (para ladrillos y adornos)
+function hash(a, b) {
+  const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+function drawBg() {
+  const deep = clamp(-S.camY / 6000, 0, 1);
+  ctx.fillStyle = '#1c1c20';
+  ctx.fillRect(0, 0, W, H);
+  // Ladrillos oscuros con leve variación de tono
+  const BH = 16, BW = 40;
+  const r0 = Math.floor(S.camY / BH) - 1;
+  for (let r = r0; r < r0 + H / BH + 3; r++) {
+    const y = r * BH - S.camY;
+    const sh = (r & 1) ? BW / 2 : 0;
+    for (let c = -1; c < W / BW + 1; c++) {
+      const x = c * BW - sh, h = hash(c, r);
+      let v = 40 + Math.floor(h * 9) - deep * 8;
+      let rr = v, gg = v, bb = v + 4;
+      if (h > 0.985) { rr += 12; gg += 3; }          // algún ladrillo rojizo
+      else if (h < 0.05) { rr -= 8; gg -= 8; bb -= 8; } // alguno más oscuro
+      ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+      ctx.fillRect(x + 1, y + 1, BW - 2, BH - 2);
+    }
+  }
+  if (S.phase === 2) {
+    ctx.fillStyle = `rgba(255,70,0,${0.05 + Math.sin(S.t / 20) * 0.025})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// Adornos de la fachada: cañerías, rejillas y cajas eléctricas (en coordenadas del mundo)
+function drawDecor() {
+  const BAND = 320;
+  const b0 = Math.floor(S.camY / BAND) - 1;
+  for (let b = b0; b < b0 + H / BAND + 3; b++) {
+    const y0 = b * BAND;
+    if (S.goalPlaced && y0 < S.roofY) continue;
+    // Cañerías verticales en los bordes
+    for (const [side, px] of [[0, 14], [1, W - 14]]) {
+      if (hash(b, side + 7) < 0.55) {
+        ctx.fillStyle = '#111'; ctx.fillRect(px - 5, y0, 10, BAND);
+        ctx.fillStyle = '#3c4250'; ctx.fillRect(px - 4, y0, 8, BAND);
+        ctx.fillStyle = '#5b6273'; ctx.fillRect(px - 2, y0, 2, BAND);
+        for (let k = 30; k < BAND; k += 110) {
+          ctx.fillStyle = '#111'; ctx.fillRect(px - 7, y0 + k - 1, 14, 8);
+          ctx.fillStyle = '#4c5363'; ctx.fillRect(px - 6, y0 + k, 12, 6);
+        }
+      }
+    }
+    // Rejillas y cajas
+    for (let n = 0; n < 2; n++) {
+      const x = 40 + hash(b, n + 20) * (W - 90), y = y0 + 30 + hash(b, n + 30) * (BAND - 60);
+      if (hash(b, n + 40) < 0.5) {
+        ctx.fillStyle = '#111'; ctx.fillRect(x - 1, y - 1, 26, 24);
+        ctx.fillStyle = '#3a3f4a'; ctx.fillRect(x, y, 24, 22);
+        ctx.fillStyle = '#15171c';
+        for (let k = 4; k < 20; k += 5) ctx.fillRect(x + 4, y + k, 16, 3);
+      } else {
+        ctx.fillStyle = '#111'; ctx.fillRect(x - 1, y - 1, 16, 16);
+        ctx.fillStyle = '#4a4f5a'; ctx.fillRect(x, y, 14, 14);
+        ctx.fillStyle = '#5d6370'; ctx.fillRect(x + 2, y + 2, 10, 2);
+      }
+    }
+  }
+}
+
+function drawWorld() {
+  // Cielo sobre la azotea
+  if (S.goalPlaced && S.roofY > S.camY - 50) {
+    const g = ctx.createLinearGradient(0, S.camY, 0, S.roofY);
+    g.addColorStop(0, '#0b1a3a'); g.addColorStop(1, '#2d4a7a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, S.camY - 20, W, S.roofY - S.camY + 20);
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 30; i++) ctx.fillRect((i * 137) % W, S.roofY - 40 - ((i * 89) % 600), 2, 2);
+  }
+
+  // Calle y carro bomba al inicio
+  if (S.camY > -100) {
+    ctx.fillStyle = '#333'; ctx.fillRect(0, H - 20, W, 200);
+    ctx.fillStyle = '#555'; ctx.fillRect(0, H - 20, W, 3);   // borde de la vereda
+    // Carro bomba estacionado
+    const tr = IMG.camion;
+    if (tr && tr.complete && tr.naturalWidth) {
+      const tw = 210, th = tw * tr.naturalHeight / tr.naturalWidth;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.ellipse(W - 10 - tw / 2, H - 17, tw / 2, 5, 0, 0, 7); ctx.fill();
+      ctx.drawImage(tr, W - 10 - tw, H - 15 - th, tw, th);
+    }
+  }
+
+  drawDecor();
+  for (const pl of S.plats) {
+    if (pl.ground) continue;
+    if (pl.roof) {
+      ctx.fillStyle = '#777'; ctx.fillRect(pl.x, pl.y, pl.w, 20);
+      ctx.fillStyle = '#999'; ctx.fillRect(pl.x, pl.y, pl.w, 3);
+    } else drawRoof(pl);
+  }
+
+  for (const it of S.items) {
+    const y = it.y + Math.sin(S.t / 12) * 4;
+    ctx.fillStyle = '#ffffff33';
+    ctx.beginPath(); ctx.arc(it.x, y, 22, 0, 7); ctx.fill();
+    drawImgH(IMG[EPP[it.i].f], it.x, y + 17, 34);
+  }
+
+  for (const f of S.flames) if (!f.inner) drawFlame(f);
+
+  for (const b of S.bars) drawBar(b);
+
+  if (S.victim) drawVictim(S.victim);
+
+  drawPlayer();
+
+  for (const q of S.parts) {
+    ctx.globalAlpha = clamp(q.life / q.max, 0, 1);
+    ctx.fillStyle = q.c;
+    ctx.beginPath(); ctx.arc(q.x, q.y, q.s, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Indicación sobre el jugador
+  const nb = S.state === 'play' && nearBar();
+  const ipc = S.state === 'play' && hasTools() && innerTarget(['closed']);
+  const ipo = S.state === 'play' && hasTools() && !ipc && innerTarget(['open']);
+  if (nb || ipc || ipo) {
+    const txt = ipc ? `[H] Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}` : ipo ? '[F] Apagar fuego' : '[H] Forzar puerta';
+    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(txt).width + 12;
+    ctx.fillStyle = '#000b'; ctx.fillRect(S.p.x - w / 2, S.p.y - PH - 30, w, 18);
+    ctx.fillStyle = '#ffd166'; ctx.fillText(txt, S.p.x, S.p.y - PH - 21);
+  }
+}
+
+// Rectángulo con contorno negro (estilo caricatura)
+function box(x, y, w, h, fill, line = '#111') {
+  ctx.fillStyle = line; ctx.fillRect(x - 1.5, y - 1.5, w + 3, h + 3);
+  ctx.fillStyle = fill; ctx.fillRect(x, y, w, h);
+}
+
+function drawSill(x, y, w) {
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x + 4, y + 12, w - 8, 7);   // sombra
+  box(x, y, w, 8, '#c9c9c9');
+  ctx.fillStyle = '#e2e2e2'; ctx.fillRect(x, y, w, 2);
+  box(x + 4, y + 9, w - 8, 3, '#8d8d8d');
+  ctx.fillStyle = '#a9a9a9';
+  ctx.fillRect(x + w * 0.3, y + 3, 6, 1); ctx.fillRect(x + w * 0.7, y + 5, 8, 1);
+}
+
+function glass(x, y, w, h, fire, seed) {
+  let g;
+  if (fire) {
+    g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#2a120c'); g.addColorStop(1, `rgb(255,${110 + Math.sin(S.t / 5 + seed) * 40},20)`);
+  } else {
+    g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, '#3a4560'); g.addColorStop(1, '#262d3d');
+  }
+  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.beginPath();
+  ctx.moveTo(x + 3, y + h - 3); ctx.lineTo(x + Math.min(14, w - 4), y + 3); ctx.lineTo(x + Math.min(22, w - 2), y + 3); ctx.lineTo(x + 11, y + h - 3);
+  ctx.fill();
+}
+
+function drawRoof(pl) {
+  const { x, y, w } = pl;
+  const fire = pl.inner === 'closed';
+  const broken = pl.inner === 'open' || pl.inner === 'out';
+  if (pl.kind === 'door') {
+    // Balcón con puerta, baranda y maceta
+    const dw = 34, dh = 56, dx = pl.side > 0 ? x + 12 : x + w - 12 - dw;
+    box(dx - 4, y - dh - 4, dw + 8, dh + 4, '#a3a3a8');
+    if (broken) {
+      // Puerta forzada: vano oscuro con el fuego (o restos) adentro y astillas
+      box(dx, y - dh, dw, dh, pl.inner === 'open' ? '#1a0d08' : '#151517');
+      drawInnerFlame(pl);
+      ctx.fillStyle = '#2a2d33'; ctx.fillRect(dx, y - dh, 5, dh); ctx.fillRect(dx + dw - 4, y - dh + 10, 4, 16);
+    } else {
+      box(dx, y - dh, dw, dh, '#1f2228');
+      box(dx + 6, y - dh + 7, dw - 12, 10, fire ? `rgb(255,${120 + Math.sin(S.t / 5 + x) * 40},30)` : '#4a5368');
+      ctx.fillStyle = '#9aa0aa'; ctx.beginPath(); ctx.arc(dx + dw - 6, y - dh / 2, 2, 0, 7); ctx.fill();
+      if (fire) {   // resplandor por la rendija de abajo
+        ctx.fillStyle = `rgba(255,${110 + Math.sin(S.t / 4 + x) * 40},20,0.8)`; ctx.fillRect(dx + 2, y - 3, dw - 4, 3);
+      }
+    }
+    if (pl.plant) {
+      const px = pl.side > 0 ? x + w - 18 : x + 18;
+      box(px - 6, y - 13, 12, 13, '#7a3e2a');
+      ctx.fillStyle = '#2f4a2a';
+      for (const [ax, ay] of [[-6, -18], [0, -24], [6, -18], [-3, -20], [3, -20]]) {
+        ctx.beginPath(); ctx.ellipse(px + ax, y - 13 + ay / 2, 3, 6, ax / 10, 0, 7); ctx.fill();
+      }
+    }
+    // Baranda
+    ctx.fillStyle = '#0d0d0f';
+    ctx.fillRect(x + 2, y - 20, w - 4, 3);
+    for (let i = 4; i < w - 2; i += 8) ctx.fillRect(x + i, y - 20, 2, 20);
+    drawSill(x, y, w);
+  } else if (pl.kind === 'ac') {
+    // Repisa con equipo de aire acondicionado
+    const aw = 42, ah = 30, ax = pl.side > 0 ? x + 8 : x + w - 8 - aw;
+    box(ax, y - ah, aw, ah, '#b4b6ba');
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(ax + 15, y - ah / 2, 11, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#6a6d73'; ctx.lineWidth = 1.5;
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2 + S.t / 8;
+      ctx.beginPath(); ctx.moveTo(ax + 15, y - ah / 2); ctx.lineTo(ax + 15 + Math.cos(a) * 9, y - ah / 2 + Math.sin(a) * 9); ctx.stroke();
+    }
+    ctx.fillStyle = '#4b4e55';
+    for (let k = 0; k < 3; k++) ctx.fillRect(ax + 30, y - ah + 7 + k * 5, 8, 2);
+    // Tubería del equipo
+    ctx.fillStyle = '#111'; ctx.fillRect(pl.side > 0 ? ax + aw : x + 2, y - 10, pl.side > 0 ? x + w - 2 - ax - aw : ax - x - 2, 5);
+    drawSill(x, y, w);
+  } else {
+    // Ventana: marco gris, vidrio oscuro y alféizar de concreto
+    const ww = w - 14, wx = x + 7, wh = 44, wy = y - wh;
+    box(wx - 4, wy - 4, ww + 8, wh + 4, '#a3a3a8');
+    if (broken) {
+      // Ventana rota: interior oscuro con el fuego (o restos) y trozos de vidrio en las esquinas
+      ctx.fillStyle = pl.inner === 'open' ? '#1a0d08' : '#151517'; ctx.fillRect(wx, wy, ww, wh);
+      drawInnerFlame(pl);
+      ctx.fillStyle = 'rgba(190,215,240,0.7)';
+      for (const [cx, cy, sx, sy] of [[wx, wy, 1, 1], [wx + ww, wy, -1, 1], [wx, wy + wh, 1, -1], [wx + ww, wy + wh, -1, -1]]) {
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + sx * 12, cy); ctx.lineTo(cx, cy + sy * 9); ctx.fill();
+      }
+    } else {
+      glass(wx, wy, ww, wh, fire, x);
+      ctx.fillStyle = '#a3a3a8';
+      ctx.fillRect(wx + ww / 2 - 2, wy, 4, wh); ctx.fillRect(wx, wy + wh / 2 - 2, ww, 4);
+    }
+    drawSill(x - 3, y, w + 6);
+  }
+}
+
+// Fuego dentro de una ventana/puerta rota, recortado a la abertura
+function drawInnerFlame(pl) {
+  if (!pl.flame || pl.flame.dead >= 70) return;
+  const r = opening(pl);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
+  drawFlame(pl.flame);
+  ctx.restore();
+}
+
+// Llama con sprites: crece (llama_1→3) y al mojarla se apaga (apaga_1→3)
+function drawFlame(f) {
+  let key, alpha = 1, fl = 1;
+  if (f.hp <= 0) { key = 'apaga_3'; alpha = 1 - f.dead / 70; }
+  else if (f.hp < 40) key = `apaga_${f.hp > 26 ? 1 : f.hp > 12 ? 2 : 3}`;
+  else { key = `llama_${f.age < 300 ? 1 : f.age < 600 ? 2 : 3}`; fl = 1 + Math.sin(S.t / 5 + f.ph) * 0.05; }
+  const im = IMG[key];
+  if (!im || !im.complete || !im.naturalWidth) return;
+  const w = im.naturalWidth / 2, h = im.naturalHeight / 2 * fl;
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(im, f.x - w / 2, f.y + 3 - h, w, h);
+  ctx.globalAlpha = 1;
+}
+
+function drawBar(b) {
+  if (b.t === 'smoke' && b.smoke > 0) {
+    const top = b.y - 210;
+    ctx.fillStyle = `rgba(40,40,45,${0.96 * b.smoke})`;
+    ctx.fillRect(0, top, W, 210);
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = `rgba(95,95,100,${0.45 * b.smoke})`;
+      ctx.beginPath();
+      ctx.arc((i * 47 + Math.sin(S.t / 40 + i) * 12) % W, top + (i % 3) * 70 + 35, 38, 0, 7);
+      ctx.fill();
+    }
+    if (!b.open) {
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, top - 6, W, 6);
+      if (b.vented) ctx.clearRect(W / 2 - 30, top - 6, 60, 6);
+      ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
+      ctx.fillText(b.vented ? 'TECHO VENTILADO' : 'TECHO', W / 2, top + 10);
+    }
+  }
+  if (b.open) return;
+  const y = b.y;
+  if (b.t === 'epp') {
+    // Losa que bloquea el paso hasta recoger la pieza del EPP
+    box(0, y, W, 14, '#6e6e74');
+    ctx.fillStyle = '#8a8a90'; ctx.fillRect(0, y, W, 3);
+    ctx.fillStyle = '#55555a';
+    for (let x = 30; x < W; x += 60) ctx.fillRect(x, y + 5, 2, 9);
+    // Candado + dibujo de la pieza que falta
+    ctx.fillStyle = '#000c'; ctx.fillRect(W / 2 - 30, y - 30, 60, 28);
+    ctx.font = `15px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🔒', W / 2 - 14, y - 16);
+    if (EPP[S.epp]) drawImgH(IMG[EPP[S.epp].f], W / 2 + 12, y - 4, 22);
+    return;
+  }
+  ctx.fillStyle = b.t === 'door' ? '#6b3f1f' : '#3b3330';
+  ctx.fillRect(0, y, W, 14);
+  ctx.strokeStyle = '#00000055'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 20) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 14); ctx.stroke(); }
+  ctx.fillStyle = '#999';
+  ctx.fillRect(0, y, W, 2); ctx.fillRect(0, y + 12, W, 2);
+  if (b.t === 'smoke' && !b.vented) {
+    const pulse = 0.5 + Math.sin(S.t / 15) * 0.3;
+    for (let i = 0; i < 8; i++) {
+      ctx.fillStyle = `rgba(60,60,60,${pulse})`;
+      ctx.beginPath(); ctx.arc(i * 55 + 20, y + 18 + Math.sin(S.t / 20 + i) * 3, 9, 0, 7); ctx.fill();
+    }
+  }
+  const label = b.t === 'door' ? '🔒 PUERTA CERRADA' : b.vented ? '✔ VENTILADO — ABRIR' : '⚠ HUMO DENSO';
+  ctx.font = `bold 11px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(label).width + 14;
+  ctx.fillStyle = '#000c'; ctx.fillRect(W / 2 - w / 2, y + 16, w, 17);
+  ctx.fillStyle = b.t === 'door' ? '#fff' : '#ffb347';
+  ctx.fillText(label, W / 2, y + 25);
+}
+
+function drawVictim(v) {
+  const wave = Math.sin(S.t / 6) * 6;
+  ctx.fillStyle = '#4a7'; ctx.fillRect(v.x - 6, v.y - 30, 12, 16);
+  ctx.fillStyle = '#335'; ctx.fillRect(v.x - 6, v.y - 14, 5, 14); ctx.fillRect(v.x + 1, v.y - 14, 5, 14);
+  ctx.strokeStyle = '#f1c27d'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(v.x + 6, v.y - 28); ctx.lineTo(v.x + 14 + wave / 2, v.y - 42); ctx.stroke();
+  ctx.fillStyle = '#f1c27d'; ctx.beginPath(); ctx.arc(v.x, v.y - 36, 6, 0, 7); ctx.fill();
+  ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.fillText('¡AYUDA!', v.x, v.y - 56);
+}
+
+function drawPlayer() {
+  const p = S.p, x = p.x, y = p.y, d = p.dir;
+  const stage = Math.min(7, 1 + S.epp);
+  let key = `idle_${stage}`, h = 70;
+  if (S.state === 'dying' || S.state === 'over') {
+    key = `derrota_${S.dieT < 25 ? 1 : S.dieT < 55 ? 2 : 3}`; h = 0;
+  } else if (S.hurtT > 0) {
+    key = `dano_${2 + Math.min(3, Math.floor((40 - S.hurtT) / 10))}`; h = 0;
+  } else if (S.halT > 0) {
+    const f = S.halT > 27 ? 1 : S.halT > HAL_HIT ? 2 : 3;
+    key = `${S.tool}_${f}`; h = -1;
+  } else if (S.hoseT > 0) {
+    key = `piton_${S.hoseT < 6 ? 1 : S.hoseT < 12 ? 2 : 3}`; h = -1;
+  } else if (S.inv > 0 && Math.floor(S.t / 4) % 2) return;
+  else if (!p.ground) [key, h] = p.vy < -3 ? [`salto_${stage}`, 60] : [`aire_${stage}`, 58];
+  else if (S.landT > 0) [key, h] = [`aterriza_${stage}`, 46];
+  else if (Math.abs(p.vx) > 0.8) key = `camina_${stage}_${1 + Math.floor(S.t / 6) % 6}`;
+  ctx.save();
+  ctx.translate(x, y + 2);
+  ctx.scale(d, 1);
+  const im = IMG[key];
+  if (im && im.complete && im.naturalWidth) {
+    if (!h) h = im.naturalHeight / 2; // daño y derrota: misma escala que el resto (exportados al doble)
+    if (h < 0) h = im.naturalHeight * 70 / 152; // halligan: misma escala que idle_7
+    const w = im.naturalWidth * h / im.naturalHeight;
+    ctx.drawImage(im, -w / 2, -h, w, h);
+  }
+  // Pitón de la manguera
+  ctx.restore();
+}
+
+function drawDarkness() {
+  const p = S.p;
+  let d = clamp((S.darkY - p.y) / 250, 0, 1);
+  if (S.goalPlaced) d *= clamp((p.y - S.roofY) / 150, 0, 1);
+  if (d <= 0) return;
+  dctx.globalCompositeOperation = 'source-over';
+  dctx.clearRect(0, 0, W, H);
+  dctx.fillStyle = `rgba(10,10,12,${0.97 * d})`;
+  dctx.fillRect(0, 0, W, H);
+  dctx.globalCompositeOperation = 'destination-out';
+  const hole = (x, y, r) => {
+    const g = dctx.createRadialGradient(x, y, r * 0.3, x, y, r);
+    g.addColorStop(0, '#000'); g.addColorStop(1, '#0000');
+    dctx.fillStyle = g; dctx.beginPath(); dctx.arc(x, y, r, 0, 7); dctx.fill();
+  };
+  hole(p.x, p.y - 32 - S.camY, 115 + Math.sin(S.t / 9) * 5);
+  for (const f of S.flames) hole(f.x, f.y - 12 - S.camY, 60);
+  for (const pl of S.plats) if (pl.inner === 'closed') { const r = opening(pl); hole(r.x + r.w / 2, r.y + r.h / 2 - S.camY, 45); }
+  ctx.drawImage(dark, 0, 0, W, H);
+  ctx.fillStyle = `rgba(90,90,90,${0.15 * d})`;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawHUD() {
+  ctx.fillStyle = '#000a'; ctx.fillRect(0, 0, W, 34);
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.font = `16px ${EMOJI}`;
+  ctx.fillText('❤️'.repeat(Math.max(0, S.lives)), 8, 17);
+  ctx.textAlign = 'center';
+  for (let i = 0; i < EPP.length; i++) {
+    ctx.globalAlpha = i < S.epp ? 1 : 0.25;
+    drawImgH(IMG[EPP[i].f], 140 + i * 30, 30, 26);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'right'; ctx.font = 'bold 14px sans-serif'; ctx.fillStyle = '#fff';
+  ctx.fillText(Math.max(0, Math.round((H - 20 - S.p.y) / 30)) + ' m', W - 8, 17);
+
+  if (S.msg && S.msg.text) {
+    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+    const lines = wrap(S.msg.text, W - 40);
+    ctx.globalAlpha = clamp(S.msg.t / 30, 0, 1);
+    ctx.fillStyle = '#000c';
+    ctx.fillRect(14, 42, W - 28, lines.length * 18 + 10);
+    ctx.fillStyle = S.msg.color;
+    lines.forEach((l, i) => ctx.fillText(l, W / 2, 56 + i * 18));
+    ctx.globalAlpha = 1;
+  }
+
+  if (!matchMedia('(pointer:coarse)').matches) {
+    ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fffa';
+    ctx.fillText(S.epp >= EPP.length ? '← → mover · ↑ saltar · F pitón · H halligan · X hacha' : '← → mover · ↑ saltar', W / 2, H - 10);
+  }
+}
+
+function wrap(text, maxW) {
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function drawScreen(title, lines, color) {
+  ctx.fillStyle = '#000c'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `bold 34px ${EMOJI}`; ctx.fillStyle = color;
+  ctx.fillText(title, W / 2, 150);
+  ctx.font = `15px ${EMOJI}`; ctx.fillStyle = '#eee';
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, 215 + i * 26));
+  ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#ffd166';
+  ctx.fillText(Math.floor(performance.now() / 500) % 2 ? 'Toca o pulsa ESPACIO' : '', W / 2, 560);
+}
+
+function draw() {
+  ctx.save();
+  if (S.shake) ctx.translate(rand(-S.shake, S.shake) / 2, rand(-S.shake, S.shake) / 2);
+  drawBg();
+  ctx.save(); ctx.translate(0, -S.camY); drawWorld(); ctx.restore();
+  drawDarkness();
+  ctx.restore();
+  if (S.state === 'menu') {
+    drawScreen('🔥 BOMBERO JUMP', [
+      'Salta de ventana en ventana y sube.',
+      '1. Recoge tu EPP (pantalón → guantes)',
+      '2. Con el EPP completo recibes tus',
+      '   herramientas: pitón, halligan y hacha',
+      '3. Apaga llamas con el pitón (F)',
+      '4. Puerta cerrada → halligan (H)',
+      '5. Sube con poca visibilidad',
+      '6. Rescata a la víctima en la azotea',
+      '',
+      'PC: ← → · ↑ saltar · F · H · X'
+    ], '#ff7b00');
+  } else {
+    drawHUD();
+    if (S.state === 'over') {
+      drawScreen('FIN DEL TURNO', [
+        `Altura: ${Math.round((H - 20 - S.p.y) / 30)} m`,
+        `EPP: ${S.epp}/6 · Llamas apagadas: ${S.flamesOut}`,
+        'Equípate bien y vuelve a intentarlo.'
+      ], '#ff6b6b');
+    } else if (S.state === 'win') {
+      drawScreen('¡VÍCTIMA RESCATADA!', [
+        `Tiempo: ${Math.round(S.t / 60)} s`,
+        `Llamas apagadas: ${S.flamesOut} · Vidas: ${S.lives}`,
+        'Excelente trabajo, bombero 👨‍🚒'
+      ], '#7f7');
+    }
+  }
+}
+
+// Bucle a 60 pasos/seg fijos
+let last = performance.now(), acc = 0;
+function loop(now) {
+  acc += Math.min(100, now - last); last = now;
+  while (acc >= 1000 / 60) {
+    if (S.state === 'play') update();
+    else {
+      if (S.state === 'dying') {
+        S.t++;
+        dyingFall();
+        if (++S.dieT > 150) S.state = 'over';
+        if (S.msg && --S.msg.t <= 0) S.msg = null;
+      }
+      updateParts();
+    }
+    acc -= 1000 / 60;
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+newGame('menu');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
