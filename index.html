@@ -184,7 +184,7 @@ function gen() {
     } else if (S.phase === 2 && p.kind === 'window' && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.14) {
       // Humo denso a punto de backdraft: se ventila rompiendo con el hacha el techo de arriba
       p.smokeWin = 'sealed';
-      p.vent = addPlat(p.x - 4, p.y - 64, p.w + 8, { kind: 'ventroof', win: p });
+      p.vent = addPlat(p.x - 4, p.y - VENT_DY, p.w + 8, { kind: 'ventroof', win: p });
       S.genY = p.vent.y;
     } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
       p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
@@ -202,6 +202,8 @@ const ART_H = 80;
 const STAIR_GAP = 70, STAIR_LANDING = 110;
 // Altura entre el techo y el descanso de la puerta: espacio para llegar saltando sin chocar
 const STAIR_DROP = 140;
+// Altura del techo con trampilla sobre las ventanas con humo denso
+const VENT_DY = 92;
 const stairX = b => b.side > 0 ? W - STAIR_GAP : 0;
 // ¿El bombero cabe por el hueco de la escalera?
 const inStair = (b, x) => b.side > 0 ? x - 9 >= W - STAIR_GAP : x + 9 <= STAIR_GAP;
