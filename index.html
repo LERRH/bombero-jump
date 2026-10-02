@@ -1537,7 +1537,7 @@ function drawDarkness() {
   if (d <= 0) return;
   dctx.globalCompositeOperation = 'source-over';
   dctx.clearRect(0, 0, W, H);
-  dctx.fillStyle = `rgba(6,6,8,${d})`;   // sin linterna: oscuridad total
+  dctx.fillStyle = `rgba(6,6,8,${0.86 * d})`;   // sin linterna: muy oscuro, pero se alcanza a ver algo
   dctx.fillRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'destination-out';
   // Luz que atraviesa el humo; k = cuánto aclara (1 = totalmente)
