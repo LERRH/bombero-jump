@@ -12,20 +12,23 @@
     font-family:system-ui,Segoe UI,sans-serif;user-select:none;-webkit-user-select:none}
   #wrap{position:relative;height:100%;display:flex;align-items:center;justify-content:center}
   canvas{display:block}
-  #controls{position:absolute;left:0;right:0;bottom:12px;display:none;justify-content:space-between;align-items:flex-end;
-    padding:0 12px;pointer-events:none}
-  #controls .grp{display:flex;gap:10px;pointer-events:auto}
-  #controls .acts{display:grid;grid-template-columns:repeat(3,58px);gap:8px}
-  #controls button.wide{grid-column:1/-1;width:auto;border-radius:29px}
-  #controls button.tool{display:none}
-  #controls.tools button.tool{display:block}
-  #controls button.lamp{display:none}
-  #controls.dark button.lamp{display:block}
-  #controls.dark button.wide{grid-column:span 2}
-  #controls button.lamp.on{background:#ffd16699;border-color:#ffd166}
-  #controls button{width:58px;height:58px;border-radius:50%;border:2px solid #fff6;background:#0007;
-    color:#fff;font-size:26px;touch-action:none}
-  #controls button:active{background:#fff3}
+  #controls{position:absolute;left:0;right:0;bottom:10px;display:none;flex-direction:column;align-items:stretch;
+    gap:6px;padding:0 10px;pointer-events:none}
+  #controls .tools,#controls .row{display:flex;align-items:flex-end;pointer-events:none}
+  #controls .tools{justify-content:flex-end;gap:4px}
+  #controls .row{justify-content:space-between}
+  #controls .grp{display:flex;gap:6px}
+  #controls button{padding:0;border:0;background:none;touch-action:none;pointer-events:auto;
+    -webkit-tap-highlight-color:transparent;transition:opacity .25s,filter .25s,transform .06s}
+  #controls button img{width:100%;height:100%;object-fit:contain;pointer-events:none;
+    filter:drop-shadow(0 2px 3px #000a)}
+  #controls button:active{transform:scale(.9)}
+  #controls .move{width:68px;height:68px}
+  #controls .jump{width:92px;height:92px}
+  #controls .tool{width:60px;height:60px}
+  /* Herramientas visibles siempre, pero apagadas hasta completar el EPP */
+  #controls:not(.tools) .tool{opacity:.35;filter:grayscale(.7)}
+  #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
   #controls.on{display:flex}
 </style>
 </head>
@@ -33,16 +36,18 @@
 <div id="wrap">
   <canvas id="c"></canvas>
   <div id="controls">
-    <div class="grp">
-      <button data-k="left">◀</button>
-      <button data-k="right">▶</button>
+    <div class="tools">
+      <button data-k="hose" class="tool" aria-label="Pitón"><img src="img/botones/piton.png" alt=""></button>
+      <button data-a="hal" class="tool" aria-label="Halligan"><img src="img/botones/halligan.png" alt=""></button>
+      <button data-a="axe" class="tool" aria-label="Hacha"><img src="img/botones/hacha.png" alt=""></button>
+      <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
     </div>
-    <div class="grp acts">
-      <button data-k="hose" class="tool" title="Pitón"><img src="img/piton.png" alt="Pitón" style="width:48px;pointer-events:none"></button>
-      <button data-a="hal" class="tool" title="Halligan"><img src="img/halligan.png" alt="Halligan" style="width:46px;transform:rotate(-35deg);pointer-events:none"></button>
-      <button data-a="axe" class="tool" title="Hacha"><img src="img/hacha.png" alt="Hacha" style="width:46px;transform:rotate(-35deg);pointer-events:none"></button>
-      <button data-a="lamp" class="lamp" title="Linterna">🔦</button>
-      <button data-k="jump" class="wide" title="Saltar" style="background:#ff7b0088">⬆</button>
+    <div class="row">
+      <div class="grp">
+        <button data-k="left" class="move" aria-label="Izquierda"><img src="img/botones/izquierda.png" alt=""></button>
+        <button data-k="right" class="move" aria-label="Derecha"><img src="img/botones/derecha.png" alt=""></button>
+      </div>
+      <button data-k="jump" class="jump" aria-label="Saltar"><img src="img/botones/saltar.png" alt=""></button>
     </div>
   </div>
 </div>
@@ -347,7 +352,6 @@ const hasTools = () => S.epp >= EPP.length;
 function updateControls() {
   const c = document.getElementById('controls');
   c.classList.toggle('tools', hasTools());
-  c.classList.toggle('dark', darkLevel() > 0);
   c.querySelector('.lamp').classList.toggle('on', S.lamp);
 }
 
@@ -361,7 +365,8 @@ function darkLevel() {
 
 // Linterna: solo se puede usar en la zona oscura
 function toggleLamp() {
-  if (S.state !== 'play' || darkLevel() <= 0) return;
+  if (S.state !== 'play' || !hasTools()) return;
+  if (darkLevel() <= 0) { toast('La linterna se usa en la zona oscura', '#ccc'); return; }
   S.lamp = !S.lamp;
   updateControls();
 }
