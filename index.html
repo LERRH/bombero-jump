@@ -90,6 +90,25 @@ for (let f = 1; f <= 3; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.p
 for (let f = 1; f <= 3; f++) loadImg(`halligan_${f}`, `img/bombero/halligan_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`hacha_${f}`, `img/bombero/hacha_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`);
+const AIMS = ['frente', 'arriba45', 'arriba', 'abajo45', 'abajo'];
+for (const a of AIMS) loadImg(`apunta_${a}`, `img/bombero/apunta_${a}.png`);
+// Poses con el pitón: ax = centro de las botas (fracción del ancho, para que el bombero no "salte" al cambiar
+// de pose); tip = punta del pitón en px del juego, medida desde las botas, mirando a la derecha
+const POSE = {
+  piton_1: { ax: 0.603 },
+  piton_2: { ax: 0.572 },
+  piton_3: { ax: 0.551 },
+  apunta_frente: { ax: 0.506, tip: [40.8, -38.7] },
+  apunta_arriba45: { ax: 0.57, tip: [28.2, -67.7] },
+  apunta_arriba: { ax: 0.643, tip: [6.1, -81.0] },
+  apunta_abajo45: { ax: 0.521, tip: [39.5, -10.4] },
+  apunta_abajo: { ax: 0.587, tip: [33.2, -5.2] }
+};
+// Pose según el ángulo hacia el objetivo (grados, positivo hacia arriba)
+function aimPose(sx, sy, tx, ty) {
+  const ang = Math.atan2(sy - ty, Math.abs(tx - sx)) * 180 / Math.PI;
+  return ang > 67.5 ? 'arriba' : ang > 22.5 ? 'arriba45' : ang > -22.5 ? 'frente' : ang > -67.5 ? 'abajo45' : 'abajo';
+}
 for (let f = 1; f <= 3; f++) { loadImg(`llama_${f}`, `img/fuego/llama_${f}.png`); loadImg(`apaga_${f}`, `img/fuego/apaga_${f}.png`); }
 for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
 loadImg('camion', 'img/camion.png');
@@ -123,7 +142,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, lamp: false
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -687,9 +706,11 @@ function update() {
     }
     if (!best && innerTarget(['closed']) && (!S.msg || S.msg.t < 120)) toast('El fuego está adentro: primero rompe con la halligan', '#ffd166');
     if (best) p.dir = best.x >= p.x ? 1 : -1;
-    const sx = p.x + p.dir * 34, sy = p.y - 34; // punta del pitón
-    let tx = sx + p.dir * 150, ty = sy - 110;
+    let tx = p.x + p.dir * 180, ty = p.y - 34 - 110;   // sin llama cerca: hacia adelante y arriba
     if (best) { tx = best.x; ty = best.y - 12; }
+    S.aim = aimPose(p.x, p.y - 34, tx, ty);
+    const tip = POSE[`apunta_${S.aim}`].tip;
+    const sx = p.x + p.dir * tip[0], sy = p.y + 2 + tip[1];   // punta del pitón en esa pose
     // El chorro sale del pitón y avanza hasta llegar al objetivo
     S.jetLen = Math.min(1, S.jetLen + 0.12);
     S.jet = { sx, sy, tx, ty, hit: !!best };
@@ -1470,7 +1491,7 @@ function drawPlayer() {
     const f = S.halT > 27 ? 1 : S.halT > HAL_HIT ? 2 : 3;
     key = `${S.tool}_${f}`; h = -1;
   } else if (S.hoseT > 0) {
-    key = `piton_${S.hoseT < 6 ? 1 : S.hoseT < 12 ? 2 : 3}`; h = -1;
+    key = S.hoseT < 6 ? 'piton_1' : S.hoseT < 12 ? 'piton_2' : `apunta_${S.aim || 'frente'}`; h = -1;
   } else if (S.inv > 0 && Math.floor(S.t / 4) % 2) return;
   else if (!p.ground) [key, h] = p.vy < -3 ? [`salto_${stage}`, 60] : [`aire_${stage}`, 58];
   else if (S.landT > 0) [key, h] = [`aterriza_${stage}`, 46];
@@ -1483,7 +1504,8 @@ function drawPlayer() {
     if (!h) h = im.naturalHeight / 2; // daño y derrota: misma escala que el resto (exportados al doble)
     if (h < 0) h = im.naturalHeight * 70 / 152; // halligan: misma escala que idle_7
     const w = im.naturalWidth * h / im.naturalHeight;
-    ctx.drawImage(im, -w / 2, -h, w, h);
+    const ax = POSE[key] ? POSE[key].ax * w : w / 2;   // las poses con manguera se apoyan en las botas
+    ctx.drawImage(im, -ax, -h, w, h);
   }
   // Pitón de la manguera
   ctx.restore();
