@@ -14,18 +14,19 @@
   canvas{display:block}
   #controls{position:absolute;left:0;right:0;bottom:10px;display:none;flex-direction:column;align-items:stretch;
     gap:6px;padding:0 10px;pointer-events:none}
-  #controls .tools,#controls .row{display:flex;align-items:flex-end;pointer-events:none}
-  #controls .tools{justify-content:flex-end;gap:4px}
-  #controls .row{justify-content:space-between}
+  #controls .row{display:flex;align-items:flex-end;justify-content:space-between;pointer-events:none}
+  /* Bloque de acción: salto abajo a la derecha y herramientas en arco a su alrededor */
+  #controls .action{position:relative;width:196px;height:196px;pointer-events:none;flex:none}
+  #controls .action button{position:absolute}
   #controls .grp{display:flex;gap:6px}
   #controls button{padding:0;border:0;background:none;touch-action:none;pointer-events:auto;
     -webkit-tap-highlight-color:transparent;transition:opacity .25s,filter .25s,transform .06s}
   #controls button img{width:100%;height:100%;object-fit:contain;pointer-events:none;
     filter:drop-shadow(0 2px 3px #000a)}
   #controls button:active{transform:scale(.9)}
-  #controls .move{width:68px;height:68px}
+  #controls .move{width:64px;height:64px}
   #controls .jump{width:92px;height:92px}
-  #controls .tool{width:60px;height:60px}
+  #controls .tool{width:54px;height:54px}
   /* Herramientas visibles siempre, pero apagadas hasta completar el EPP */
   #controls:not(.tools) .tool{opacity:.35;filter:grayscale(.7)}
   #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
@@ -36,18 +37,18 @@
 <div id="wrap">
   <canvas id="c"></canvas>
   <div id="controls">
-    <div class="tools">
-      <button data-k="hose" class="tool" aria-label="Pitón"><img src="img/botones/piton.png" alt=""></button>
-      <button data-a="hal" class="tool" aria-label="Halligan"><img src="img/botones/halligan.png" alt=""></button>
-      <button data-a="axe" class="tool" aria-label="Hacha"><img src="img/botones/hacha.png" alt=""></button>
-      <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
-    </div>
     <div class="row">
       <div class="grp">
         <button data-k="left" class="move" aria-label="Izquierda"><img src="img/botones/izquierda.png" alt=""></button>
         <button data-k="right" class="move" aria-label="Derecha"><img src="img/botones/derecha.png" alt=""></button>
       </div>
-      <button data-k="jump" class="jump" aria-label="Saltar"><img src="img/botones/saltar.png" alt=""></button>
+      <div class="action">
+        <button data-k="hose" class="tool" aria-label="Pitón"><img src="img/botones/piton.png" alt=""></button>
+        <button data-a="hal" class="tool" aria-label="Halligan"><img src="img/botones/halligan.png" alt=""></button>
+        <button data-a="axe" class="tool" aria-label="Hacha"><img src="img/botones/hacha.png" alt=""></button>
+        <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
+        <button data-k="jump" class="jump" aria-label="Saltar" style="right:0;bottom:0"><img src="img/botones/saltar.png" alt=""></button>
+      </div>
     </div>
   </div>
 </div>
@@ -569,6 +570,16 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { if (KMAP[e.code]) keys[KMAP[e.code]] = false; });
 cv.addEventListener('pointerdown', () => { if (S.state !== 'play' && S.state !== 'dying' && !(S.state === 'win' && S.winT < 170)) newGame(); });
+(function placeToolArc() {
+  const box = 196, jump = 92, tool = 54, R = 118;
+  const cx = box - jump / 2, cy = box - jump / 2;
+  document.querySelectorAll('#controls .action .tool').forEach((b, i) => {
+    const a = (180 - i * 30) * Math.PI / 180;   // 180°, 150°, 120°, 90°
+    b.style.left = (cx + R * Math.cos(a) - tool / 2) + 'px';
+    b.style.top = (cy - R * Math.sin(a) - tool / 2) + 'px';
+  });
+})();
+
 document.querySelectorAll('#controls button').forEach(btn => {
   const k = btn.dataset.k, a = btn.dataset.a;
   btn.addEventListener('pointerdown', e => {
