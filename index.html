@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Bombero Jump</title>
+<title>Fire Jump</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet">
 <style>
   html,body{margin:0;height:100%;background:#111;overflow:hidden;touch-action:none;
     font-family:system-ui,Segoe UI,sans-serif;user-select:none;-webkit-user-select:none}
@@ -23,7 +26,7 @@
   #controls button{width:58px;height:58px;border-radius:50%;border:2px solid #fff6;background:#0007;
     color:#fff;font-size:26px;touch-action:none}
   #controls button:active{background:#fff3}
-  @media (pointer:coarse){#controls{display:flex}}
+  #controls.on{display:flex}
 </style>
 </head>
 <body>
@@ -49,6 +52,9 @@ const W = 400, H = 640;
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
 dark.width = W; dark.height = H;
+// Tipografía de acción (Google Fonts) con respaldo
+const FONT = 'Bangers, Impact, "Arial Black", sans-serif';
+const font = px => `${Math.round(px * 1.15)}px ${FONT}, ${EMOJI}`;
 const EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 
 function resize() {
@@ -81,6 +87,8 @@ for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`)
 for (let f = 1; f <= 3; f++) { loadImg(`llama_${f}`, `img/fuego/llama_${f}.png`); loadImg(`apaga_${f}`, `img/fuego/apaga_${f}.png`); }
 for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
 loadImg('camion', 'img/camion.png');
+loadImg('logo', 'img/logo.png');
+for (const t of ['piton', 'halligan', 'hacha']) loadImg(`tool_${t}`, `img/${t}.png`);
 for (const who of ['hombre', 'mujer'])
   for (const pose of ['atrapado', 'huida', 'victoria']) loadImg(`${who}_${pose}`, `img/personas/${who}_${pose}.png`);
 const pickWho = () => Math.random() < 0.5 ? 'hombre' : 'mujer';
@@ -115,7 +123,7 @@ function newGame(state = 'play') {
   gen();
   S.p.ground = S.lastSafe = S.plats[0];
   updateControls();
-  if (state === 'play') toast('Salta de ventana en ventana (↑) y recoge tu EPP', '#ffd166');
+  if (state === 'play') toast('Salta de ventana en ventana y recoge tu EPP', '#ffd166');
 }
 
 const DOOR_COLORS = ['#6b3f1f', '#4a5d3a', '#3b4a6b', '#7a2e2e'];
@@ -242,15 +250,15 @@ function freeX(y, w) {
 // Niveles de la emergencia: cada uno suma una dificultad nueva y luego se combinan.
 // p = probabilidad por plataforma de cada elemento; en todos hay personas para rescatar.
 const LEVELS = [
-  { name: 'Fuego expuesto', hint: 'Apaga las llamas con el pitón (F)', len: 1300, doors: 0,
+  { name: 'Fuego expuesto', hint: 'Apaga las llamas con el pitón', len: 1300, doors: 0,
     p: { trapped: 0.15, flame: 0.35 } },
-  { name: 'Fuego interno', hint: 'Rompe con la halligan (H) y apaga con el pitón (F)', len: 1300, doors: 0,
+  { name: 'Fuego interno', hint: 'Rompe con la halligan y apaga con el pitón', len: 1300, doors: 0,
     p: { trapped: 0.15, inner: 0.30, flame: 0.20 } },
-  { name: 'Humo denso', hint: '¡No abras las ventanas con humo negro! Ventila arriba con el hacha (X)', len: 1300, doors: 0,
+  { name: 'Humo denso', hint: '¡No abras las ventanas con humo negro! Ventila arriba con el hacha', len: 1300, doors: 0,
     p: { trapped: 0.15, smoke: 0.20, inner: 0.15, flame: 0.15 } },
-  { name: 'Puertas cerradas', hint: 'Fuerza la puerta de la escalera con la halligan (H)', len: 1500, doors: 3,
+  { name: 'Puertas cerradas', hint: 'Fuerza la puerta de la escalera con la halligan', len: 1500, doors: 3,
     p: { trapped: 0.15, smoke: 0.10, inner: 0.15, flame: 0.15 } },
-  { name: 'Oscuridad', hint: 'Enciende tu linterna (L) 🔦', len: 1400, doors: 1, dark: true,
+  { name: 'Oscuridad', hint: 'Enciende tu linterna 🔦', len: 1400, doors: 1, dark: true,
     p: { trapped: 0.15, inner: 0.12, flame: 0.20 } },
   { name: 'Pisos que se rompen', hint: 'Los alféizares agrietados se rompen al pisarlos', len: 1400, doors: 1,
     p: { trapped: 0.15, fragile: 0.25, inner: 0.10, flame: 0.15 } },
@@ -298,7 +306,7 @@ function startPhase2() {
   S.events.push({ t: 'goal', y });
   S.roofY = y;
   updateControls();
-  toast('¡EPP completo! Recibes pitón (F), halligan (H) y hacha (X). ¡A la emergencia!', '#7f7');
+  toast('¡EPP completo! Recibes pitón, halligan y hacha. ¡A la emergencia!', '#7f7');
 }
 
 function nearBar() {
@@ -397,7 +405,7 @@ function breakOpen(pl) {
   const f = { x: r.x + r.w / 2, y: pl.y, hp: 40, inner: true, pl, ph: Math.random() * 6, age: 300, dead: 0 };
   pl.flame = f; S.flames.push(f);
   S.shake = 6;
-  toast(`¡${door ? 'Puerta' : 'Ventana'} rota! Ahora apaga el fuego con el pitón (F)`, '#ffb347');
+  toast(`¡${door ? 'Puerta' : 'Ventana'} rota! Ahora apaga el fuego con el pitón`, '#ffb347');
 }
 
 // Ventana con una persona atrapada al alcance del bombero
@@ -480,7 +488,7 @@ function backdraftWindow(pl) {
   S.shake = 28;
   const p = S.p;
   p.ground = null; p.vy = -6; p.vx = (p.x < cx ? -1 : 1) * 7;
-  hurt('¡BACKDRAFT! Esa ventana había que ventilarla primero con el hacha (X)', true);
+  hurt('¡BACKDRAFT! Esa ventana había que ventilarla primero con el hacha', true);
 }
 
 // Golpe del hacha: rompe la trampilla del techo y ventila la ventana de abajo
@@ -619,7 +627,7 @@ function update() {
       if (py - PH >= bot && p.y - PH < bot) {
         p.y = bot + PH; p.vy = 1.5;
         burst(p.x, bot, 5, ['#aaa'], 2, 0.2, 20, 3);
-        if (b.t === 'door' && !b.open && (!S.msg || S.msg.t < 120)) toast('No puedes pasar el techo: fuerza la puerta de la escalera (H)', '#ffd166');
+        if (b.t === 'door' && !b.open && (!S.msg || S.msg.t < 120)) toast('No puedes pasar el techo: fuerza la puerta de la escalera', '#ffd166');
       }
     }
   }
@@ -661,7 +669,7 @@ function update() {
       const d = Math.hypot(f.x - p.x, (f.y - 15) - (p.y - 30));
       if (d < bd) { bd = d; best = f; }
     }
-    if (!best && innerTarget(['closed']) && (!S.msg || S.msg.t < 120)) toast('El fuego está adentro: primero rompe con la halligan (H)', '#ffd166');
+    if (!best && innerTarget(['closed']) && (!S.msg || S.msg.t < 120)) toast('El fuego está adentro: primero rompe con la halligan', '#ffd166');
     if (best) p.dir = best.x >= p.x ? 1 : -1;
     const sx = p.x + p.dir * 34, sy = p.y - 34; // punta del pitón
     let tx = sx + p.dir * 150, ty = sy - 110;
@@ -696,7 +704,7 @@ function update() {
   // Humo que sale de las ventanas/puertas con fuego: denso con el fuego a la vista, tenue al apagarlo
   for (const pl of S.plats) {
     if (!pl.inner || pl.y < S.camY - 60 || pl.y > S.camY + H + 80) continue;
-    if (pl.inner === 'closed' && !S.innerWarned) { S.innerWarned = true; toast('¡Hay fuego dentro! Rompe con la halligan (H) y apaga con el pitón (F)', '#ffb347'); }
+    if (pl.inner === 'closed' && !S.innerWarned) { S.innerWarned = true; toast('¡Hay fuego dentro! Rompe con la halligan y apaga con el pitón', '#ffb347'); }
     if (pl.inner === 'out') pl.outT = (pl.outT || 0) + 1;
     const r = opening(pl);
     const every = pl.inner === 'open' ? 3 : pl.inner === 'closed' ? 5 : 10;
@@ -713,7 +721,7 @@ function update() {
     if (pl.smokeWin === 'sealed') {
       if (!S.smokeWarned) {
         S.smokeWarned = true;
-        toast('⚠ Ventana con humo denso: ¡no la abras! Sube al techo de arriba y ventila con el hacha (X)', '#ff9a6b');
+        toast('⚠ Ventana con humo denso: ¡no la abras! Sube al techo de arriba y ventila con el hacha', '#ff9a6b');
       }
       // "respira": el humo sale a pulsos por los bordes del marco
       if (Math.sin(S.t / 18 + pl.x) > 0.6 && S.t % 4 === 0) {
@@ -730,7 +738,7 @@ function update() {
   updatePeople();
   if (!S.trappedWarned && S.plats.some(pl => pl.trapped === 'inside' && pl.y > S.camY + 60 && pl.y < S.camY + H)) {
     S.trappedWarned = true;
-    toast('¡Hay personas atrapadas! Rompe la ventana con la halligan (H) para que salgan', '#7fd3ff');
+    toast('¡Hay personas atrapadas! Rompe la ventana con la halligan para que salgan', '#7fd3ff');
   }
   updateSmoke();
 
@@ -759,7 +767,7 @@ function update() {
   for (const f of S.flames) {
     if (f.hp <= 12 || f.inner) continue;   // brasas o fuego dentro de la abertura: no quema
     if (Math.abs(f.x - p.x) < 20 && p.y > f.y - 28 && p.y - PH < f.y) {
-      hurt('¡Te quemaste! Apaga las llamas con el pitón (F)');
+      hurt('¡Te quemaste! Apaga las llamas con el pitón');
     }
   }
 
@@ -768,7 +776,7 @@ function update() {
     if (b.warned || b.open || b.y > p.y || p.y - b.y > 260) continue;
     b.warned = true;
     toast(b.t === 'door'
-      ? 'Techo cerrado: busca la puerta de la escalera al costado y fuérzala con la halligan (H)'
+      ? 'Techo cerrado: busca la puerta de la escalera al costado y fuérzala con la halligan'
       : '⚠ Humo denso: riesgo de backdraft', '#ffd166');
   }
   for (const b of S.bars) {
@@ -783,7 +791,7 @@ function update() {
   const isDark = darkLevel() > 0;
   if (isDark !== S.wasDark) {
     S.wasDark = isDark;
-    if (!isDark) S.lamp = false; else toast('Humo denso: no se ve nada. Enciende tu linterna (L) 🔦', '#ffd166');
+    if (!isDark) S.lamp = false; else toast('Humo denso: no se ve nada. Enciende tu linterna 🔦', '#ffd166');
     updateControls();
   }
   // Cartel al entrar a cada nivel
@@ -1038,12 +1046,16 @@ function drawWorld() {
   const swn = S.state === 'play' && hasTools() && smokeWinNear();
   const trn = S.state === 'play' && hasTools() && trappedNear();
   if (nb || ipc || ipo || vr || swn || trn) {
-    const txt = vr ? '[X] Romper techo y ventilar' : trn ? '[H] Romper ventana y rescatar' : ipc ? `[H] Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}`
-      : swn ? '⚠ ¡No abrir! Ventila arriba (X)' : ipo ? '[F] Apagar fuego' : '[H] Forzar puerta';
-    ctx.font = `bold 12px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const w = ctx.measureText(txt).width + 12;
-    ctx.fillStyle = '#000b'; ctx.fillRect(S.p.x - w / 2, S.p.y - PH - 30, w, 18);
-    ctx.fillStyle = swn && !vr && !ipc ? '#ff8a6b' : '#ffd166'; ctx.fillText(txt, S.p.x, S.p.y - PH - 21);
+    // Indicación con el dibujo de la herramienta que hay que usar
+    const [tool, txt] = vr ? ['hacha', 'Romper techo y ventilar'] : trn ? ['halligan', 'Romper ventana y rescatar']
+      : ipc ? ['halligan', `Romper ${ipc.kind === 'door' ? 'puerta' : 'ventana'}`]
+      : swn ? [null, '⚠ ¡No abrir! Ventila arriba con el hacha'] : ipo ? ['piton', 'Apagar fuego'] : ['halligan', 'Forzar puerta'];
+    ctx.font = font(12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const im = tool && IMG[`tool_${tool}`], iw = im ? 30 : 0;
+    const w = ctx.measureText(txt).width + iw + 14, bx = S.p.x - w / 2, by = S.p.y - PH - 34;
+    ctx.fillStyle = '#000c'; ctx.fillRect(bx, by, w, 22);
+    if (im && im.complete && im.naturalWidth) ctx.drawImage(im, bx + 5, by + 11 - 15 * im.naturalHeight / im.naturalWidth, 30, 30 * im.naturalHeight / im.naturalWidth);
+    ctx.fillStyle = tool ? '#ffd166' : '#ff8a6b'; ctx.fillText(txt, bx + 7 + iw, by + 12);
   }
 }
 
@@ -1240,7 +1252,7 @@ function drawTrappedGlass(pl, wx, wy, ww, wh) {
   // Globo de ayuda que parpadea
   if (Math.floor(S.t / 30 + pl.ph) % 3 !== 2) {
     const bx = wx + ww / 2, by = wy - 16;
-    ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const tw = ctx.measureText('¡AYUDA!').width + 10;
     box(bx - tw / 2, by - 7, tw, 14, '#ffffff');
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(bx - 4, by + 8.5); ctx.lineTo(bx + 4, by + 8.5); ctx.lineTo(bx, by + 13); ctx.fill();
@@ -1339,7 +1351,7 @@ function drawStairCeiling(b) {
     box(dx, ly - dh, dw, dh, '#8a2b22');
     ctx.fillStyle = '#6e2019'; ctx.fillRect(dx + 4, ly - dh + 4, dw - 8, dh - 8);
     box(dx + 4, ly - dh + 8, dw - 8, 10, '#e8e0c8');
-    ctx.fillStyle = '#2b2b2b'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#2b2b2b'; ctx.font = font(7); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('ESCALERA', dx + dw / 2, ly - dh + 13.5, dw - 10);
     ctx.fillStyle = '#d0d0d0'; ctx.fillRect(dx + dw - 9, ly - dh / 2, 5, 2);
   }
@@ -1379,7 +1391,7 @@ function drawBar(b) {
       ctx.fillStyle = '#1a1a1a';
       ctx.fillRect(0, top - 6, W, 6);
       if (b.vented) ctx.clearRect(W / 2 - 30, top - 6, 60, 6);
-      ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
+      ctx.font = font(11); ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
       ctx.fillText(b.vented ? 'TECHO VENTILADO' : 'TECHO', W / 2, top + 10);
     }
   }
@@ -1400,7 +1412,7 @@ function drawBar(b) {
     }
   }
   const label = b.t === 'door' ? '🔒 PUERTA CERRADA' : b.vented ? '✔ VENTILADO — ABRIR' : '⚠ HUMO DENSO';
-  ctx.font = `bold 11px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(label).width + 14;
   ctx.fillStyle = '#000c'; ctx.fillRect(W / 2 - w / 2, y + 16, w, 17);
   ctx.fillStyle = b.t === 'door' ? '#fff' : '#ffb347';
@@ -1411,7 +1423,7 @@ function drawVictim(v) {
   if (S.state === 'win') { drawCelebration(v); return; }
   drawWho(`${v.who}_atrapado`, v.x + Math.sin(S.t / 9) * 1.5, v.y, 60);
   if (Math.floor(S.t / 30) % 3 !== 2) {
-    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const tw = ctx.measureText('¡AYUDA!').width + 10;
     box(v.x - tw / 2, v.y - 82, tw, 15, '#ffffff');
     ctx.fillStyle = '#c1121f'; ctx.fillText('¡AYUDA!', v.x, v.y - 74);
@@ -1505,7 +1517,7 @@ function drawDarkness() {
 function drawHUD() {
   ctx.fillStyle = '#000a'; ctx.fillRect(0, 0, W, 34);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  ctx.font = `16px ${EMOJI}`;
+  ctx.font = font(16);
   ctx.fillText('❤️'.repeat(Math.max(0, S.lives)), 8, 17);
   ctx.textAlign = 'center';
   for (let i = 0; i < EPP.length; i++) {
@@ -1513,10 +1525,10 @@ function drawHUD() {
     drawImgH(IMG[EPP[i].f], 140 + i * 30, 30, 26);
   }
   ctx.globalAlpha = 1;
-  ctx.textAlign = 'right'; ctx.font = 'bold 14px sans-serif'; ctx.fillStyle = '#fff';
+  ctx.textAlign = 'right'; ctx.font = font(14); ctx.fillStyle = '#fff';
   ctx.fillText(Math.max(0, Math.round((H - 20 - S.p.y) / 30)) + ' m', W - 8, 17);
   if (S.levelIdx >= 0) {
-    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffd166';
+    ctx.font = font(11); ctx.textAlign = 'center'; ctx.fillStyle = '#ffd166';
     ctx.fillText(`NV ${S.levelIdx + 1}`, 332, 17);
   }
   if (S.banner) {
@@ -1525,17 +1537,17 @@ function drawHUD() {
     ctx.fillStyle = '#000c'; ctx.fillRect(20, 120, W - 40, 86);
     ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(20, 120, W - 40, 86);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = '#ffd166';
+    ctx.font = font(13); ctx.fillStyle = '#ffd166';
     ctx.fillText(`NIVEL ${b.lv.i + 1} DE ${S.levels.length}`, W / 2, 138);
-    ctx.font = 'bold 22px sans-serif'; ctx.fillStyle = '#fff';
+    ctx.font = font(22); ctx.fillStyle = '#fff';
     ctx.fillText(b.lv.name.toUpperCase(), W / 2, 163);
-    ctx.font = `12px ${EMOJI}`; ctx.fillStyle = '#ddd';
+    ctx.font = font(12); ctx.fillStyle = '#ddd';
     ctx.fillText(b.lv.hint, W / 2, 189, W - 56);
     ctx.globalAlpha = 1;
   }
 
   if (S.msg && S.msg.text) {
-    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+    ctx.font = font(13); ctx.textAlign = 'center';
     const lines = wrap(S.msg.text, W - 40);
     ctx.globalAlpha = clamp(S.msg.t / 30, 0, 1);
     ctx.fillStyle = '#000c';
@@ -1545,10 +1557,6 @@ function drawHUD() {
     ctx.globalAlpha = 1;
   }
 
-  if (!matchMedia('(pointer:coarse)').matches) {
-    ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fffa';
-    ctx.fillText(S.epp >= EPP.length ? `← → · ↑ saltar · F pitón · H halligan · X hacha${darkLevel() > 0 ? ' · L linterna' : ''}` : '← → mover · ↑ saltar', W / 2, H - 10);
-  }
 }
 
 function wrap(text, maxW) {
@@ -1562,15 +1570,51 @@ function wrap(text, maxW) {
   return lines;
 }
 
+// Botón "toca para jugar" que late
+function tapButton(label, y) {
+  const k = 1 + Math.sin(performance.now() / 260) * 0.05;
+  ctx.save(); ctx.translate(W / 2, y); ctx.scale(k, k);
+  ctx.fillStyle = '#111'; ctx.fillRect(-122, -24, 244, 48);
+  const g = ctx.createLinearGradient(0, -22, 0, 22);
+  g.addColorStop(0, '#ffb000'); g.addColorStop(1, '#e8430c');
+  ctx.fillStyle = g; ctx.fillRect(-119, -21, 238, 42);
+  ctx.font = font(24); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#3a0d00'; ctx.fillText(label, 2, 3);
+  ctx.fillStyle = '#fff'; ctx.fillText(label, 0, 1);
+  ctx.restore();
+}
+
+// Pantalla de inicio: logo, chispas y botón para jugar
+function drawMenu() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#091220'); g.addColorStop(0.6, '#0e121c'); g.addColorStop(1, '#3a1206');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const t = performance.now() / 1000;
+  for (let i = 0; i < 40; i++) {   // chispas que suben
+    const x = (i * 97 + Math.sin(t + i) * 20) % W, y = H - ((t * (30 + (i % 7) * 12) + i * 53) % (H + 40));
+    ctx.globalAlpha = 0.4 + (i % 5) * 0.12;
+    ctx.fillStyle = i % 3 ? '#ff8c1a' : '#ffd23f';
+    ctx.fillRect(x, y, 2 + (i % 3), 2 + (i % 3));
+  }
+  ctx.globalAlpha = 1;
+  const lg = IMG.logo;
+  if (lg && lg.complete && lg.naturalWidth) {
+    const lw = W - 16, lh = lw * lg.naturalHeight / lg.naturalWidth, bob = Math.sin(t * 2) * 4;
+    ctx.drawImage(lg, 8, 70 + bob, lw, lh);
+  }
+  ctx.font = font(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffd166'; ctx.fillText('EQUÍPATE · APAGA · RESCATA', W / 2, 430);
+  tapButton('TOCA PARA JUGAR', 520);
+}
+
 function drawScreen(title, lines, color) {
   ctx.fillStyle = '#000c'; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = `bold 34px ${EMOJI}`; ctx.fillStyle = color;
+  ctx.font = font(34); ctx.fillStyle = color;
   ctx.fillText(title, W / 2, 150);
-  ctx.font = `15px ${EMOJI}`; ctx.fillStyle = '#eee';
+  ctx.font = font(15); ctx.fillStyle = '#eee';
   lines.forEach((l, i) => ctx.fillText(l, W / 2, 215 + i * 26));
-  ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#ffd166';
-  ctx.fillText(Math.floor(performance.now() / 500) % 2 ? 'Toca o pulsa ESPACIO' : '', W / 2, 560);
+  tapButton('JUGAR DE NUEVO', 560);
 }
 
 function draw() {
@@ -1581,21 +1625,7 @@ function draw() {
   drawDarkness();
   ctx.restore();
   if (S.state === 'menu') {
-    drawScreen('🔥 BOMBERO JUMP', [
-      'Salta de ventana en ventana y sube.',
-      '1. Recoge tu EPP (pantalón → guantes)',
-      '2. Con el EPP completo recibes tus',
-      '   herramientas: pitón, halligan y hacha',
-      '3. Apaga llamas con el pitón (F)',
-      '4. Techo cerrado → fuerza la puerta de la',
-      '   escalera del costado con la halligan (H)',
-      '   Humo negro en ventana: ¡no la abras!',
-      '   Rompe el techo de arriba con hacha (X)',
-      '5. En el humo, enciende tu linterna (L)',
-      '6. Rescata a la víctima en la azotea',
-      '',
-      'PC: ← → · ↑ saltar · F · H · X'
-    ], '#ff7b00');
+    drawMenu();
   } else {
     drawHUD();
     if (S.state === 'over') {
@@ -1606,7 +1636,7 @@ function draw() {
         'Equípate bien y vuelve a intentarlo.'
       ], '#ff6b6b');
     } else if (S.state === 'win' && S.winT < 170) {
-      ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
       ctx.fillStyle = '#7f7'; ctx.fillText('¡RESCATE COMPLETO!', W / 2, 90);
     } else if (S.state === 'win') {
@@ -1639,6 +1669,7 @@ function loop(now) {
     acc -= 1000 / 60;
   }
   draw();
+  document.getElementById('controls').classList.toggle('on', S.state === 'play');
   requestAnimationFrame(loop);
 }
 newGame('menu');

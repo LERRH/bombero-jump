@@ -1,4 +1,4 @@
-# Bombero Jump
+# Fire Jump
 
 Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ventanas y balcones, recoge tu EPP y enfrenta la emergencia.
 
@@ -29,13 +29,15 @@ Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad po
 7. Emergencia total (todo junto)
 8. Último esfuerzo (todo junto y a oscuras hasta la azotea)
 
-## Controles
+## Controles (celular)
 
-| Acción   | PC              | Celular        |
-|----------|-----------------|----------------|
-| Moverse  | ← → (o A / D)   | ◀ ▶            |
-| Saltar   | ↑, W o Espacio  | ⬆              |
-| Pitón    | F               | botón pitón    |
-| Halligan | H               | botón halligan |
-| Hacha    | X               | botón hacha    |
-| Linterna | L               | botón 🔦 (en la zona oscura) |
+| Botón | Acción |
+|-------|--------|
+| ◀ ▶ | Moverse |
+| ⬆ | Saltar |
+| Pitón | Apagar fuego |
+| Halligan | Forzar puertas y romper ventanas |
+| Hacha | Romper el techo para ventilar |
+| 🔦 | Linterna (en la zona oscura) |
+
+Las herramientas aparecen al completar el EPP.
