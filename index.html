@@ -97,7 +97,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
+    goalPlaced: false, jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -471,24 +471,31 @@ function update() {
       if (d < bd) { bd = d; best = f; }
     }
     if (!best && innerTarget(['closed']) && (!S.msg || S.msg.t < 120)) toast('El fuego está adentro: primero rompe con la halligan (H)', '#ffd166');
+    if (best) p.dir = best.x >= p.x ? 1 : -1;
     const sx = p.x + p.dir * 34, sy = p.y - 34; // punta del pitón
-    let tx = p.x + p.dir * 120, ty = p.y - 160;
-    if (best) {
-      tx = best.x; ty = best.y - 12;
+    let tx = sx + p.dir * 150, ty = sy - 110;
+    if (best) { tx = best.x; ty = best.y - 12; }
+    // El chorro sale del pitón y avanza hasta llegar al objetivo
+    S.jetLen = Math.min(1, S.jetLen + 0.12);
+    S.jet = { sx, sy, tx, ty, hit: !!best };
+    if (best && S.jetLen >= 1) {
       best.hp -= 1.2;
-      p.dir = best.x >= p.x ? 1 : -1;
       if (best.hp <= 0) {
         burst(best.x, best.y - 10, 15, ['#ddd', '#bbb'], 1.5, -0.05, 40, 6);
         S.flamesOut++;
       }
     }
-    const a = Math.atan2(ty - sy, tx - sx), dist = Math.hypot(tx - sx, ty - sy);
-    for (let i = 0; i < 2; i++) {
-      const aa = a + rand(-0.08, 0.08);
-      S.parts.push({ x: sx, y: sy, vx: Math.cos(aa) * 9, vy: Math.sin(aa) * 9, g: 0, life: dist / 9, max: 30,
-        c: '#7fd3ff', s: rand(2, 4) });
+    // Salpicadura donde pega y gotas que se desprenden del chorro
+    if (S.jetLen >= 1) {
+      for (let k = 0; k < 3; k++) {
+        S.parts.push({ x: tx + rand(-5, 5), y: ty + rand(-5, 5), vx: rand(-2.2, 2.2) + p.dir * 0.6, vy: rand(-2.8, 0.3),
+          g: 0.18, life: rand(12, 24), max: 24, c: k ? '#d6f0ff' : '#8fd0ff', s: rand(1.1, 2.2) });
+      }
     }
-  }
+    const q = jetPoint(S.jet, rand(0.25, S.jetLen));
+    S.parts.push({ x: q.x, y: q.y, vx: rand(-0.4, 0.4) + p.dir * 0.5, vy: rand(0, 0.8), g: 0.2,
+      life: 22, max: 22, c: '#a8dcff', s: rand(0.9, 1.6) });
+  } else { S.jetLen = 0; S.jet = null; }
   // Las llamas crecen con el tiempo; las apagadas quedan como brasas un momento y desaparecen
   for (const f of S.flames) {
     f.age++;
@@ -708,6 +715,7 @@ function drawWorld() {
   if (S.victim) drawVictim(S.victim);
 
   drawPlayer();
+  drawJet();
 
   for (const q of S.parts) {
     ctx.globalAlpha = clamp(q.life / q.max, 0, 1);
@@ -828,6 +836,56 @@ function drawRoof(pl) {
     }
     drawSill(x - 3, y, w + 6);
   }
+}
+
+// Punto del chorro (curva con un leve arco hacia arriba, como el agua a presión)
+function jetPoint(j, t) {
+  const d = Math.hypot(j.tx - j.sx, j.ty - j.sy);
+  const cx = (j.sx + j.tx) / 2, cy = (j.sy + j.ty) / 2 - Math.min(55, d * 0.22);
+  const u = 1 - t;
+  return { x: u * u * j.sx + 2 * u * t * cx + t * t * j.tx, y: u * u * j.sy + 2 * u * t * cy + t * t * j.ty };
+}
+
+// Chorro de agua: halo, cuerpo, núcleo brillante y destellos que corren por el chorro
+function drawJet() {
+  const j = S.jet;
+  if (!j) return;
+  const L = S.jetLen, N = 26, pts = [];
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * L, q = jetPoint(j, t);
+    const q2 = jetPoint(j, Math.min(1, t + 0.01));
+    const nx = -(q2.y - q.y), ny = q2.x - q.x, nl = Math.hypot(nx, ny) || 1;
+    const wob = Math.sin(t * 16 - S.t * 0.9) * 1.6 * t;   // leve temblor del chorro
+    pts.push({ x: q.x + nx / nl * wob, y: q.y + ny / nl * wob, t });
+  }
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const layer = (color, w0, w1, upTo = 1) => {
+    ctx.strokeStyle = color;
+    for (let i = 1; i < pts.length; i++) {
+      if (pts[i].t > upTo) break;
+      ctx.lineWidth = w0 + (w1 - w0) * pts[i].t;   // se abre a medida que se aleja
+      ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+    }
+  };
+  layer('rgba(80,160,255,0.16)', 6, 18);
+  layer('rgba(120,195,255,0.5)', 3.5, 9);
+  layer('rgba(190,230,255,0.75)', 2.2, 4.5);
+  layer('rgba(255,255,255,0.95)', 1.2, 1.6, 0.8);
+  // Destellos que avanzan a lo largo del chorro
+  ctx.setLineDash([5, 11]); ctx.lineDashOffset = -S.t * 7;
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.stroke();
+  ctx.setLineDash([]);
+  // Neblina en la punta del pitón y en el punto de impacto
+  const mist = (x, y, r, a) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(235,248,255,${a})`); g.addColorStop(1, 'rgba(235,248,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  };
+  mist(j.sx, j.sy, 7, 0.6);
+  if (L >= 1) mist(j.tx, j.ty, 16 + Math.sin(S.t / 2) * 3, j.hit ? 0.55 : 0.35);
+  ctx.restore();
 }
 
 // Fuego dentro de una ventana/puerta rota, recortado a la abertura
