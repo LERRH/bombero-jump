@@ -9,7 +9,7 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 1. Recoge tu EPP en orden (pantalón, chaqueta, EPR, capucha, casco y guantes). No puedes seguir subiendo sin cada pieza.
 2. Con el EPP completo recibes el pitón, la halligan y el hacha.
 3. Apaga las llamas con el pitón.
-4. Fuerza las puertas cerradas con la halligan.
+4. Cuando un techo cerrado no te deje pasar, fuerza la puerta de la escalera del costado con la halligan y sube por ahí.
 5. Si hay fuego dentro de una ventana o puerta, rómpela con la halligan y apágalo con el pitón.
 6. Sube con poca visibilidad y rescata a la víctima en la azotea.
 
