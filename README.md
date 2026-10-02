@@ -16,6 +16,19 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
    Si ves a una persona pidiendo ayuda en una ventana, rompe el vidrio con la halligan para que salga.
 6. En la zona de humo enciende tu linterna para ver el camino y rescata a la víctima en la azotea.
 
+## Niveles de la emergencia
+
+Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad poco a poco y luego la combinan. En todos hay personas atrapadas para rescatar.
+
+1. Fuego expuesto
+2. Fuego interno (ventanas y puertas con fuego adentro)
+3. Humo denso (ventanas a punto de backdraft)
+4. Puertas cerradas (techos con puerta de escalera)
+5. Oscuridad (linterna)
+6. Pisos que se rompen (alféizares agrietados)
+7. Emergencia total (todo junto)
+8. Último esfuerzo (todo junto y a oscuras hasta la azotea)
+
 ## Controles
 
 | Acción   | PC              | Celular        |

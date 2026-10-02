@@ -108,8 +108,8 @@ function newGame(state = 'play') {
     state, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
-    itemToPlace: 0, nextItemMinY: H - 200, darkY: -1e9, roofY: -1e9,
-    goalPlaced: false, people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, darkWarned: false, lamp: false
+    itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
+    goalPlaced: false, people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -144,10 +144,8 @@ function gen() {
       const side = Math.random() < 0.5 ? -1 : 1, ly = ev.y + STAIR_DROP;
       const lx = side > 0 ? W - STAIR_LANDING : 0;
       S.plats = S.plats.filter(o => o.ground || Math.abs(o.y - ly) >= ART_H || lx + STAIR_LANDING + 12 < o.x || o.x + o.w + 12 < lx);
-      // Si al hacer espacio quedó un salto demasiado alto hasta el descanso, se agrega un apoyo
-      const below = S.plats.filter(o => o.y > ly).reduce((m, o) => Math.min(m, o.y - ly), 1e9);
-      if (below > 120) { const hx = freeX(ly + 90, 80); if (hx !== null) addPlat(hx, ly + 90, 80, { kind: 'window' }); }
       addPlat(lx, ly, STAIR_LANDING, { kind: 'landing' });
+      fillGaps(ly, ly + 420);   // al hacer espacio pudo quedar un salto demasiado alto más abajo
       addPlat(0, ev.y, W, { kind: 'slab' });   // piso de arriba: se pisa al salir por la escalera
       const bar = { t: 'door', y: ev.y, side, open: false, warned: false };
       S.bars.push(bar);
@@ -191,22 +189,27 @@ function gen() {
       S.itemToPlace = -1;
       S.eppLock = true;
       S.lockCamY = p.y - 140;   // la pantalla no sube más allá de esta pieza hasta recogerla
-    } else if (p.kind === 'window' && !S.lastFragile && p.y < H - 250 && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.18) {
-      p.fragile = true;   // alféizar agrietado: se rompe al pisarlo una vez
-    } else if (S.phase === 2 && p.kind === 'window' && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.14) {
-      // Humo denso a punto de backdraft: se ventila rompiendo con el hacha el techo de arriba
-      p.smokeWin = 'sealed';
-      p.vent = addPlat(p.x - 4, p.y - VENT_DY, p.w + 8, { kind: 'ventroof', win: p });
-      S.genY = p.vent.y;
-    } else if (S.phase === 2 && p.kind === 'window' && !(S.events[0] && p.y - S.events[0].y < 320) && Math.random() < 0.13) {
-      // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
-      p.trapped = 'inside';
-      p.who = pickWho();
-      p.ph = Math.random() * 6;
-    } else if (S.phase === 2 && p.kind !== 'ac' && Math.random() < 0.3) {
-      p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
-    } else if (S.phase === 2 && Math.random() < 0.25) {
-      S.flames.push({ x: p.x + rand(14, p.w - 14), y: p.y, hp: 40, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 });
+    } else if (S.phase === 2) {
+      // Qué aparece en esta plataforma depende del nivel
+      const pr = (levelAt(y) || {}).p || {};
+      const nearEvent = S.events[0] && p.y - S.events[0].y < 320, win = p.kind === 'window';
+      let r = Math.random();
+      const take = (prob, ok) => { if (!ok || !prob) return false; if (r < prob) return true; r -= prob; return false; };
+      if (take(pr.trapped, win)) {
+        // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
+        p.trapped = 'inside'; p.who = pickWho(); p.ph = Math.random() * 6;
+      } else if (take(pr.smoke, win && !nearEvent)) {
+        // Humo denso a punto de backdraft: se ventila rompiendo con el hacha el techo de arriba
+        p.smokeWin = 'sealed';
+        p.vent = addPlat(p.x - 4, p.y - VENT_DY, p.w + 8, { kind: 'ventroof', win: p });
+        S.genY = p.vent.y;
+      } else if (take(pr.fragile, win && !S.lastFragile && !nearEvent)) {
+        p.fragile = true;   // alféizar agrietado: se rompe al pisarlo una vez
+      } else if (take(pr.inner, p.kind !== 'ac')) {
+        p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
+      } else if (take(pr.flame, true)) {
+        S.flames.push({ x: p.x + rand(14, p.w - 14), y: p.y, hp: 40, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 });
+      }
     }
     S.lastFragile = !!p.fragile;
     if (p.fragile) S.preFragileY = prevY;
@@ -236,15 +239,64 @@ function freeX(y, w) {
   return free.length ? free[Math.floor(Math.random() * free.length)] : null;
 }
 
+// Niveles de la emergencia: cada uno suma una dificultad nueva y luego se combinan.
+// p = probabilidad por plataforma de cada elemento; en todos hay personas para rescatar.
+const LEVELS = [
+  { name: 'Fuego expuesto', hint: 'Apaga las llamas con el pitón (F)', len: 1300, doors: 0,
+    p: { trapped: 0.15, flame: 0.35 } },
+  { name: 'Fuego interno', hint: 'Rompe con la halligan (H) y apaga con el pitón (F)', len: 1300, doors: 0,
+    p: { trapped: 0.15, inner: 0.30, flame: 0.20 } },
+  { name: 'Humo denso', hint: '¡No abras las ventanas con humo negro! Ventila arriba con el hacha (X)', len: 1300, doors: 0,
+    p: { trapped: 0.15, smoke: 0.20, inner: 0.15, flame: 0.15 } },
+  { name: 'Puertas cerradas', hint: 'Fuerza la puerta de la escalera con la halligan (H)', len: 1500, doors: 3,
+    p: { trapped: 0.15, smoke: 0.10, inner: 0.15, flame: 0.15 } },
+  { name: 'Oscuridad', hint: 'Enciende tu linterna (L) 🔦', len: 1400, doors: 1, dark: true,
+    p: { trapped: 0.15, inner: 0.12, flame: 0.20 } },
+  { name: 'Pisos que se rompen', hint: 'Los alféizares agrietados se rompen al pisarlos', len: 1400, doors: 1,
+    p: { trapped: 0.15, fragile: 0.25, inner: 0.10, flame: 0.15 } },
+  { name: 'Emergencia total', hint: 'Todo junto: ¡atento a cada ventana!', len: 1600, doors: 2,
+    p: { trapped: 0.15, fragile: 0.15, smoke: 0.12, inner: 0.15, flame: 0.20 } },
+  { name: 'Último esfuerzo', hint: 'A oscuras hasta la azotea: ¡rescata a la víctima!', len: 1600, doors: 2, dark: true,
+    p: { trapped: 0.15, fragile: 0.18, smoke: 0.12, inner: 0.15, flame: 0.22 } },
+];
+
+// Nivel al que pertenece una altura del edificio (null durante el EPP)
+function levelAt(y) {
+  return S.levels.find(L => y <= L.bottom && y > L.top) || null;
+}
+
+// Agrega ventanas de apoyo donde, entre dos plataformas firmes, quedó un salto de más de 140 px
+function fillGaps(top, bottom) {
+  for (let guard = 0; guard < 12; guard++) {
+    const ps = S.plats.filter(o => !o.fragile && !o.broken && o.kind !== 'stairstep' && o.kind !== 'slab' && o.y >= top - 1 && o.y <= bottom)
+      .sort((a, b) => b.y - a.y);
+    let fixed = false;
+    for (let i = 1; i < ps.length; i++) {
+      if (ps[i - 1].y - ps[i].y <= 140) continue;
+      const y = (ps[i - 1].y + ps[i].y) / 2;
+      for (const dy of [0, -12, 12, -24, 24]) {
+        const x = freeX(y + dy, 80);
+        if (x !== null) { addPlat(x, y + dy, 80, { kind: 'window' }); fixed = true; break; }
+      }
+      if (fixed) break;
+    }
+    if (!fixed) return;
+  }
+}
+
 function startPhase2() {
   S.phase = 2;
-  const b = S.genY - 300;
-  S.events = [
-    // Las habitaciones con humo se retomarán más adelante con otra mecánica
-    { t: 'door', y: b }, { t: 'door', y: b - 1400 }, { t: 'door', y: b - 2900 }, { t: 'goal', y: b - 3500 }
-  ];
-  S.darkY = b - 1800;
-  S.roofY = b - 3500;
+  let y = S.genY - 250;
+  S.levels = []; S.events = []; S.darkZones = [];
+  LEVELS.forEach((L, i) => {
+    const bottom = y, top = y - L.len;
+    S.levels.push(Object.assign({ i, bottom, top }, L));
+    for (let k = 0; k < L.doors; k++) S.events.push({ t: 'door', y: bottom - L.len * (k + 1) / (L.doors + 1) });
+    if (L.dark) S.darkZones.push([top, bottom]);
+    y = top;
+  });
+  S.events.push({ t: 'goal', y });
+  S.roofY = y;
   updateControls();
   toast('¡EPP completo! Recibes pitón (F), halligan (H) y hacha (X). ¡A la emergencia!', '#7f7');
 }
@@ -293,9 +345,9 @@ function updateControls() {
 
 // Qué tan oscuro está donde va el bombero (0 = normal, 1 = humo total)
 function darkLevel() {
-  const p = S.p;
-  let d = clamp((S.darkY - p.y) / 250, 0, 1);
-  if (S.goalPlaced) d *= clamp((p.y - S.roofY) / 150, 0, 1);
+  const y = S.p.y;
+  let d = 0;
+  for (const [top, bottom] of S.darkZones) d = Math.max(d, clamp((bottom - y) / 250, 0, 1) * clamp((y - top) / 200, 0, 1));
   return d;
 }
 
@@ -727,14 +779,17 @@ function update() {
     }
   }
 
-  // Zona de visibilidad baja
-  if (!S.darkWarned && p.y < S.darkY) {
-    S.darkWarned = true;
-    toast('Humo denso: no se ve nada. Enciende tu linterna (L) 🔦', '#ffd166');
-  }
   // Mostrar u ocultar el botón de linterna al entrar o salir de la oscuridad
   const isDark = darkLevel() > 0;
-  if (isDark !== S.wasDark) { S.wasDark = isDark; if (!isDark) S.lamp = false; updateControls(); }
+  if (isDark !== S.wasDark) {
+    S.wasDark = isDark;
+    if (!isDark) S.lamp = false; else toast('Humo denso: no se ve nada. Enciende tu linterna (L) 🔦', '#ffd166');
+    updateControls();
+  }
+  // Cartel al entrar a cada nivel
+  const lv = levelAt(p.y);
+  if (lv && lv.i !== S.levelIdx) { S.levelIdx = lv.i; S.banner = { lv, t: 200 }; }
+  if (S.banner && --S.banner.t <= 0) S.banner = null;
 
   // Víctima
   if (S.victim && Math.abs(S.victim.x - p.x) < 24 && Math.abs(S.victim.y - p.y) < 40) {
@@ -1460,6 +1515,24 @@ function drawHUD() {
   ctx.globalAlpha = 1;
   ctx.textAlign = 'right'; ctx.font = 'bold 14px sans-serif'; ctx.fillStyle = '#fff';
   ctx.fillText(Math.max(0, Math.round((H - 20 - S.p.y) / 30)) + ' m', W - 8, 17);
+  if (S.levelIdx >= 0) {
+    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffd166';
+    ctx.fillText(`NV ${S.levelIdx + 1}`, 332, 17);
+  }
+  if (S.banner) {
+    const b = S.banner, a = clamp(Math.min(b.t, 200 - b.t) / 25, 0, 1);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#000c'; ctx.fillRect(20, 120, W - 40, 86);
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(20, 120, W - 40, 86);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = '#ffd166';
+    ctx.fillText(`NIVEL ${b.lv.i + 1} DE ${S.levels.length}`, W / 2, 138);
+    ctx.font = 'bold 22px sans-serif'; ctx.fillStyle = '#fff';
+    ctx.fillText(b.lv.name.toUpperCase(), W / 2, 163);
+    ctx.font = `12px ${EMOJI}`; ctx.fillStyle = '#ddd';
+    ctx.fillText(b.lv.hint, W / 2, 189, W - 56);
+    ctx.globalAlpha = 1;
+  }
 
   if (S.msg && S.msg.text) {
     ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
