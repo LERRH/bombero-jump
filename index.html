@@ -141,7 +141,7 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, lamp: false
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, lamp: false
   };
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
@@ -316,6 +316,32 @@ function fillGaps(top, bottom) {
   }
 }
 
+// Puntaje final ponderado (máximo 1000): cada categoría suma por acción hasta su tope
+const SCORE = {
+  bonus: 100,                                  // llegar a la azotea
+  time: { max: 250, fast: 210, slow: 600 },    // segundos: 250 pts hasta 3:30, baja a 0 a los 10 min
+  people: { each: 25, max: 250 },
+  ext: { each: 10, max: 150 },
+  inner: { each: 15, max: 150 },
+  vent: { each: 25, max: 100 },
+};
+function computeScore(won) {
+  const secs = S.t / 60, T = SCORE.time;
+  const part = (n, c) => Math.min(c.max, n * c.each);
+  const rows = [
+    ['Tiempo', won ? Math.round(T.max * clamp((T.slow - secs) / (T.slow - T.fast), 0, 1)) : 0, T.max],
+    ['Personas rescatadas', part(S.rescued, SCORE.people), SCORE.people.max],
+    ['Fuego externo', part(S.extOut, SCORE.ext), SCORE.ext.max],
+    ['Fuego interno', part(S.inOut, SCORE.inner), SCORE.inner.max],
+    ['Ventanas ventiladas', part(S.vented, SCORE.vent), SCORE.vent.max],
+    ['Bono por llegar', won ? SCORE.bonus : 0, SCORE.bonus],
+  ];
+  const total = rows.reduce((a, r) => a + r[1], 0);
+  let best = 0;
+  try { best = +localStorage.getItem('firejump_best') || 0; if (total > best) localStorage.setItem('firejump_best', total); } catch (e) {}
+  return { rows, total, secs, best: Math.max(best, total), record: total > best };
+}
+
 function startPhase2() {
   S.phase = 2;
   let y = S.genY - 250;
@@ -347,6 +373,7 @@ function hurt(msg, force) {
   S.lives--; S.inv = 100; S.shake = 12; S.hurtT = 40;
   toast(msg, '#ff8a8a');
   if (S.lives <= 0) {
+    S.final = computeScore(false);
     // Derrota: el bombero cae y queda en el suelo antes de la pantalla final
     S.state = 'dying'; S.dieT = 0; S.inv = 0;
     const p = S.p, pl = S.lastSafe;
@@ -538,6 +565,7 @@ function ventRoof() {
   const roof = ventTarget();
   roof.opened = true;
   roof.win.smokeWin = 'venting'; roof.win.ventT = 0;
+  S.vented++;
   const hx = roof.x + roof.w / 2;
   for (let i = 0; i < 24; i++) {
     S.parts.push({ x: hx + rand(-14, 14), y: roof.y + rand(0, 8), vx: rand(-2.5, 2.5), vy: rand(-4, -1), g: 0.3,
@@ -734,6 +762,7 @@ function update() {
       if (best.hp <= 0) {
         for (let k = 0; k < 7; k++) addSmoke(best.x + rand(-12, 12), best.y - rand(4, 20), 'steam', 1.2);
         S.flamesOut++;
+        if (best.inner) S.inOut++; else S.extOut++;
       }
     }
     // Salpicadura donde pega y gotas que se desprenden del chorro
@@ -853,7 +882,7 @@ function update() {
 
   // Víctima
   if (S.victim && Math.abs(S.victim.x - p.x) < 24 && Math.abs(S.victim.y - p.y) < 40) {
-    S.state = 'win'; S.winT = 0;
+    S.state = 'win'; S.winT = 0; S.final = computeScore(true);
     burst(S.victim.x, S.victim.y - 30, 60, ['#ffd166', '#7f7', '#7fd3ff', '#fff'], 5, 0.1, 80, 4);
   }
 
@@ -1666,6 +1695,33 @@ function drawMenu() {
   tapButton('TOCA PARA JUGAR', 520);
 }
 
+// Pantalla final: desglose del puntaje, total sobre 1000 y récord
+function drawScoreScreen(title, color) {
+  const F = S.final || computeScore(false);
+  ctx.fillStyle = '#000d'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(32); ctx.fillStyle = color; ctx.fillText(title, W / 2, 90);
+  const m = Math.floor(F.secs / 60), sec = String(Math.floor(F.secs % 60)).padStart(2, '0');
+  ctx.font = font(14); ctx.fillStyle = '#bbb';
+  ctx.fillText(`Tiempo ${m}:${sec} · Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 125);
+  F.rows.forEach(([label, pts, max], i) => {
+    const y = 165 + i * 34;
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(30, y - 14, W - 60, 28);
+    ctx.fillStyle = '#ffb347'; ctx.fillRect(30, y + 10, (W - 60) * (pts / max), 4);   // barra de avance
+    ctx.font = font(15); ctx.textAlign = 'left'; ctx.fillStyle = '#eee'; ctx.fillText(label, 40, y);
+    ctx.textAlign = 'right'; ctx.fillStyle = pts ? '#ffd166' : '#777'; ctx.fillText(`${pts} / ${max}`, W - 40, y);
+  });
+  ctx.textAlign = 'center';
+  ctx.font = font(18); ctx.fillStyle = '#ddd'; ctx.fillText('PUNTAJE', W / 2, 382);
+  ctx.font = font(52); ctx.fillStyle = '#3a0d00'; ctx.fillText(`${F.total}`, W / 2 + 3, 425);
+  ctx.fillStyle = '#ffd166'; ctx.fillText(`${F.total}`, W / 2, 422);
+  ctx.font = font(14); ctx.fillStyle = '#aaa'; ctx.fillText('de 1000', W / 2, 455);
+  ctx.font = font(15);
+  ctx.fillStyle = F.record ? '#7f7' : '#bbb';
+  ctx.fillText(F.record ? '¡NUEVO RÉCORD!' : `Récord: ${F.best}`, W / 2, 488);
+  tapButton('JUGAR DE NUEVO', 560);
+}
+
 function drawScreen(title, lines, color) {
   ctx.fillStyle = '#000c'; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1688,23 +1744,13 @@ function draw() {
   } else {
     drawHUD();
     if (S.state === 'over') {
-      drawScreen('FIN DEL TURNO', [
-        `Altura: ${Math.round((H - 20 - S.p.y) / 30)} m`,
-        `EPP: ${S.epp}/6 · Llamas apagadas: ${S.flamesOut}`,
-        `Personas rescatadas: ${S.rescued}`,
-        'Equípate bien y vuelve a intentarlo.'
-      ], '#ff6b6b');
+      drawScoreScreen('FIN DEL TURNO', '#ff6b6b');
     } else if (S.state === 'win' && S.winT < 170) {
       ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
       ctx.fillStyle = '#7f7'; ctx.fillText('¡RESCATE COMPLETO!', W / 2, 90);
     } else if (S.state === 'win') {
-      drawScreen('¡VÍCTIMA RESCATADA!', [
-        `Tiempo: ${Math.round(S.t / 60)} s`,
-        `Llamas apagadas: ${S.flamesOut} · Vidas: ${S.lives}`,
-        `Personas rescatadas: ${S.rescued}`,
-        'Excelente trabajo, bombero 👨‍🚒'
-      ], '#7f7');
+      drawScoreScreen('¡VÍCTIMA RESCATADA!', '#7f7');
     }
   }
 }

@@ -29,6 +29,17 @@ Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad po
 7. Emergencia total (todo junto)
 8. Último esfuerzo (todo junto y a oscuras hasta la azotea)
 
+## Puntaje (máximo 1000)
+
+| Categoría | Puntos | Tope |
+|---|---|---|
+| Tiempo (solo si llegas al final) | 250 hasta 3:30 min, baja a 0 a los 10 min | 250 |
+| Personas rescatadas | 25 c/u | 250 |
+| Fuego externo apagado | 10 c/u | 150 |
+| Fuego interno apagado | 15 c/u | 150 |
+| Ventanas ventiladas | 25 c/u | 100 |
+| Bono por llegar a la azotea | — | 100 |
+
 ## Controles (celular)
 
 | Botón | Acción |
