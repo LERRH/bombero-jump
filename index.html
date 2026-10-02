@@ -88,6 +88,7 @@ for (let f = 1; f <= 5; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`halligan_${f}`, `img/bombero/halligan_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`);
+for (let f = 1; f <= 5; f++) loadImg(`palanca_${f}`, `img/bombero/palanca_${f}.png`);
 const AIMS = ['frente', 'arriba45', 'arriba', 'abajo45', 'abajo'];
 for (const a of AIMS) loadImg(`apunta_${a}`, `img/bombero/apunta_${a}.png`);
 // Poses con el pitón: ax = centro de las botas (fracción del ancho, para que el bombero no "salte" al cambiar
@@ -388,9 +389,28 @@ function toggleLamp() {
   S.lamp = !S.lamp;
   updateControls();
 }
+// Apertura de puertas con palanca: 5 cuadros (62 frames); la puerta cede en el último tirón
+const LEV_T = 62, LEV_HIT = 10;
 function useTool(tool) {
   if (S.state !== 'play' || S.halT > 0 || !hasTools()) return;
+  const dx = doorTargetX();
+  if (dx !== null) {
+    S.tool = 'palanca'; S.halT = LEV_T;
+    S.p.dir = dx >= S.p.x ? 1 : -1;   // se gira hacia la puerta
+    return;
+  }
   S.tool = tool; S.halT = HAL_T;
+}
+
+// Si el golpe de la halligan va a abrir una puerta, devuelve su x (si no, null).
+// Respeta el mismo orden que halliganHit: techo, ventana/puerta con fuego, humo, personas, techo cerrado.
+function doorTargetX() {
+  if (ventTarget()) return null;
+  const ip = innerTarget(['closed']);
+  if (ip) { if (ip.kind !== 'door') return null; const r = opening(ip); return r.x + r.w / 2; }
+  if (smokeWinNear() || trappedNear()) return null;
+  const b = nearBar();
+  return b && b.t === 'door' ? stairX(b) + STAIR_GAP / 2 : null;
 }
 const halligan = () => useTool('halligan');
 
@@ -848,9 +868,15 @@ function update() {
   }
 
   if (S.inv > 0) S.inv--;
-  if (S.halT > 0 && --S.halT === HAL_HIT) {
-    burst(S.p.x + S.p.dir * 30, S.p.y - 10, 8, ['#ffe066', '#ccc'], 3, 0.15, 18, 2.5);
-    halliganHit();
+  if (S.halT > 0) {
+    S.halT--;
+    if (S.tool === 'palanca') {
+      if (S.halT % 12 === 6 && S.halT > LEV_HIT) burst(S.p.x + S.p.dir * 34, S.p.y - 30, 3, ['#ccc', '#999'], 1.5, 0.2, 14, 2);   // crujido de la puerta
+      if (S.halT === LEV_HIT) halliganHit();
+    } else if (S.halT === HAL_HIT) {
+      burst(S.p.x + S.p.dir * 30, S.p.y - 10, 8, ['#ffe066', '#ccc'], 3, 0.15, 18, 2.5);
+      halliganHit();
+    }
   }
   if (S.landT > 0) S.landT--;
   if (S.hurtT > 0) S.hurtT--;
@@ -1482,7 +1508,8 @@ function drawPlayer() {
   } else if (S.hurtT > 0) {
     key = `dano_${2 + Math.min(3, Math.floor((40 - S.hurtT) / 10))}`; h = 0;
   } else if (S.halT > 0) {
-    const f = S.halT > 27 ? 1 : S.halT > HAL_HIT ? 2 : 3;
+    const f = S.tool === 'palanca' ? Math.min(5, 1 + Math.floor((LEV_T - S.halT) / 12))
+      : S.halT > 27 ? 1 : S.halT > HAL_HIT ? 2 : 3;
     key = `${S.tool}_${f}`; h = -1;
   } else if (S.hoseT > 0) {
     key = S.hoseT < 6 ? 'piton_1' : S.hoseT < 12 ? 'piton_2' : `apunta_${S.aim || 'frente'}`; h = -1;
