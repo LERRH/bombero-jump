@@ -2,7 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<!-- Instalable en la pantalla de inicio: abre a pantalla completa (Android y iPhone) -->
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fire Jump">
+<link rel="apple-touch-icon" href="img/icono_192.png">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-7L9S6V0X5X"></script>
 <script>
@@ -39,7 +47,7 @@
   #controls:not(.tools) .tool{opacity:.35;filter:grayscale(.7)}
   #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
   #controls.on{display:flex}
-  #mute{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
+  #mute,#full{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
     font-size:18px;line-height:34px;touch-action:none;-webkit-tap-highlight-color:transparent}
   #nameBox{position:fixed;display:none;gap:8px;align-items:center;z-index:5}
   #nameBox.on{display:flex}
@@ -54,6 +62,7 @@
 <div id="wrap">
   <canvas id="c"></canvas>
   <button id="mute" aria-label="Sonido">🔊</button>
+  <button id="full" aria-label="Pantalla completa">⛶</button>
   <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
   <div id="controls">
     <div class="row">
@@ -89,6 +98,8 @@ function resize() {
   // Botón de sonido: esquina superior derecha del juego, bajo la barra del HUD
   const r = cv.getBoundingClientRect(), mb = document.getElementById('mute');
   mb.style.left = (r.right - 42) + 'px'; mb.style.top = (r.top + 40 * s) + 'px';
+  const fb = document.getElementById('full');
+  fb.style.left = (r.right - 42) + 'px'; fb.style.top = (r.top + 40 * s + 40) + 'px';
 }
 addEventListener('resize', resize); resize();
 
@@ -515,6 +526,26 @@ const muteBtn = document.getElementById('mute');
 const showMute = () => muteBtn.textContent = SFX.muted ? '🔇' : '🔊';
 showMute();
 muteBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); SFX.toggleMute(); showMute(); });
+
+// Pantalla completa: en el celular se activa sola al empezar a jugar; el botón ⛶ la quita o la pone.
+// En iPhone el navegador no lo permite: ahí se usa "Añadir a pantalla de inicio" (abre sin barras).
+const FS = {
+  el: document.documentElement,
+  get on() { return !!(document.fullscreenElement || document.webkitFullscreenElement); },
+  can() { return !!(this.el.requestFullscreen || this.el.webkitRequestFullscreen); },
+  enter() {
+    if (this.on || !this.can()) return;
+    const r = this.el.requestFullscreen ? this.el.requestFullscreen({ navigationUI: 'hide' }) : this.el.webkitRequestFullscreen();
+    Promise.resolve(r).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait')).catch(() => {});
+  },
+  exit() { (document.exitFullscreen || document.webkitExitFullscreen).call(document); },
+};
+const fullBtn = document.getElementById('full');
+const installed = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+if (!FS.can() || installed) fullBtn.style.display = 'none';
+fullBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); FS.on ? FS.exit() : FS.enter(); });
+// Al entrar o salir de pantalla completa cambia el tamaño disponible
+for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => setTimeout(resize, 50));
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && document.activeElement !== nameIn) { SFX.toggleMute(); showMute(); } });
 
 // Ranking TOP 10 compartido en Firebase (Firestore, por su API REST). Si no hay conexión,
@@ -631,6 +662,7 @@ function newGame(state = 'play') {
   S.p.ground = S.lastSafe = S.plats[0];
   updateControls();
   if (state === 'play') toast('Salta de ventana en ventana y recoge tu EPP', '#ffd166');
+  if (state === 'play' && matchMedia('(pointer: coarse)').matches) FS.enter();
 }
 
 const DOOR_COLORS = ['#6b3f1f', '#4a5d3a', '#3b4a6b', '#7a2e2e'];
