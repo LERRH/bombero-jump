@@ -31,6 +31,8 @@
   #controls:not(.tools) .tool{opacity:.35;filter:grayscale(.7)}
   #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
   #controls.on{display:flex}
+  #mute{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
+    font-size:18px;line-height:34px;touch-action:none;-webkit-tap-highlight-color:transparent}
   #nameBox{position:fixed;display:none;gap:8px;align-items:center;z-index:5}
   #nameBox.on{display:flex}
   #nameBox input{width:150px;font:24px Bangers,Impact,sans-serif;letter-spacing:2px;text-transform:uppercase;
@@ -43,6 +45,7 @@
 <body>
 <div id="wrap">
   <canvas id="c"></canvas>
+  <button id="mute" aria-label="Sonido">🔊</button>
   <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
   <div id="controls">
     <div class="row">
@@ -75,6 +78,9 @@ function resize() {
   cv.width = Math.round(W * s * d); cv.height = Math.round(H * s * d);
   cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
   ctx.setTransform(s * d, 0, 0, s * d, 0, 0);
+  // Botón de sonido: esquina superior derecha del juego, bajo la barra del HUD
+  const r = cv.getBoundingClientRect(), mb = document.getElementById('mute');
+  mb.style.left = (r.right - 42) + 'px'; mb.style.top = (r.top + 40 * s) + 'px';
 }
 addEventListener('resize', resize); resize();
 
@@ -142,6 +148,366 @@ function drawImgH(im, cx, bottom, h) {
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 let S;
+
+// ---------- Sonido ----------
+// Todo se sintetiza con Web Audio (sin archivos). El navegador solo deja sonar después del primer toque,
+// por eso init() se llama en cada toque/tecla.
+const SFX = (() => {
+  let ac = null, comp, out, sfxBus, musicBus, musicLP, revIn, noiseBuf, jetGain, jetBP;
+  let droneOsc = [], droneGain, fireGain, darkGain, darkMusic = 0;
+  let muted = false, mood = 0, seqT = null, step = 0, nextT = 0, nextHeart = 0, nextBreath = 0;
+  try { muted = localStorage.getItem('firejump_mute') === '1'; } catch (e) {}
+
+  function init() {
+    if (ac) { if (ac.state === 'suspended' && !document.hidden) ac.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ac = new AC();
+    comp = ac.createDynamicsCompressor();
+    out = ac.createGain(); out.gain.value = muted ? 0 : 0.9;
+    comp.connect(out); out.connect(ac.destination);
+    sfxBus = ac.createGain(); sfxBus.connect(comp);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    // Eco del edificio: reverberación con una respuesta de ruido que decae
+    const len = ac.sampleRate * 2.4, ir = ac.createBuffer(2, len, ac.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const ch = ir.getChannelData(c);
+      for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    }
+    const conv = ac.createConvolver(); conv.buffer = ir;
+    revIn = ac.createGain(); revIn.gain.value = 0.5;
+    revIn.connect(conv); conv.connect(comp);
+    musicLP = ac.createBiquadFilter(); musicLP.type = 'lowpass'; musicLP.frequency.value = 12000;
+    musicBus = ac.createGain(); musicBus.gain.value = 0.4;
+    musicBus.connect(musicLP); musicLP.connect(comp);
+    const mSend = ac.createGain(); mSend.gain.value = 0.25; musicLP.connect(mSend); mSend.connect(revIn);
+
+    // Chorro del pitón: ruido continuo cuyo volumen sube mientras se dispara
+    const jet = loopNoise();
+    jetBP = ac.createBiquadFilter(); jetBP.type = 'bandpass'; jetBP.frequency.value = 1500; jetBP.Q.value = 0.7;
+    const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 500;
+    jetGain = ac.createGain(); jetGain.gain.value = 0;
+    jet.connect(jetBP); jetBP.connect(hp); hp.connect(jetGain); jetGain.connect(sfxBus);
+
+    // Drone grave de la música (sigue la nota de cada compás)
+    const dLP = ac.createBiquadFilter(); dLP.type = 'lowpass'; dLP.frequency.value = 260;
+    droneGain = ac.createGain(); droneGain.gain.value = 0;
+    for (const det of [-9, 9]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 36.7; o.detune.value = det;
+      o.connect(dLP); o.start(); droneOsc.push(o);
+    }
+    dLP.connect(droneGain); droneGain.connect(musicBus);
+
+    // Rugido del incendio: ruido grave que sube y baja
+    const fire = loopNoise(), fLP = ac.createBiquadFilter();
+    fLP.type = 'lowpass'; fLP.frequency.value = 320;
+    fireGain = ac.createGain(); fireGain.gain.value = 0;
+    const roar = ac.createGain(); roar.gain.value = 1;
+    lfo(0.13, 0.35, roar.gain);
+    fire.connect(fLP); fLP.connect(roar); roar.connect(fireGain); fireGain.connect(sfxBus);
+
+    // Capa de la oscuridad: drone que "late" (dos notas casi iguales) y un racimo agudo disonante
+    darkGain = ac.createGain(); darkGain.gain.value = 0; darkGain.connect(comp);
+    const lowLP = ac.createBiquadFilter(); lowLP.type = 'lowpass'; lowLP.frequency.value = 150;
+    for (const f of [36.7, 37.5, 55.4]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lowLP); o.start();
+    }
+    const lowG = ac.createGain(); lowG.gain.value = 0.55; lowLP.connect(lowG); lowG.connect(darkGain);
+    [[587.3, 0.07], [622.3, 0.05], [830.6, 0.11], [1244.5, 0.17]].forEach(([f, r]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f; g.gain.value = 0.012;
+      lfo(r, 0.012, g.gain);
+      o.connect(g); g.connect(darkGain); g.connect(revIn); o.start();
+    });
+    if (mood) startSeq();
+  }
+  function loopNoise() {
+    const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(); return s;
+  }
+  function lfo(rate, depth, param) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = rate; g.gain.value = depth; o.connect(g); g.connect(param); o.start();
+  }
+  function send(node, rev) { if (rev) { const g = ac.createGain(); g.gain.value = rev; node.connect(g); g.connect(revIn); } }
+
+  // Tono con barrido de frecuencia y envolvente de volumen
+  function tone(type, f0, f1, dur, vol, at = 0, bus = sfxBus, rev = 0) {
+    const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.01, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus); send(g, rev); o.start(t); o.stop(t + dur + 0.02);
+  }
+  // Ruido filtrado (golpes, vidrio, vapor, explosiones). atk > 0: entra de a poco (respiración, soplidos)
+  function noise(dur, vol, type, f0, f1 = f0, at = 0, q = 1, bus = sfxBus, rev = 0, atk = 0) {
+    const t = ac.currentTime + at, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = noiseBuf; f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    if (atk) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + atk); }
+    else g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(bus); send(g, rev);
+    s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  }
+  const notes = (seq, type, vol, len) => seq.forEach((f, i) => f && tone(type, f, f, len, vol, i * len * 0.9));
+
+  // Astillas: muchos chasquidos cortos y agudos, cada vez más espaciados
+  function splinters(n, at, spread, vol) {
+    for (let i = 0; i < n; i++) {
+      const k = Math.pow(Math.random(), 1.8);
+      noise(rand(0.01, 0.04), vol * rand(0.3, 1), 'bandpass', rand(1500, 5000), rand(900, 3000), at + k * spread, rand(2, 6));
+    }
+  }
+
+  // Grito de una persona atrapada: voz (diente de sierra) por filtros de vocal "Aaah".
+  // Detrás del vidrio suena apagado y con eco de la habitación.
+  function scream(who, behindGlass, at) {
+    const t = ac.currentTime + at, man = who === 'hombre';
+    const dur = rand(0.8, 1.4), f0 = man ? rand(210, 260) : rand(480, 580), peak = f0 * rand(1.35, 1.55);
+    const o = ac.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(peak, t + 0.12);
+    o.frequency.setValueAtTime(peak, t + dur * 0.55);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.75, t + dur);
+    // Vibrato nervioso
+    const vib = ac.createOscillator(), vg = ac.createGain();
+    vib.frequency.value = rand(5.5, 7.5); vg.gain.value = peak * 0.035;
+    vib.connect(vg); vg.connect(o.frequency);
+    // Aire de la garganta (ronquera)
+    const br = ac.createBufferSource(); br.buffer = noiseBuf;
+    const brG = ac.createGain(); brG.gain.value = 0.25; br.connect(brG);
+    const voice = ac.createGain();
+    o.connect(voice); brG.connect(voice);
+    // Forma de la vocal "A"
+    const env = ac.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(1, t + 0.06);
+    env.gain.setValueAtTime(0.85, t + dur * 0.6);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const fm = man ? [[730, 7, 1], [1150, 9, 0.6], [2500, 11, 0.3]] : [[950, 7, 1], [1450, 9, 0.6], [2950, 12, 0.35]];
+    for (const [f, q, g] of fm) {
+      const bp = ac.createBiquadFilter(), bg = ac.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q; bg.gain.value = g * 2.2;
+      voice.connect(bp); bp.connect(bg); bg.connect(env);
+    }
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = behindGlass ? 1000 : 4500;
+    const vol = ac.createGain(); vol.gain.value = behindGlass ? 0.16 : 0.35;
+    env.connect(lp); lp.connect(vol); vol.connect(sfxBus); send(vol, behindGlass ? 0.2 : 0.25);
+    for (const n of [o, vib, br]) { n.start(t, n === br ? Math.random() * 0.5 : 0); n.stop(t + dur + 0.05); }
+  }
+
+  const FX = {
+    jump() { tone('square', 260, 640, 0.13, 0.07); tone('triangle', 130, 320, 0.13, 0.1); },
+    land() { noise(0.07, 0.12, 'lowpass', 500); },
+    pickup() { notes([660, 880, 1320], 'square', 0.07, 0.08); },
+    tools() { notes([294, 440, 587], 'sawtooth', 0.08, 0.12); tone('sine', 110, 40, 0.8, 0.5, 0.3, sfxBus, 0.4); },
+    hurt() { tone('sawtooth', 420, 90, 0.35, 0.16); noise(0.2, 0.25, 'bandpass', 900, 300); },
+    death() {
+      tone('sine', 90, 30, 1.2, 0.6, 0, sfxBus, 0.4);
+      [294, 277, 262, 247].forEach((f, i) => tone('sawtooth', f, f, 0.4, 0.07, 0.3 + i * 0.38, sfxBus, 0.5));
+      tone('sawtooth', 147, 73, 2, 0.1, 1.8, sfxBus, 0.6);
+    },
+    swing() { noise(0.16, 0.12, 'bandpass', 500, 2000, 0, 2); },
+    clank() { [1800, 2700].forEach(f => tone('sine', f, f, 0.25, 0.08)); noise(0.04, 0.15, 'highpass', 3000); },
+    // Madera que cede bajo la palanca: chasquidos de fricción cada vez más seguidos y un quejido grave
+    creak() {
+      let a = 0;
+      for (let i = 0; i < 14; i++) { noise(0.02, rand(0.15, 0.3), 'bandpass', rand(450, 900), rand(400, 700), a, 8); a += 0.035 - i * 0.0018; }
+      tone('sawtooth', rand(55, 70), rand(80, 100), 0.3, 0.05);
+      noise(0.08, 0.25, 'bandpass', 1800, 1200, a, 3);
+    },
+    // Puerta de madera que se parte: crujido, golpe seco, astillas y la hoja que pega contra la pared
+    doorbreak() {
+      noise(0.09, 0.9, 'bandpass', 2200, 900, 0, 0.8);
+      tone('sine', 120, 38, 0.4, 0.9);
+      noise(0.35, 0.6, 'lowpass', 700, 120);
+      tone('triangle', 190, 150, 0.22, 0.25); tone('triangle', 270, 240, 0.18, 0.15);
+      splinters(28, 0.02, 0.6, 0.5);
+      tone('sine', 85, 35, 0.35, 0.55, 0.32, sfxBus, 0.4);
+      noise(0.25, 0.4, 'lowpass', 500, 100, 0.32, 1, sfxBus, 0.4);
+      for (let i = 0; i < 6; i++) noise(0.05, 0.15, 'bandpass', rand(300, 800), rand(250, 500), rand(0.45, 0.95), 3);
+    },
+    glass() {   // vidrio que estalla en pedazos
+      noise(0.35, 0.45, 'highpass', 3500, 2000);
+      tone('sine', 120, 50, 0.12, 0.3);
+      for (let i = 0; i < 10; i++) { const f = rand(2500, 6500); tone('sine', f, f, rand(0.05, 0.15), 0.05, rand(0.02, 0.4)); }
+    },
+    concrete() { noise(0.45, 0.5, 'lowpass', 1400, 200); tone('sine', 90, 35, 0.35, 0.45); for (let i = 0; i < 6; i++) noise(0.05, 0.15, 'bandpass', rand(400, 1200), rand(300, 800), rand(0.05, 0.4), 2); },
+    boom() {   // backdraft
+      noise(1.4, 1, 'lowpass', 1200, 60, 0, 1, sfxBus, 0.5);
+      tone('sine', 80, 25, 1, 0.8);
+      for (let i = 0; i < 12; i++) noise(0.05, 0.2, 'bandpass', rand(1500, 4000), rand(1500, 4000), rand(0.2, 1.3), 4);
+    },
+    steam() { noise(0.9, 0.3, 'highpass', 5000, 1500); noise(0.4, 0.15, 'bandpass', 2500, 800, 0.05, 2); },
+    rescue() { notes([587, 740, 880, 1175], 'triangle', 0.12, 0.09); },
+    crack() { for (let i = 0; i < 4; i++) noise(0.03, 0.25, 'bandpass', rand(1800, 3200), rand(1500, 2500), i * rand(0.04, 0.09), 4); },
+    crumble() { noise(0.6, 0.4, 'lowpass', 900, 150); for (let i = 0; i < 8; i++) noise(0.04, 0.15, 'bandpass', rand(600, 1600), rand(400, 900), rand(0, 0.5), 3); },
+    // Cambio de nivel: impacto grave con eco y una alarma lejana
+    alert() {
+      tone('sine', 70, 32, 1.4, 0.7, 0, sfxBus, 0.5); noise(0.6, 0.3, 'lowpass', 400, 80, 0, 1, sfxBus, 0.5);
+      [988, 740, 988, 740].forEach((f, i) => tone('triangle', f, f, 0.22, 0.05, 0.2 + i * 0.24, sfxBus, 0.5));
+    },
+    click() { tone('square', 1400, 1400, 0.025, 0.06); },
+    win() {
+      tone('sine', 73, 40, 1.2, 0.6, 0, sfxBus, 0.4);
+      [[147, 220, 294], [175, 262, 349], [196, 294, 392], [220, 330, 440, 587]].forEach((ch, i) =>
+        ch.forEach(f => tone('sawtooth', f, f, i === 3 ? 2.2 : 0.42, 0.05, i * 0.42, sfxBus, 0.5)));
+      notes([587, 0, 698, 0, 784, 0, 880], 'triangle', 0.1, 0.21);
+    },
+  };
+
+  // Música: suspenso de película en Re menor frigio. Cuerdas graves en staccato, tambores tipo taiko,
+  // drone, impactos y el rugido del fuego. mood 1 = equipándose (tenso), 2 = emergencia (acción).
+  const ROOT = [73.42, 77.78, 73.42, 65.41];   // Re – Mib – Re – Do
+  const OST = [0, 0, 12, 0, 0, 12, 0, 0, 0, 0, 12, 0, 1, 0, 12, 0];
+  const DRUM1 = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
+  const DRUM2 = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1];
+  const st = (f, n) => f * Math.pow(2, n / 12);
+  const spb = () => 60 / (mood === 2 ? 128 : 96) / 4;   // duración de una semicorchea
+
+  function strings(f, at, dur, vol) {
+    const t = ac.currentTime + at, lp = ac.createBiquadFilter(), g = ac.createGain();
+    lp.type = 'lowpass'; lp.Q.value = 3;
+    lp.frequency.setValueAtTime(mood === 2 ? 1800 : 1100, t); lp.frequency.exponentialRampToValueAtTime(250, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    for (const det of [-8, 8]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.02);
+    }
+    lp.connect(g); g.connect(musicBus);
+  }
+  function taiko(at, vol) {
+    tone('sine', 110, 42, 0.45, vol, at, musicBus);
+    noise(0.12, vol * 0.5, 'lowpass', 900, 200, at, 1, musicBus);
+  }
+  // "BRAAM": acorde grave de metales que se abre y se cierra
+  function braam(f, at) {
+    const t = ac.currentTime + at, lp = ac.createBiquadFilter(), g = ac.createGain();
+    lp.type = 'lowpass'; lp.Q.value = 4;
+    lp.frequency.setValueAtTime(200, t); lp.frequency.exponentialRampToValueAtTime(1400, t + 0.25);
+    lp.frequency.exponentialRampToValueAtTime(150, t + 1.8);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);
+    for (const [m, det] of [[1, -6], [1, 6], [1.5, 0], [2, -4], [2, 4]]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f * m; o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + 2);
+    }
+    lp.connect(g); g.connect(musicBus);
+  }
+
+  function playStep(t) {
+    const at = Math.max(0, t - ac.currentTime), d = spb();
+    const s = step % 16, bar = Math.floor(step / 16) % 4, f = ROOT[bar];
+    if (s === 0) for (const o of droneOsc) o.frequency.setTargetAtTime(f / 2, t, 0.3);
+    // Cuerdas: en tensión solo corcheas y más suaves; en la emergencia, todas las semicorcheas
+    if (mood === 2 || s % 2 === 0) strings(st(f, OST[s]), at, d * (mood === 2 ? 0.9 : 1.6), (s % 4 === 0 ? 0.16 : 0.09) * (mood === 2 ? 1 : 0.8));
+    if ((mood === 2 ? DRUM2 : DRUM1)[s]) taiko(at, s === 0 ? 0.7 : 0.45);
+    if (mood === 2 && (s === 4 || s === 12)) noise(0.15, 0.25, 'bandpass', 1600, 900, at, 1.2, musicBus);   // golpe seco tipo caja
+    if (mood === 2 && s % 2 === 1) noise(0.025, 0.05, 'highpass', 6000, 6000, at, 1, musicBus);
+    if (mood === 1 && s % 4 === 2) noise(0.02, 0.06, 'bandpass', 3000, 3000, at, 8, musicBus);   // tic-tac del reloj
+    if (s === 0 && (mood === 2 ? bar % 2 === 0 : bar === 0)) braam(f, at);
+    // Chasquidos sueltos del fuego
+    if (Math.random() < 0.18) noise(rand(0.01, 0.03), rand(0.05, 0.18), 'bandpass', rand(1500, 4000), rand(1000, 3000), at + rand(0, d), 3);
+
+    // En la oscuridad: latidos y la respiración del bombero dentro del EPR
+    if (darkMusic > 0.2) {
+      if (t >= nextHeart) {
+        const v = 0.7 * darkMusic;
+        tone('sine', 65, 38, 0.18, v, at); tone('sine', 60, 36, 0.16, v * 0.7, at + 0.26);
+        nextHeart = t + 0.95;
+      }
+      if (t >= nextBreath) {
+        const v = 0.22 * darkMusic;
+        noise(1.1, v, 'bandpass', 1100, 2300, at, 2.5, sfxBus, 0, 0.5);       // inhala por la válvula
+        noise(0.12, v * 1.4, 'highpass', 3500, 3500, at + 1.15, 1);              // clic de la válvula
+        noise(1.3, v * 1.2, 'bandpass', 900, 500, at + 1.3, 1.5, sfxBus, 0, 0.15);   // exhala
+        nextBreath = t + 3.6;
+      }
+      // Quejidos lejanos de la estructura
+      if (Math.random() < 0.012) {
+        const g0 = rand(45, 90);
+        tone('sawtooth', g0, g0 * rand(0.6, 1.4), rand(1.2, 2.2), 0.06 * darkMusic, at, sfxBus, 0.8);
+        noise(1.5, 0.08 * darkMusic, 'bandpass', rand(200, 500), rand(300, 900), at, 6, sfxBus, 0.8, 0.6);
+      }
+    } else { nextHeart = nextBreath = t; }
+  }
+  function startSeq() {
+    if (!ac) return;
+    const now = ac.currentTime;
+    droneGain.gain.setTargetAtTime(mood === 2 ? 0.22 : 0.16, now, 0.5);
+    fireGain.gain.setTargetAtTime(mood === 2 ? 0.13 : 0.08, now, 0.8);
+    if (seqT) return;
+    step = 0; nextT = now + 0.1;
+    seqT = setInterval(() => {
+      while (nextT < ac.currentTime + 0.15) { playStep(nextT); nextT += spb(); step++; }
+    }, 30);
+  }
+  function stopSeq() {
+    clearInterval(seqT); seqT = null;
+    if (!ac) return;
+    const now = ac.currentTime;
+    for (const g of [droneGain, fireGain, darkGain]) g.gain.setTargetAtTime(0, now, 0.4);
+    musicLP.frequency.setTargetAtTime(12000, now, 0.3); musicBus.gain.setTargetAtTime(0.4, now, 0.3);
+    darkMusic = 0;
+  }
+
+  addEventListener('visibilitychange', () => {
+    if (!ac) return;
+    if (document.hidden) ac.suspend(); else ac.resume();
+  });
+
+  return {
+    init,
+    play(name) { if (ac && !muted) FX[name](); },
+    // Grito de la persona atrapada ('hombre' o 'mujer'); a veces dos gritos seguidos
+    help(who, behindGlass = true) {
+      if (!ac || muted) return;
+      scream(who, behindGlass, 0);
+      if (Math.random() < 0.5) scream(who, behindGlass, rand(1.1, 1.5));
+    },
+    music(m) {
+      if (m === mood) return;
+      mood = m;
+      if (!ac) return;
+      if (!m) stopSeq(); else startSeq();
+    },
+    // Volumen del chorro (0..1); suena más agudo cuando pega en el fuego
+    jet(v, hit) {
+      if (!ac) return;
+      jetGain.gain.setTargetAtTime(v * 0.22, ac.currentTime, 0.04);
+      jetBP.frequency.setTargetAtTime(hit ? 2400 : 1500, ac.currentTime, 0.1);
+    },
+    // Oscuridad (0..1): la música se apaga como tras el humo y entra la capa tenebrosa
+    dark(v) {
+      if (!ac || !mood || Math.abs(v - darkMusic) < 0.02) return;
+      darkMusic = v;
+      const now = ac.currentTime;
+      musicLP.frequency.setTargetAtTime(12000 * Math.pow(450 / 12000, v), now, 0.3);
+      musicBus.gain.setTargetAtTime(0.4 * (1 - 0.6 * v), now, 0.3);
+      darkGain.gain.setTargetAtTime(0.9 * v, now, 0.5);
+    },
+    toggleMute() {
+      muted = !muted;
+      try { localStorage.setItem('firejump_mute', muted ? '1' : '0'); } catch (e) {}
+      if (ac) out.gain.setTargetAtTime(muted ? 0 : 0.9, ac.currentTime, 0.05);
+      return muted;
+    },
+    get muted() { return muted; },
+  };
+})();
+addEventListener('pointerdown', SFX.init, true);
+addEventListener('keydown', SFX.init, true);
+const muteBtn = document.getElementById('mute');
+const showMute = () => muteBtn.textContent = SFX.muted ? '🔇' : '🔊';
+showMute();
+muteBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); SFX.toggleMute(); showMute(); });
+addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && document.activeElement !== nameIn) { SFX.toggleMute(); showMute(); } });
 
 // Ranking TOP 10 compartido en Firebase (Firestore, por su API REST). Si no hay conexión,
 // se usa una copia guardada en el celular y el puntaje se sube cuando vuelva internet.
@@ -249,8 +615,9 @@ function newGame(state = 'play') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
+  SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
   gen();
   S.p.ground = S.lastSafe = S.plats[0];
@@ -464,6 +831,7 @@ function startPhase2() {
   S.events.push({ t: 'goal', y });
   S.roofY = y;
   updateControls();
+  SFX.play('tools'); SFX.music(2);
   toast('¡EPP completo! Recibes pitón, halligan y linterna. ¡A la emergencia!', '#7f7');
 }
 
@@ -480,7 +848,9 @@ function hurt(msg, force) {
   if (S.inv > 0 && !force) return;
   S.lives--; S.inv = 100; S.shake = 12; S.hurtT = 40;
   toast(msg, '#ff8a8a');
+  if (S.lives > 0) SFX.play('hurt');
   if (S.lives <= 0) {
+    SFX.play('death'); SFX.music(0); SFX.jet(0);
     S.final = computeScore(false);
     // Derrota: el bombero cae y queda en el suelo antes de la pantalla final
     S.state = 'dying'; S.dieT = 0; S.inv = 0;
@@ -522,6 +892,7 @@ function toggleLamp() {
   if (S.state !== 'play' || !hasTools()) return;
   if (darkLevel() <= 0) { toast('La linterna se usa en la zona oscura', '#ccc'); return; }
   S.lamp = !S.lamp;
+  SFX.play('click');
   updateControls();
 }
 // Apertura de puertas con palanca: 5 cuadros (62 frames); la puerta cede en el último tirón
@@ -535,6 +906,7 @@ function useTool(tool) {
     return;
   }
   S.tool = tool; S.halT = HAL_T;
+  SFX.play('swing');
 }
 
 // Si el golpe de la halligan va a abrir una puerta, devuelve su x (si no, null).
@@ -575,6 +947,7 @@ function innerTarget(states) {
 function breakOpen(pl) {
   const r = opening(pl), door = pl.kind === 'door';
   pl.inner = 'open';
+  SFX.play(door ? 'doorbreak' : 'glass');
   for (let i = 0; i < 26; i++) {
     S.parts.push({ x: rand(r.x, r.x + r.w), y: rand(r.y, r.y + r.h), vx: rand(-2.5, 2.5), vy: rand(-3, 0.5), g: 0.3,
       life: 45, max: 45, c: door ? ['#2a2d33', '#5a3a22'][i % 2] : ['#bcd3ea', '#e8f2fb'][i % 2], s: rand(2, 4) });
@@ -599,6 +972,7 @@ function trappedNear() {
 function freePerson(pl) {
   const r = opening(pl);
   pl.trapped = 'freed'; pl.glassBroken = true;
+  SFX.play('glass'); SFX.play('rescue');
   for (let i = 0; i < 26; i++) {
     S.parts.push({ x: rand(r.x, r.x + r.w), y: rand(r.y, r.y + r.h), vx: rand(-2.5, 2.5), vy: rand(-3, 0.5), g: 0.3,
       life: 45, max: 45, c: ['#bcd3ea', '#e8f2fb'][i % 2], s: rand(2, 4) });
@@ -655,6 +1029,7 @@ function ventTarget() {
 function backdraftWindow(pl) {
   const r = opening(pl), cx = r.x + r.w / 2, cy = r.y + r.h / 2;
   pl.smokeWin = 'blown';
+  SFX.play('boom');
   breakOpen(pl);   // queda ardiendo: luego hay que apagarla con el pitón
   for (let i = 0; i < 110; i++) {
     const a = rand(0, Math.PI * 2), v = rand(1, 8);
@@ -672,6 +1047,7 @@ function backdraftWindow(pl) {
 function ventRoof() {
   const roof = ventTarget();
   roof.opened = true;
+  SFX.play('concrete');
   roof.win.smokeWin = 'venting'; roof.win.ventT = 0;
   S.vented++;
   const hx = roof.x + roof.w / 2;
@@ -691,7 +1067,7 @@ function halliganHit() {
   const tw = trappedNear();
   if (tw) { freePerson(tw); return; }
   const b = nearBar();
-  if (!b) { toast('Aquí no hay nada que forzar', '#ccc'); return; }
+  if (!b) { SFX.play('clank'); toast('Aquí no hay nada que forzar', '#ccc'); return; }
   if (b.t === 'smoke' && !b.vented) {
     if (S.inv > 0) return;
     for (let i = 0; i < 90; i++) {
@@ -699,6 +1075,7 @@ function halliganHit() {
         max: 60, c: ['#ff4d00', '#ffb000', '#ffe066'][i % 3], s: rand(6, 14) });
     }
     S.shake = 25;
+    SFX.play('boom');
     hurt('¡BACKDRAFT!', true);
     S.p.vy = 7;
     return;
@@ -711,6 +1088,7 @@ function halliganHit() {
         life: 45, max: 45, c: ['#3a3f4a', '#8a6a3a', '#bbb'][i % 3], s: rand(2, 5) });
     }
     S.shake = 6;
+    SFX.play('doorbreak');
     toast('¡Entrada forzada! Sube por la escalera', '#8f8');
     return;
   }
@@ -718,6 +1096,7 @@ function halliganHit() {
     S.parts.push({ x: rand(0, W), y: b.y + 7, vx: rand(-2, 2), vy: rand(-3, 1), g: 0.3, life: 50, max: 50,
       c: '#555', s: rand(4, 9) });
   }
+  SFX.play('doorbreak');
   toast('Puerta abierta sin backdraft. ¡Bien hecho!', '#8f8');
 }
 
@@ -783,6 +1162,7 @@ function update() {
   if (p.buf > 0) p.buf--;
   if (p.buf > 0 && p.coyote > 0) {
     p.vy = -11.5; p.ground = null; p.coyote = 0; p.buf = 0;
+    SFX.play('jump');
   }
   // Salto corto si suelta el botón
   if (!keys.jump && p.vy < -5) p.vy = -5;
@@ -797,8 +1177,9 @@ function update() {
     for (const pl of S.plats) {
       if (pl.broken || (pl.kind === 'stairstep' && !pl.bar.open)) continue;
       if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) {
+        if (p.vy > 3) SFX.play('land');
         p.y = pl.y; p.vy = 0; p.ground = pl; S.landT = 10;
-        if (pl.fragile) { if (!pl.crackT) pl.crackT = 1; } else S.lastSafe = pl;
+        if (pl.fragile) { if (!pl.crackT) { pl.crackT = 1; SFX.play('crack'); } } else S.lastSafe = pl;
         burst(p.x, p.y, 4, ['#ccc'], 1.5, 0, 15, 3);
         break;
       }
@@ -831,6 +1212,7 @@ function update() {
     if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
       it.got = true;
       S.epp++;
+      if (S.epp < EPP.length) SFX.play('pickup');
       burst(it.x, it.y, 20, ['#ffd166', '#fff'], 3, 0, 30, 3);
       if (S.epp < EPP.length) {
         toast(`¡Equipado! (${S.epp}/6)`, '#ffd166');
@@ -862,9 +1244,11 @@ function update() {
     // El chorro sale del pitón y avanza hasta llegar al objetivo
     S.jetLen = Math.min(1, S.jetLen + 0.12);
     S.jet = { sx, sy, tx, ty, hit: !!best };
+    SFX.jet(S.jetLen, best && S.jetLen >= 1);
     if (best && S.jetLen >= 1) {
       best.hp -= 1.2;
       if (best.hp <= 0) {
+        SFX.play('steam');
         for (let k = 0; k < 7; k++) addSmoke(best.x + rand(-12, 12), best.y - rand(4, 20), 'steam', 1.2);
         S.flamesOut++;
         if (best.inner) S.inOut++; else S.extOut++;
@@ -881,7 +1265,7 @@ function update() {
     const q = jetPoint(S.jet, rand(0.25, S.jetLen));
     S.parts.push({ x: q.x, y: q.y, vx: rand(-0.4, 0.4) + p.dir * 0.5, vy: rand(0, 0.8), g: 0.2,
       life: 22, max: 22, c: '#a8dcff', s: rand(0.9, 1.6) });
-  } else { S.jetLen = 0; S.jet = null; }
+  } else { S.jetLen = 0; S.jet = null; SFX.jet(0); }
   // Las llamas crecen con el tiempo; las apagadas quedan como brasas un momento y desaparecen
   for (const f of S.flames) {
     f.age++;
@@ -939,6 +1323,7 @@ function update() {
     if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
     if (pl.crackT >= 24) {
       pl.broken = true;
+      SFX.play('crumble');
       for (let k = 0; k < 22; k++) {
         S.parts.push({ x: pl.x + rand(0, pl.w), y: pl.y + rand(0, 10), vx: rand(-1.5, 1.5), vy: rand(-1.5, 1), g: 0.35,
           life: 50, max: 50, c: ['#c9c9c9', '#8d8d8d', '#a9a9a9'][k % 3], s: rand(1.8, 4) });
@@ -974,7 +1359,8 @@ function update() {
   }
 
   // Mostrar u ocultar el botón de linterna al entrar o salir de la oscuridad
-  const isDark = darkLevel() > 0;
+  const dl = darkLevel(), isDark = dl > 0;
+  SFX.dark(dl);
   if (isDark !== S.wasDark) {
     S.wasDark = isDark;
     if (!isDark) S.lamp = false; else toast('Humo denso: no se ve nada. Enciende tu linterna 🔦', '#ffd166');
@@ -982,12 +1368,22 @@ function update() {
   }
   // Cartel al entrar a cada nivel
   const lv = levelAt(p.y);
-  if (lv && lv.i !== S.levelIdx) { S.levelIdx = lv.i; S.banner = { lv, t: 200 }; }
+  if (lv && lv.i !== S.levelIdx) { S.levelIdx = lv.i; S.banner = { lv, t: 200 }; SFX.play('alert'); }
   if (S.banner && --S.banner.t <= 0) S.banner = null;
+
+  // Personas atrapadas a la vista gritan cada 3–5 s
+  if (--S.helpT <= 0) {
+    const seen = y => y > S.camY + 60 && y < S.camY + H - 40;
+    const tp = S.plats.find(pl => pl.trapped === 'inside' && seen(pl.y));
+    if (tp) { SFX.help(tp.who); S.helpT = rand(200, 320); }
+    else if (S.victim && seen(S.victim.y)) { SFX.help(S.victim.who, false); S.helpT = rand(200, 320); }
+    else S.helpT = 30;
+  }
 
   // Víctima
   if (S.victim && Math.abs(S.victim.x - p.x) < 24 && Math.abs(S.victim.y - p.y) < 40) {
     S.state = 'win'; S.winT = 0; S.final = computeScore(true);
+    SFX.music(0); SFX.jet(0); SFX.play('win');
     burst(S.victim.x, S.victim.y - 30, 60, ['#ffd166', '#7f7', '#7fd3ff', '#fff'], 5, 0.1, 80, 4);
   }
 
@@ -1005,7 +1401,7 @@ function update() {
   if (S.halT > 0) {
     S.halT--;
     if (S.tool === 'palanca') {
-      if (S.halT % 12 === 6 && S.halT > LEV_HIT) burst(S.p.x + S.p.dir * 34, S.p.y - 30, 3, ['#ccc', '#999'], 1.5, 0.2, 14, 2);   // crujido de la puerta
+      if (S.halT % 12 === 6 && S.halT > LEV_HIT) { burst(S.p.x + S.p.dir * 34, S.p.y - 30, 3, ['#ccc', '#999'], 1.5, 0.2, 14, 2); SFX.play('creak'); }   // crujido de la puerta
       if (S.halT === LEV_HIT) halliganHit();
     } else if (S.halT === HAL_HIT) {
       burst(S.p.x + S.p.dir * 30, S.p.y - 10, 8, ['#ffe066', '#ccc'], 3, 0.15, 18, 2.5);
