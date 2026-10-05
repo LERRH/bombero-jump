@@ -749,7 +749,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, gasT: 0, gasFixed: 0, gasWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
   SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
@@ -1059,9 +1059,9 @@ const TREE_LEVELS = [
 // Módulo 6 (Forestal): incendio forestal; se trepa por salientes de roca entre dos paredes del cerro.
 // Los matorrales en llamas y las rocas/troncos que caen se agregan en el siguiente paso.
 const FOREST_LEVELS = [
-  { name: 'El cerro', hint: 'Trepa por las rocas', len: 1000, gap: [65, 90], w: [80, 100], dx: [30, 150], p: {} },
-  { name: 'La ladera', hint: 'El fuego avanza por la ladera', len: 1100, gap: [88, 112], w: [70, 88], dx: [60, 170], p: {} },
-  { name: 'La cumbre', hint: '¡Llega a la cima!', len: 1200, gap: [100, 125], w: [62, 80], dx: [80, 185], p: {} },
+  { name: 'El cerro', hint: '¡Cuidado con las rocas que caen! Mira el aviso rojo', len: 1000, gap: [65, 90], w: [80, 100], dx: [30, 150], p: {}, rocks: [200, 260] },
+  { name: 'La ladera', hint: 'Caen más rocas: muévete apenas veas el aviso', len: 1100, gap: [88, 112], w: [70, 88], dx: [60, 170], p: {}, rocks: [140, 190] },
+  { name: 'La cumbre', hint: '¡Lluvia de rocas! Llega a la cima', len: 1200, gap: [100, 125], w: [62, 80], dx: [80, 185], p: {}, rocks: [95, 140] },
 ];
 // Módulo 4: balones de gas. gas = probabilidad de balón por alféizar
 const GAS_LEVELS = [
@@ -1089,8 +1089,8 @@ const MODS = {
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
   gatos: { title: 'MÓDULO 5 · GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS,
     start: 'Rescate nocturno: sube por las ramas del árbol', rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
-  forestal: { title: 'MÓDULO 6 · FORESTAL', theme: 'forest', notools: true, levels: FOREST_LEVELS,
-    start: 'Incendio forestal: trepa por las rocas del cerro', rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
+  forestal: { title: 'MÓDULO 6 · FORESTAL', theme: 'forest', notools: true, livesStars: true, levels: FOREST_LEVELS,
+    start: 'Incendio forestal: trepa y esquiva las rocas que caen', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
   gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge el Gas Stop', rule: TASK_RULE },
   interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
@@ -1118,7 +1118,7 @@ function trainResult(won) {
   const M = MODS[S.mod], done = S.extOut + S.inOut + S.vented + S.rescued + S.gasFixed;
   if (won && S.mod === 'medico') stars = S.cured >= S.injTotal ? 3 : S.cured * 2 >= S.injTotal ? 2 : 1;
   else if (won && M.tasks) stars = done >= S.taskTotal ? 3 : done * 2 >= S.taskTotal ? 2 : 1;
-  else if (won && M.race) stars = 3 - Math.min(2, 3 - S.lives);
+  else if (won && (M.race || M.livesStars)) stars = 3 - Math.min(2, 3 - S.lives);
   else if (won) stars = 3 - Math.min(2, S.falls);
   const best = Progress.get()[S.mod] || 0, record = Progress.set(S.mod, stars);
   return { stars, secs: S.t / 60, falls: S.falls, cured: S.cured, injTotal: S.injTotal, done: Math.min(done, S.taskTotal), taskTotal: S.taskTotal,
@@ -1671,6 +1671,7 @@ function update() {
   S.items = S.items.filter(i => !i.got);
   if (S.mod === 'medico') updateCure();
   if (S.mod === 'gas') updateGas();
+  if (theme() === 'forest') updateRocks();
 
   // Manguera
   if (S.hoseT >= 12) {
@@ -2280,6 +2281,67 @@ function drawForestBg() {
   ctx.globalAlpha = 1;
 }
 
+// Rocas que caen: primero un aviso arriba (~0,9 s) y luego la roca cae girando; si golpea, quita una vida
+const ROCK_WARN = 55;
+function updateRocks() {
+  const p = S.p, L = levelAt(p.y) || S.levels[0];
+  if (!L || !L.rocks || S.goalPlaced && p.y < S.roofY + 10) return;
+  if (--S.rockT <= 0) {
+    S.rockT = Math.round(rand(L.rocks[0], L.rocks[1]));
+    const x = Math.random() < 0.5 ? clamp(p.x + rand(-40, 40), 24, W - 24) : rand(24, W - 24);
+    S.rockWarns.push({ x, t: ROCK_WARN, r: rand(12, 18) });
+  }
+  for (const w of S.rockWarns) {
+    w.t--;
+    if (w.t % 8 === 0) S.parts.push({ x: w.x + rand(-8, 8), y: S.camY + 40, vx: rand(-0.3, 0.3), vy: rand(2, 4), g: 0.25, life: 30, max: 30, c: '#5a4c46', s: rand(1.5, 2.8) });
+    if (w.t <= 0) { S.rocks.push({ x: w.x, y: S.camY - 30, vy: 2, r: w.r, rot: 0, vr: rand(-0.12, 0.12), seed: Math.floor(rand(0, 90)) }); SFX.play('crumble'); }
+  }
+  S.rockWarns = S.rockWarns.filter(w => w.t > 0);
+  for (const r of S.rocks) {
+    r.vy = Math.min(10, r.vy + 0.28); r.y += r.vy; r.rot += r.vr;
+    // choque con el bombero
+    const dx = clamp(r.x, p.x - 10, p.x + 10) - r.x, dy = clamp(r.y, p.y - PH, p.y) - r.y;
+    if (!r.hit && S.state === 'play' && dx * dx + dy * dy < r.r * r.r) {
+      r.hit = true; shatterRock(r);
+      if (S.inv <= 0) { S.p.vx = (p.x < r.x ? -1 : 1) * 4; hurt('¡Te golpeó una roca! Atento al aviso rojo'); }
+    }
+  }
+  S.rocks = S.rocks.filter(r => !r.hit && r.y < S.camY + H + 60);
+}
+
+function shatterRock(r) {
+  for (let k = 0; k < 18; k++) {
+    const a = rand(0, Math.PI * 2), v = rand(1, 4);
+    S.parts.push({ x: r.x, y: r.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1.5, g: 0.3, life: 40, max: 40, c: ['#4a4040', '#2e2725', '#6a5a52'][k % 3], s: rand(2, 4.5) });
+  }
+  SFX.play('crumble'); S.shake = Math.max(S.shake, 8);
+}
+
+// Roca angulosa con líneas de velocidad
+function drawRocks() {
+  for (const w of S.rockWarns) {   // aviso: "!" rojo parpadeante donde va a caer
+    if (Math.floor(w.t / 6) % 2) continue;
+    const y = S.camY + 54;
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(w.x, y - 15); ctx.lineTo(w.x + 15, y + 11); ctx.lineTo(w.x - 15, y + 11); ctx.fill();
+    ctx.fillStyle = '#ff3b2f'; ctx.beginPath(); ctx.moveTo(w.x, y - 11); ctx.lineTo(w.x + 11, y + 8); ctx.lineTo(w.x - 11, y + 8); ctx.fill();
+    ctx.font = font(15); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText('!', w.x, y + 1);
+  }
+  for (const r of S.rocks) {
+    ctx.strokeStyle = 'rgba(255,240,220,0.55)'; ctx.lineWidth = 1.5;   // líneas de movimiento
+    ctx.beginPath();
+    for (const o of [-0.5, 0, 0.5]) { ctx.moveTo(r.x + o * r.r, r.y - r.r - 6); ctx.lineTo(r.x + o * r.r, r.y - r.r - 6 - r.vy * 3.5); }
+    ctx.stroke();
+    ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.rot);
+    const poly = k => { ctx.beginPath(); for (let q = 0; q < 7; q++) { const a = q / 7 * Math.PI * 2, rr = r.r * k * (0.78 + hash(r.seed, q) * 0.35); ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); };
+    ctx.fillStyle = '#fff3e0'; poly(1.3); ctx.fill();   // contorno claro: se distingue de las rocas del acantilado
+    ctx.fillStyle = '#0e0a0a'; poly(1.15); ctx.fill();
+    ctx.fillStyle = '#7a6e6a'; poly(1); ctx.fill();
+    ctx.fillStyle = '#a3958e'; ctx.save(); ctx.translate(-r.r * 0.2, -r.r * 0.25); poly(0.55); ctx.fill(); ctx.restore();
+    ctx.fillStyle = 'rgba(255,170,100,0.35)'; ctx.beginPath(); ctx.ellipse(-r.r * 0.3, -r.r * 0.4, r.r * 0.25, r.r * 0.12, -0.5, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+}
+
 // Cuerpo de roca del acantilado (se dibuja antes que el pasto de arriba, de arriba hacia abajo)
 function drawCliffBody(pl) {
   const left = pl.side < 0, dir = left ? 1 : -1, y = pl.y;
@@ -2743,6 +2805,7 @@ function drawWorld() {
   drawCureBar();
   drawGasBar();
   drawJet();
+  if (theme() === 'forest') drawRocks();
   if (MODS[S.mod] && MODS[S.mod].race) drawRaceFire();
 
   for (const q of S.parts) {
