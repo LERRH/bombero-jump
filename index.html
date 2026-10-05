@@ -31,8 +31,8 @@
   #controls{position:absolute;left:0;right:0;bottom:10px;display:none;flex-direction:column;align-items:stretch;
     gap:6px;padding:0 10px;pointer-events:none}
   #controls .row{display:flex;align-items:flex-end;justify-content:space-between;pointer-events:none}
-  /* Bloque de acción: salto abajo a la derecha y herramientas en arco a su alrededor */
-  #controls .action{position:relative;width:196px;height:196px;pointer-events:none;flex:none}
+  /* Herramientas abajo a la derecha (para saltar se toca cualquier parte de la pantalla) */
+  #controls .action{position:relative;width:146px;height:146px;pointer-events:none;flex:none}
   #controls .action button{position:absolute}
   #controls .grp{display:flex;gap:6px}
   #controls button{padding:0;border:0;background:none;touch-action:none;pointer-events:auto;
@@ -41,13 +41,18 @@
     filter:drop-shadow(0 2px 3px #000a)}
   #controls button:active{transform:scale(.9)}
   #controls .move{width:64px;height:64px}
-  #controls .jump{width:92px;height:92px}
-  #controls .tool{width:54px;height:54px}
+  #controls .tool{width:64px;height:64px}
   /* Herramientas visibles siempre, pero apagadas hasta completar el EPP */
   #controls:not(.tools) .tool{opacity:.35;filter:grayscale(.7)}
+  #controls.notools .tool{display:none}
+  /* Módulo paramédico: solo el maletín (apagado hasta recogerlo) */
+  #controls .med{display:none}
+  #controls.medmode .tool:not(.med){display:none}
+  #controls.medmode .med{display:block}
   #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
   #controls.on{display:flex}
-  #mute,#full{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
+  #controls.tilt .grp{visibility:hidden}
+  #mute,#full,#tilt{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
     font-size:18px;line-height:34px;touch-action:none;-webkit-tap-highlight-color:transparent}
   #nameBox{position:fixed;display:none;gap:8px;align-items:center;z-index:5}
   #nameBox.on{display:flex}
@@ -63,6 +68,7 @@
   <canvas id="c"></canvas>
   <button id="mute" aria-label="Sonido">🔊</button>
   <button id="full" aria-label="Pantalla completa">⛶</button>
+  <button id="tilt" aria-label="Control: flechas o inclinación">⬅➡</button>
   <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
   <div id="controls">
     <div class="row">
@@ -74,7 +80,7 @@
         <button data-k="hose" class="tool" aria-label="Pitón"><img src="img/botones/piton.png" alt=""></button>
         <button data-a="hal" class="tool" aria-label="Halligan"><img src="img/botones/halligan.png" alt=""></button>
         <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
-        <button data-k="jump" class="jump" aria-label="Saltar" style="right:0;bottom:0"><img src="img/botones/saltar.png" alt=""></button>
+        <button data-k="cure" class="tool med" data-arc="0" aria-label="Maletín de abordaje"><img src="img/botones/maletin.png" alt=""></button>
       </div>
     </div>
   </div>
@@ -100,28 +106,37 @@ function resize() {
   mb.style.left = (r.right - 42) + 'px'; mb.style.top = (r.top + 40 * s) + 'px';
   const fb = document.getElementById('full');
   fb.style.left = (r.right - 42) + 'px'; fb.style.top = (r.top + 40 * s + 40) + 'px';
+  const tb = document.getElementById('tilt');
+  tb.style.left = (r.right - 42) + 'px'; tb.style.top = (r.top + 40 * s + 80) + 'px';
 }
 addEventListener('resize', resize); resize();
 
-// EPP a recoger, en orden (el bombero parte con las botas puestas)
+// EPP a recoger, en orden (el bombero parte con polo, pantalón institucional y borceguíes)
 const EPP = [
-  { n: 'Pantalón', f: 'pantalon' }, { n: 'Chaqueta', f: 'chaqueta' }, { n: 'EPR', f: 'epr' },
+  { n: 'Botas', f: 'botas' }, { n: 'Pantalón', f: 'pantalon' }, { n: 'Chaqueta', f: 'chaqueta' }, { n: 'EPR', f: 'epr' },
   { n: 'Capucha', f: 'capucha' }, { n: 'Casco', f: 'casco' }, { n: 'Guantes', f: 'guantes' }
 ];
 
-// Sprites: etapa 1 (solo botas) a 7 (equipo completo); exportados al doble de tamaño
+// Sprites: etapa 1 (polo y borceguíes), 2 (botas), 3 (pantalón con tirantes) … 8 (equipo completo);
+// exportados al doble de tamaño.
+const STAGES = 8;
 const PH = 58; // alto de la caja de colisión del bombero
 const IMG = {};
 function loadImg(key, src) { const im = new Image(); im.src = src; IMG[key] = im; }
 for (const pose of ['idle', 'salto', 'aire', 'aterriza'])
-  for (let i = 1; i <= 7; i++) loadImg(`${pose}_${i}`, `img/bombero/${pose}_${i}.png`);
-for (let i = 1; i <= 7; i++)
+  for (let i = 1; i <= STAGES; i++) loadImg(`${pose}_${i}`, `img/bombero/${pose}_${i}.png`);
+for (let i = 1; i <= STAGES; i++)
   for (let f = 1; f <= 6; f++) loadImg(`camina_${i}_${f}`, `img/bombero/camina_${i}_${f}.png`);
 for (let f = 1; f <= 5; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`halligan_${f}`, `img/bombero/halligan_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`);
 for (let f = 1; f <= 5; f++) loadImg(`palanca_${f}`, `img/bombero/palanca_${f}.png`);
+// Paramédico (con el maletín de abordaje): etapa 'p'
+for (const pose of ['idle', 'salto', 'aire', 'aterriza']) loadImg(`${pose}_p`, `img/bombero/${pose}_p.png`);
+for (let f = 1; f <= 6; f++) loadImg(`camina_p_${f}`, `img/bombero/camina_p_${f}.png`);
+for (let f = 1; f <= 3; f++) loadImg(`curar_${f}`, `img/bombero/curar_${f}.png`);
+loadImg('maletin', 'img/maletin.png');
 const AIMS = ['frente', 'arriba45', 'arriba', 'abajo45', 'abajo'];
 for (const a of AIMS) loadImg(`apunta_${a}`, `img/bombero/apunta_${a}.png`);
 // Poses con el pitón: ax = centro de las botas (fracción del ancho, para que el bombero no "salte" al cambiar
@@ -147,7 +162,7 @@ loadImg('camion', 'img/camion.png');
 loadImg('logo', 'img/logo.png');
 for (const t of ['piton', 'halligan']) loadImg(`tool_${t}`, `img/${t}.png`);
 for (const who of ['hombre', 'mujer'])
-  for (const pose of ['atrapado', 'huida', 'victoria']) loadImg(`${who}_${pose}`, `img/personas/${who}_${pose}.png`);
+  for (const pose of ['atrapado', 'huida', 'victoria', 'herido']) loadImg(`${who}_${pose}`, `img/personas/${who}_${pose}.png`);
 const pickWho = () => Math.random() < 0.5 ? 'hombre' : 'mujer';
 // Dibuja un sprite de persona apoyado en (x, y), mirando a la izquierda (dir -1) o a la derecha (dir 1)
 function drawWho(key, x, y, h, dir = -1) {
@@ -285,7 +300,7 @@ const SFX = (() => {
 
   // Grito de una persona atrapada: voz (diente de sierra) por filtros de vocal "Aaah".
   // Detrás del vidrio suena apagado y con eco de la habitación.
-  function scream(who, behindGlass, at) {
+  function scream(who, behindGlass, at, level = 1) {
     const t = ac.currentTime + at, man = who === 'hombre';
     const dur = rand(0.8, 1.4), f0 = man ? rand(210, 260) : rand(480, 580), peak = f0 * rand(1.35, 1.55);
     const o = ac.createOscillator(); o.type = 'sawtooth';
@@ -315,7 +330,7 @@ const SFX = (() => {
       voice.connect(bp); bp.connect(bg); bg.connect(env);
     }
     const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = behindGlass ? 1000 : 4500;
-    const vol = ac.createGain(); vol.gain.value = behindGlass ? 0.16 : 0.35;
+    const vol = ac.createGain(); vol.gain.value = (behindGlass ? 0.16 : 0.35) * level;
     env.connect(lp); lp.connect(vol); vol.connect(sfxBus); send(vol, behindGlass ? 0.2 : 0.25);
     for (const n of [o, vib, br]) { n.start(t, n === br ? Math.random() * 0.5 : 0); n.stop(t + dur + 0.05); }
   }
@@ -485,10 +500,10 @@ const SFX = (() => {
     init,
     play(name) { if (ac && !muted) FX[name](); },
     // Grito de la persona atrapada ('hombre' o 'mujer'); a veces dos gritos seguidos
-    help(who, behindGlass = true) {
+    help(who, behindGlass = true, level = 1) {
       if (!ac || muted) return;
-      scream(who, behindGlass, 0);
-      if (Math.random() < 0.5) scream(who, behindGlass, rand(1.1, 1.5));
+      scream(who, behindGlass, 0, level);
+      if (Math.random() < 0.5) scream(who, behindGlass, rand(1.1, 1.5), level);
     },
     music(m) {
       if (m === mood) return;
@@ -546,6 +561,59 @@ if (!FS.can() || installed) fullBtn.style.display = 'none';
 fullBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); FS.on ? FS.exit() : FS.enter(); });
 // Al entrar o salir de pantalla completa cambia el tamaño disponible
 for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => setTimeout(resize, 50));
+
+// Control por inclinación del celular (opcional, en lugar de las flechas). Se elige con el botón ⬅➡ / 📱
+// y queda guardado. Al empezar cada partida, la posición en que se tiene el celular cuenta como "derecho".
+const Tilt = {
+  on: false, x: 0, raw: 0, zero: 0, got: false, listening: false,
+  btn: document.getElementById('tilt'),
+  init() {
+    // Solo en celulares/tabletas con sensor
+    if (!matchMedia('(pointer: coarse)').matches || !window.DeviceOrientationEvent) { this.btn.style.display = 'none'; return; }
+    try { this.on = localStorage.getItem('firejump_tilt') === '1'; } catch (e) {}
+    // En iPhone el permiso se pide con un toque: si está guardado, se vuelve a pedir al tocar el botón
+    if (this.on && typeof DeviceOrientationEvent.requestPermission === 'function') this.on = false;
+    if (this.on) this.listen();
+    this.btn.addEventListener('pointerdown', e => e.stopPropagation());
+    this.btn.addEventListener('click', e => { e.stopPropagation(); this.toggle(); });
+    this.show();
+  },
+  listen() {
+    if (this.listening) return;
+    this.listening = true;
+    addEventListener('deviceorientation', e => this.read(e));
+  },
+  // Inclinación lateral según cómo esté girada la pantalla; x va de -1 (izquierda) a 1 (derecha)
+  read(e) {
+    if (e.gamma == null) return;
+    const a = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    const v = a === 90 ? e.beta : a === 270 || a === -90 ? -e.beta : a === 180 ? -e.gamma : e.gamma;
+    this.raw = v; this.got = true;
+    const d = v - this.zero, dead = 4, full = 22;
+    this.x = Math.abs(d) < dead ? 0 : clamp((d - Math.sign(d) * dead) / (full - dead), -1, 1);
+  },
+  calibrate() { this.zero = this.got ? clamp(this.raw, -25, 25) : 0; },
+  toggle() {
+    if (this.on) { this.set(false); return; }
+    const DOE = window.DeviceOrientationEvent;
+    const go = () => {
+      this.listen(); this.set(true); this.calibrate();
+      toast('Inclina el celular para moverte', '#7f7');
+      // Sin datos del sensor (por ejemplo, la página no está en https): se vuelve a las flechas
+      setTimeout(() => { if (this.on && !this.got) { this.set(false); toast('Este navegador no deja usar la inclinación', '#ff8a8a'); } }, 1500);
+    };
+    if (typeof DOE.requestPermission === 'function') {
+      DOE.requestPermission().then(r => r === 'granted' ? go() : toast('Sin permiso para usar la inclinación', '#ff8a8a')).catch(() => {});
+    } else go();
+  },
+  set(on) {
+    this.on = on; this.x = 0;
+    try { localStorage.setItem('firejump_tilt', on ? '1' : '0'); } catch (e) {}
+    this.show(); updateControls();
+  },
+  show() { this.btn.textContent = this.on ? '📱' : '⬅➡'; },
+};
+Tilt.init();
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && document.activeElement !== nameIn) { SFX.toggleMute(); showMute(); } });
 
 // Ranking TOP 10 compartido en Firebase (Firestore, por su API REST). Si no hay conexión,
@@ -634,8 +702,15 @@ function handleTap(e) {
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
   if (S.state === 'menu') {
     if (S.view === 'rank') { S.view = 'menu'; return; }
-    if (Math.abs(y - 600) < 24) { refreshRank(); S.view = 'rank'; return; }
-    newGame(); return;
+    if (Math.abs(y - 614) < 18) { refreshRank(); S.view = 'rank'; return; }
+    for (const m in MENU_Y) if (Math.abs(y - MENU_Y[m]) < 27) { newGame('play', m); break; }
+    return;
+  }
+  // Módulos de entrenamiento: sin ranking, solo reintentar o volver al menú
+  if ((S.state === 'over' || S.state === 'win') && MODS[S.mod]) {
+    if (Math.abs(y - 500) < 28) newGame('play', S.mod);
+    else if (Math.abs(y - 570) < 22) newGame('menu');
+    return;
   }
   if (S.state === 'over' || S.state === 'win') {
     if (S.view !== 'rank') {
@@ -645,24 +720,27 @@ function handleTap(e) {
     }
     if (nameBox.classList.contains('on')) return;
     if (Math.abs(y - 590) < 30) newGame();
+    else if (y > 615) newGame('menu');
   }
 }
 
-function newGame(state = 'play') {
+function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
   S = {
-    state, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
+    state, mod, falls: 0, prevCx: W / 2, medic: false, bagToPlace: mod === 'medico', cureT: 0, cured: 0, injTotal: 0, injWarned: false, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
   SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
+  if (MODS[mod]) { S.phase = 2; S.itemToPlace = -1; buildLevels(MODS[mod].levels, H - 20); }
   gen();
   S.p.ground = S.lastSafe = S.plats[0];
   updateControls();
-  if (state === 'play') toast('Salta de ventana en ventana y recoge tu EPP', '#ffd166');
+  if (state === 'play') toast(MODS[mod] ? MODS[mod].start : 'Salta de ventana en ventana y recoge tu EPP', '#ffd166');
   if (state === 'play' && matchMedia('(pointer: coarse)').matches) FS.enter();
+  if (state === 'play') Tilt.calibrate();
 }
 
 const DOOR_COLORS = ['#6b3f1f', '#4a5d3a', '#3b4a6b', '#7a2e2e'];
@@ -684,7 +762,8 @@ function gen() {
   // Mientras haya una pieza del EPP sin recoger, no se genera nada por encima de ella
   while (S.genY > S.camY - 120 && !S.goalPlaced && !S.eppLock) {
     const ev = S.events[0];
-    let y = S.genY - (S.phase === 1 ? rand(50, 85) : rand(60, 100));
+    const TL = MODS[S.mod] ? levelAt(S.genY) || S.levels[S.levels.length - 1] : null;
+    let y = S.genY - (TL ? rand(...TL.gap) : S.phase === 1 ? rand(50, 85) : rand(60, 100));
     if (ev && y <= ev.y + STAIR_DROP && ev.t === 'door') {
       S.events.shift();
       // Techo completo: solo se sube por la escalera del costado, tras forzar su puerta
@@ -715,7 +794,7 @@ function gen() {
       }
       if (ev.t === 'goal') {
         addPlat(-20, ev.y, W + 40, { roof: true });
-        S.victim = { x: W * 0.75, y: ev.y, who: pickWho() };
+        if (!MODS[S.mod]) S.victim = { x: W * 0.75, y: ev.y, who: pickWho() };
         S.goalPlaced = true;
         break;
       }
@@ -723,14 +802,31 @@ function gen() {
       S.genY = ev.y + 40;
       continue;
     }
-    const w = S.phase === 1 ? rand(70, 95) : rand(60, 85);
+    let w = TL ? rand(...TL.w) : S.phase === 1 ? rand(70, 95) : rand(60, 85);
+    // Herido en este alféizar (solo después del maletín): necesita espacio para él y el paramédico
+    const hurtHere = TL && TL.p.injured && !S.bagToPlace && y < H - 300 && Math.random() < TL.p.injured;
+    if (hurtHere) w = Math.max(w, 84);
     // Tras un alféizar agrietado, la siguiente plataforma debe alcanzarse también desde la anterior
-    if (S.lastFragile) y = Math.max(y, S.preFragileY - 145);
-    let x = freeX(y, w);
-    while (x === null) { y -= 10; x = freeX(y, w); }
+    if (S.lastFragile && !TL) y = Math.max(y, S.preFragileY - 145);
+    // En el entrenamiento, cada alféizar queda a una distancia horizontal del anterior según el nivel
+    const reach = TL && (x => { const d = Math.abs(x + w / 2 - S.prevCx); return d >= TL.dx[0] && d <= TL.dx[1]; });
+    let x = freeX(y, w, reach);
+    for (let k = 1; x === null; k++) { y += TL && k <= 3 ? 8 : -10; x = freeX(y, w, reach); }
     const prevY = S.genY;
-    const p = addPlat(x, y, w);
-    S.genY = y;
+    const p = addPlat(x, y, w, TL && Math.random() < (TL.win || 0) ? { kind: 'window' } : {});
+    if (TL && TL.crack) p.crackMax = TL.crack;
+    if (hurtHere) {
+      p.injured = { who: pickWho(), side: Math.random() < 0.5 ? -1 : 1, state: 'hurt', t: 0 };
+      S.injTotal++;
+    }
+    // Maletín de abordaje: en un alféizar cerca del inicio; la pantalla no sube hasta recogerlo
+    if (S.bagToPlace && y < H - 160) {
+      S.items.push({ f: 'maletin', bag: true, x: p.x + p.w / 2, y: p.y - 24 });
+      S.bagToPlace = false;
+      S.eppLock = true;
+      S.lockCamY = p.y - 140;
+    }
+    S.genY = y; S.prevCx = p.x + w / 2;
     if (S.phase === 1 && S.itemToPlace >= 0 && y < S.nextItemMinY) {
       S.items.push({ i: S.itemToPlace, x: p.x + p.w / 2, y: p.y - 24 });
       S.itemToPlace = -1;
@@ -742,7 +838,9 @@ function gen() {
       const nearEvent = S.events[0] && p.y - S.events[0].y < 320, win = p.kind === 'window';
       let r = Math.random();
       const take = (prob, ok) => { if (!ok || !prob) return false; if (r < prob) return true; r -= prob; return false; };
-      if (take(pr.trapped, win)) {
+      if (p.injured) {
+        // alféizar firme y despejado para atender al herido
+      } else if (take(pr.trapped, win)) {
         // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
         p.trapped = 'inside'; p.who = pickWho(); p.ph = Math.random() * 6;
       } else if (take(pr.smoke, win && !nearEvent)) {
@@ -750,7 +848,7 @@ function gen() {
         p.smokeWin = 'sealed';
         p.vent = addPlat(p.x - 4, p.y - VENT_DY, p.w + 8, { kind: 'ventroof', win: p });
         S.genY = p.vent.y;
-      } else if (take(pr.fragile, win && !S.lastFragile && !nearEvent)) {
+      } else if (take(pr.fragile, win && S.fragRun < (TL ? TL.chain || 1 : 1) && (TL || !nearEvent))) {
         p.fragile = true;   // alféizar agrietado: se rompe al pisarlo una vez
       } else if (take(pr.inner, p.kind !== 'ac')) {
         p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
@@ -759,6 +857,7 @@ function gen() {
       }
     }
     S.lastFragile = !!p.fragile;
+    S.fragRun = p.fragile ? S.fragRun + 1 : 0;
     if (p.fragile) S.preFragileY = prevY;
   }
 }
@@ -776,14 +875,16 @@ const stairX = b => b.side > 0 ? W - STAIR_GAP : 0;
 const inStair = (b, x) => b.side > 0 ? x - 9 >= W - STAIR_GAP : x + 9 <= STAIR_GAP;
 const TRUCK_ZONE = { x: W - 225, w: 220, y: H - 20 };
 // Busca una x donde la ventana/puerta no se monte sobre otra plataforma cercana
-function freeX(y, w) {
+function freeX(y, w, pref) {
   const near = S.plats.filter(o => !o.ground && !o.roof && Math.abs(o.y - y) < ART_H);
   // El carro bomba de la calle también ocupa espacio: ninguna ventana puede taparlo
   if (Math.abs(TRUCK_ZONE.y - y) < ART_H) near.push(TRUCK_ZONE);
   const free = [];
   for (let x = 0; x <= W - w; x += 4)
     if (near.every(o => x + w + 12 < o.x || o.x + o.w + 12 < x)) free.push(x);
-  return free.length ? free[Math.floor(Math.random() * free.length)] : null;
+  // Si hay posiciones preferidas (pref), se elige entre ellas
+  const best = pref ? free.filter(pref) : free, pool = best.length ? best : free;
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
 // Niveles de la emergencia: cada uno suma una dificultad nueva y luego se combinan.
@@ -806,6 +907,71 @@ const LEVELS = [
   { name: 'Último esfuerzo', hint: 'A oscuras hasta la azotea: ¡rescata a la víctima!', len: 1600, doors: 2, dark: true,
     p: { trapped: 0.15, fragile: 0.18, smoke: 0.12, inner: 0.15, flame: 0.22 } },
 ];
+
+// Módulo 1 (Saltos): sin EPP ni herramientas; solo saltar hasta la azotea.
+// gap = separación vertical entre alféizares, w = ancho, dx = distancia horizontal al anterior (px).
+// p.fragile = probabilidad de alféizar agrietado, chain = cuántos agrietados seguidos como máximo,
+// win = probabilidad de que sea ventana (solo las ventanas pueden estar agrietadas),
+// crack = cuadros que aguanta un agrietado antes de romperse (normal 24).
+// El salto más alto llega a ~165 px, por eso gap no pasa de 140.
+const TRAIN_LEVELS = [
+  { name: 'Primeros saltos', hint: 'Salta de alféizar en alféizar', len: 900,
+    gap: [65, 90], w: [75, 90], dx: [30, 150], p: {} },
+  { name: 'Más alto', hint: 'Mantén el dedo en la pantalla para saltar más alto', len: 1000,
+    gap: [90, 115], w: [65, 80], dx: [60, 170], p: { fragile: 0.15 }, chain: 1 },
+  { name: 'Alféizares agrietados', hint: 'Los agrietados se rompen al pisarlos: ¡salta rápido!', len: 1100,
+    gap: [85, 110], w: [65, 80], dx: [50, 170], p: { fragile: 0.5 }, chain: 2, win: 0.85 },
+  { name: 'Saltos largos', hint: 'Más alto, más lejos y casi sin dónde pararse', len: 1200,
+    gap: [105, 130], w: [55, 70], dx: [90, 190], p: { fragile: 0.5 }, chain: 2, win: 0.85 },
+  { name: 'Prueba final', hint: 'Casi todo agrietado y se rompe rápido: ¡no te detengas!', len: 1300,
+    gap: [115, 140], w: [50, 62], dx: [100, 200], p: { fragile: 0.9 }, chain: 5, win: 1, crack: 18 },
+];
+// Estrellas guardadas por módulo (en este celular)
+const Progress = {
+  get() { try { return JSON.parse(localStorage.getItem('firejump_progress')) || {}; } catch (e) { return {}; } },
+  set(mod, stars) {
+    const pr = this.get();
+    if (stars <= (pr[mod] || 0)) return false;
+    pr[mod] = stars;
+    try { localStorage.setItem('firejump_progress', JSON.stringify(pr)); } catch (e) {}
+    return true;
+  }
+};
+// Módulo 2 (Paramédico): primero recoge el maletín de abordaje; en el camino hay heridos al azar
+// que se curan manteniendo presionado el maletín 1 segundo. injured = probabilidad de herido por alféizar.
+const MEDIC_LEVELS = [
+  { name: 'Tu maletín', hint: 'Recoge el maletín y atiende a los heridos', len: 1000,
+    gap: [65, 90], w: [75, 90], dx: [30, 150], p: { injured: 0.12 } },
+  { name: 'Primeros auxilios', hint: 'Mantén presionado el maletín 1 segundo junto al herido', len: 1100,
+    gap: [85, 110], w: [65, 80], dx: [60, 170], p: { injured: 0.12, fragile: 0.15 }, chain: 1 },
+  { name: 'Pisos agrietados', hint: 'Los heridos nunca están en alféizares agrietados', len: 1100,
+    gap: [85, 110], w: [65, 80], dx: [50, 170], p: { injured: 0.1, fragile: 0.45 }, chain: 2, win: 0.85 },
+  { name: 'Saltos largos', hint: 'Más lejos y más alto: no dejes a nadie atrás', len: 1200,
+    gap: [100, 125], w: [55, 70], dx: [90, 190], p: { injured: 0.1, fragile: 0.45 }, chain: 2, win: 0.85 },
+  { name: 'Prueba final', hint: 'Casi todo agrietado: cura y sigue subiendo', len: 1300,
+    gap: [110, 135], w: [50, 62], dx: [100, 200], p: { injured: 0.12, fragile: 0.8 }, chain: 4, win: 1, crack: 18 },
+];
+const CURE_T = 60;   // 1 segundo manteniendo presionado el maletín
+
+// Módulos de entrenamiento (sin ranking; se ganan estrellas al llegar a la azotea)
+const MODS = {
+  saltos: { title: 'MÓDULO 1 · SALTOS', levels: TRAIN_LEVELS,
+    start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto',
+    rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
+  medico: { title: 'MÓDULO 2 · PARAMÉDICO', levels: MEDIC_LEVELS,
+    start: 'Recoge tu maletín de abordaje',
+    rule: '★ llegar  ·  ★★ curar la mitad  ·  ★★★ curar a todos' },
+};
+// Estrellas: en Saltos cuentan las caídas; en Paramédico, cuántos heridos se curaron
+function trainResult(won) {
+  let stars = 0;
+  if (won && S.mod === 'medico') stars = S.cured >= S.injTotal ? 3 : S.cured * 2 >= S.injTotal ? 2 : 1;
+  else if (won) stars = 3 - Math.min(2, S.falls);
+  const best = Progress.get()[S.mod] || 0, record = Progress.set(S.mod, stars);
+  return { stars, secs: S.t / 60, falls: S.falls, cured: S.cured, injTotal: S.injTotal,
+    best: Math.max(best, stars), record, total: 0 };
+}
+const finalResult = won => MODS[S.mod] ? trainResult(won) : computeScore(won);
 
 // Nivel al que pertenece una altura del edificio (null durante el EPP)
 function levelAt(y) {
@@ -857,11 +1023,10 @@ function computeScore(won) {
   return { rows, total, secs, best: Math.max(best, total), record: total > best };
 }
 
-function startPhase2() {
-  S.phase = 2;
-  let y = S.genY - 250;
+// Reparte los niveles hacia arriba desde y; la azotea queda sobre el último
+function buildLevels(list, y) {
   S.levels = []; S.events = []; S.darkZones = [];
-  LEVELS.forEach((L, i) => {
+  list.forEach((L, i) => {
     const bottom = y, top = y - L.len;
     S.levels.push(Object.assign({ i, bottom, top }, L));
     for (let k = 0; k < L.doors; k++) S.events.push({ t: 'door', y: bottom - L.len * (k + 1) / (L.doors + 1) });
@@ -870,6 +1035,11 @@ function startPhase2() {
   });
   S.events.push({ t: 'goal', y });
   S.roofY = y;
+}
+
+function startPhase2() {
+  S.phase = 2;
+  buildLevels(LEVELS, S.genY - 250);
   updateControls();
   SFX.play('tools'); SFX.music(2);
   toast('¡EPP completo! Recibes pitón, halligan y linterna. ¡A la emergencia!', '#7f7');
@@ -891,7 +1061,7 @@ function hurt(msg, force) {
   if (S.lives > 0) SFX.play('hurt');
   if (S.lives <= 0) {
     SFX.play('death'); SFX.music(0); SFX.jet(0);
-    S.final = computeScore(false);
+    S.final = finalResult(false);
     // Derrota: el bombero cae y queda en el suelo antes de la pantalla final
     S.state = 'dying'; S.dieT = 0; S.inv = 0;
     const p = S.p, pl = S.lastSafe;
@@ -915,7 +1085,10 @@ const HAL_T = 36, HAL_HIT = 14;
 const hasTools = () => S.epp >= EPP.length;
 function updateControls() {
   const c = document.getElementById('controls');
-  c.classList.toggle('tools', hasTools());
+  c.classList.toggle('tools', S.mod === 'medico' ? S.medic : hasTools());
+  c.classList.toggle('notools', S.mod === 'saltos');
+  c.classList.toggle('medmode', S.mod === 'medico');
+  c.classList.toggle('tilt', Tilt.on);
   c.querySelector('.lamp').classList.toggle('on', S.lamp);
 }
 
@@ -1143,7 +1316,7 @@ function halliganHit() {
 // ---------- Entrada ----------
 const keys = {};
 const KMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose' };
+  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose', KeyC: 'cure', KeyE: 'cure' };
 addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
@@ -1156,16 +1329,27 @@ addEventListener('keydown', e => {
   if (!e.repeat && e.code === 'KeyL') toggleLamp();
 });
 addEventListener('keyup', e => { if (KMAP[e.code]) keys[KMAP[e.code]] = false; });
-cv.addEventListener('pointerdown', handleTap);
-(function placeToolArc() {
-  const box = 196, jump = 92, tool = 54, R = 118;
-  const cx = box - jump / 2, cy = box - jump / 2;
+cv.addEventListener('pointerdown', e => { if (S.state !== 'play') handleTap(e); });
+(function placeTools() {
+  // Pitón (o maletín) en la esquina, halligan a su izquierda y linterna arriba
+  const box = 146, tool = 64, gap = 82, POS = [[0, 0], [-gap, 0], [0, -gap]];
   document.querySelectorAll('#controls .action .tool').forEach((b, i) => {
-    const a = (180 - i * 45) * Math.PI / 180;   // 180°, 135°, 90°
-    b.style.left = (cx + R * Math.cos(a) - tool / 2) + 'px';
-    b.style.top = (cy - R * Math.sin(a) - tool / 2) + 'px';
+    if (b.dataset.arc) i = +b.dataset.arc;   // el maletín ocupa el lugar del pitón
+    b.style.left = (box - tool + POS[i][0]) + 'px';
+    b.style.top = (box - tool + POS[i][1]) + 'px';
   });
 })();
+
+// Saltar: tocar o hacer clic en cualquier parte de la pantalla (menos los botones).
+// Mientras el dedo siga apoyado el salto es más alto; un toque corto da un salto corto.
+const jumpPtrs = new Set();
+document.getElementById('wrap').addEventListener('pointerdown', e => {
+  if (S.state !== 'play' || e.target.closest('button, input')) return;
+  e.preventDefault();
+  S.p.buf = 8; keys.jump = true; jumpPtrs.add(e.pointerId);
+}, true);   // en captura: el toque que inicia la partida desde el menú no cuenta como salto
+for (const ev of ['pointerup', 'pointercancel'])
+  addEventListener(ev, e => { if (jumpPtrs.delete(e.pointerId) && !jumpPtrs.size) keys.jump = false; });
 
 document.querySelectorAll('#controls button').forEach(btn => {
   const k = btn.dataset.k, a = btn.dataset.a;
@@ -1173,7 +1357,6 @@ document.querySelectorAll('#controls button').forEach(btn => {
     e.preventDefault();
     if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
     if (S.state !== 'play') { newGame(); return; }
-    if (k === 'jump') S.p.buf = 8;
     if (k) keys[k] = true;
     if (a === 'hal') halligan();
     if (a === 'lamp') toggleLamp();
@@ -1188,9 +1371,10 @@ function update() {
   // Mientras usa la halligan en el suelo, no camina
   // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
   if (keys.hose && S.halT === 0 && hasTools()) S.hoseT++; else S.hoseT = 0;
-  const busy = S.halT > 0 || S.hoseT > 0;
-  const ix = busy && p.ground ? 0 : (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
-  if (ix) p.dir = ix;
+  const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0;
+  // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
+  const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : 0), -1, 1);
+  if (ix) p.dir = Math.sign(ix);
   p.vx += (ix * 5 - p.vx) * 0.25;
   p.x += p.vx;
   if (p.x < -15) p.x = W + 15;
@@ -1243,19 +1427,24 @@ function update() {
   // Sin la pieza del EPP, el bombero no puede salir por arriba de la pantalla
   if (S.eppLock && p.y - PH < S.camY + 36) {
     p.y = S.camY + 36 + PH; p.vy = Math.max(p.vy, 1); p.ground = null;
-    if (!S.msg || S.msg.t < 120) toast('Recoge tu EPP para seguir subiendo', '#ffd166');
+    if (!S.msg || S.msg.t < 120) toast(S.mod === 'medico' ? 'Recoge tu maletín para seguir subiendo' : 'Recoge tu EPP para seguir subiendo', '#ffd166');
   }
   gen();
 
   // EPP
   for (const it of S.items) {
-    if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
+    if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30 && it.bag) {
+      it.got = true; S.medic = true; S.eppLock = false;
+      SFX.play('tools'); updateControls();
+      burst(it.x, it.y, 24, ['#ff4d4d', '#fff'], 3, 0, 30, 3);
+      toast('¡Maletín listo! Junto a un herido, mantén presionado el maletín 1 segundo', '#7f7');
+    } else if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
       it.got = true;
       S.epp++;
       if (S.epp < EPP.length) SFX.play('pickup');
       burst(it.x, it.y, 20, ['#ffd166', '#fff'], 3, 0, 30, 3);
       if (S.epp < EPP.length) {
-        toast(`¡Equipado! (${S.epp}/6)`, '#ffd166');
+        toast(`¡Equipado! (${S.epp}/${EPP.length})`, '#ffd166');
         S.itemToPlace = S.epp;
         S.nextItemMinY = S.genY - 350;
       }
@@ -1265,6 +1454,7 @@ function update() {
     }
   }
   S.items = S.items.filter(i => !i.got);
+  if (S.mod === 'medico') updateCure();
 
   // Manguera
   if (S.hoseT >= 12) {
@@ -1361,7 +1551,7 @@ function update() {
     if (!pl.crackT || pl.broken) continue;
     pl.crackT++;
     if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
-    if (pl.crackT >= 24) {
+    if (pl.crackT >= (pl.crackMax || 24)) {
       pl.broken = true;
       SFX.play('crumble');
       for (let k = 0; k < 22; k++) {
@@ -1415,7 +1605,9 @@ function update() {
   if (--S.helpT <= 0) {
     const seen = y => y > S.camY + 60 && y < S.camY + H - 40;
     const tp = S.plats.find(pl => pl.trapped === 'inside' && seen(pl.y));
+    const hp = S.plats.find(pl => pl.injured && pl.injured.state === 'hurt' && seen(pl.y));
     if (tp) { SFX.help(tp.who); S.helpT = rand(200, 320); }
+    else if (hp) { SFX.help(hp.injured.who, false, 0.45); S.helpT = rand(220, 340); }
     else if (S.victim && seen(S.victim.y)) { SFX.help(S.victim.who, false); S.helpT = rand(200, 320); }
     else S.helpT = 30;
   }
@@ -1427,8 +1619,16 @@ function update() {
     burst(S.victim.x, S.victim.y - 30, 60, ['#ffd166', '#7f7', '#7fd3ff', '#fff'], 5, 0.1, 80, 4);
   }
 
+  // Entrenamiento: gana al pisar la azotea
+  if (MODS[S.mod] && p.ground && p.ground.roof) {
+    S.state = 'win'; S.winT = 0; S.final = trainResult(true);
+    SFX.music(0); SFX.play('win');
+    burst(p.x, p.y - 30, 60, ['#ffd166', '#7f7', '#7fd3ff', '#fff'], 5, 0.1, 80, 4);
+  }
+
   // Caída
   if (p.y > S.camY + H + 40) {
+    S.falls++;
     hurt('¡Caíste! -1 vida', true);
     if (S.state === 'play') {
       const pl = S.lastSafe;
@@ -1457,6 +1657,74 @@ function update() {
   S.plats = S.plats.filter(pl => pl.y < bottom);
   S.bars = S.bars.filter(b => b.y < bottom);
   updateParts();
+}
+
+// Herido al alcance del paramédico (en el mismo alféizar)
+function injuredNear() {
+  const p = S.p;
+  return S.plats.find(pl => pl.injured && pl.injured.state === 'hurt' && Math.abs(pl.y - p.y) < 6 &&
+    Math.abs(injuredX(pl) - p.x) < 48);
+}
+const injuredX = pl => pl.injured.side > 0 ? pl.x + pl.w - 22 : pl.x + 22;
+
+// Mantener presionado el maletín junto a un herido: la barra se llena en 1 s; si suelta antes, vuelve a cero
+function updateCure() {
+  const p = S.p;
+  for (const pl of S.plats) if (pl.injured) pl.injured.t++;
+  const hp = keys.cure && S.medic && p.ground ? injuredNear() : null;
+  if (hp) {
+    S.cureT++;
+    p.dir = injuredX(hp) >= p.x ? 1 : -1;
+    if (S.cureT % 15 === 1) SFX.play('click');
+    if (S.cureT >= CURE_T) {
+      hp.injured.state = 'cured'; hp.injured.t = 0;
+      S.cured++; S.cureT = 0;
+      SFX.play('rescue');
+      burst(injuredX(hp), hp.y - 30, 26, ['#7f7', '#fff', '#ff4d4d'], 3, 0.05, 40, 3);
+      toast(`¡Herido atendido! (${S.cured})`, '#7f7');
+    }
+    return;
+  }
+  if (keys.cure && !S.cureT && (!S.msg || S.msg.t < 120))
+    toast(S.medic ? 'Acércate a un herido para curarlo' : 'Primero recoge tu maletín de abordaje', '#ccc');
+  S.cureT = 0;
+  if (!S.injWarned && S.medic && S.plats.some(pl => pl.injured && pl.injured.state === 'hurt' && pl.y > S.camY + 60 && pl.y < S.camY + H)) {
+    S.injWarned = true;
+    toast('¡Hay un herido! Párate a su lado y mantén presionado el maletín 1 segundo', '#7fd3ff');
+  }
+}
+
+// Heridos sentados en el alféizar pidiendo ayuda; al curarlos se levantan, celebran y se van
+function drawInjured() {
+  for (const pl of S.plats) {
+    const inj = pl.injured;
+    if (!inj || pl.y < S.camY - 60 || pl.y > S.camY + H + 60) continue;
+    const x = injuredX(pl);
+    if (inj.state === 'hurt') {
+      drawWho(`${inj.who}_herido`, x, pl.y + 1, 46, inj.side);
+      if (Math.floor((S.t + pl.x) / 30) % 3 !== 2) {
+        ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const tw = ctx.measureText('¡AYUDA!').width + 10;
+        box(x - tw / 2, pl.y - 66, tw, 15, '#ffffff');
+        ctx.fillStyle = '#c1121f'; ctx.fillText('¡AYUDA!', x, pl.y - 58);
+      }
+    } else if (inj.t < 120) {
+      ctx.globalAlpha = clamp((120 - inj.t) / 30, 0, 1);
+      drawWho(`${inj.who}_victoria`, x, pl.y - Math.abs(Math.sin(inj.t / 7)) * 6, 58, -inj.side);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// Barra de avance de la curación sobre el paramédico
+function drawCureBar() {
+  if (!S.cureT) return;
+  const p = S.p, k = S.cureT / CURE_T, w = 52, x = p.x - w / 2, y = p.y - 84;
+  box(x - 2, y - 2, w + 4, 11, '#111');
+  ctx.fillStyle = '#333'; ctx.fillRect(x, y, w, 7);
+  ctx.fillStyle = k < 1 ? '#3ddc84' : '#fff'; ctx.fillRect(x, y, w * k, 7);
+  ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+  ctx.fillText('✚ CURANDO', p.x, y - 9);
 }
 
 // Si se quema en el aire, cae hasta el techo de abajo
@@ -1644,7 +1912,7 @@ function drawWorld() {
     const y = it.y + Math.sin(S.t / 12) * 4;
     ctx.fillStyle = '#ffffff33';
     ctx.beginPath(); ctx.arc(it.x, y, 22, 0, 7); ctx.fill();
-    drawImgH(IMG[EPP[it.i].f], it.x, y + 17, 34);
+    drawImgH(IMG[it.f || EPP[it.i].f], it.x, y + 17, it.bag ? 30 : 34);
   }
 
   for (const f of S.flames) if (!f.inner) drawFlame(f);
@@ -1655,7 +1923,9 @@ function drawWorld() {
   if (S.victim) drawVictim(S.victim);
 
   drawPeople();
+  drawInjured();
   drawPlayer();
+  drawCureBar();
   drawJet();
 
   for (const q of S.parts) {
@@ -2071,7 +2341,7 @@ function drawCelebration(v) {
 
 function drawPlayer() {
   const p = S.p, x = p.x, y = p.y, d = p.dir;
-  const stage = Math.min(7, 1 + S.epp);
+  const stage = S.medic ? 'p' : Math.min(STAGES, 1 + S.epp);
   let key = `idle_${stage}`, h = 70;
   if (S.state === 'dying' || S.state === 'over') {
     key = `derrota_${S.dieT < 25 ? 1 : S.dieT < 55 ? 2 : 3}`; h = 0;
@@ -2083,6 +2353,8 @@ function drawPlayer() {
     key = `${S.tool}_${f}`; h = -1;
   } else if (S.hoseT > 0) {
     key = S.hoseT < 6 ? 'piton_1' : S.hoseT < 12 ? 'piton_2' : `apunta_${S.aim || 'frente'}`; h = -1;
+  } else if (S.cureT > 0) {
+    key = `curar_${1 + Math.min(2, Math.floor(S.cureT / (CURE_T / 3)))}`; h = 0;   // venda: 3 cuadros en 1 s
   } else if (S.inv > 0 && Math.floor(S.t / 4) % 2) return;
   else if (!p.ground) [key, h] = p.vy < -3 ? [`salto_${stage}`, 60] : [`aire_${stage}`, 58];
   else if (S.landT > 0) [key, h] = [`aterriza_${stage}`, 46];
@@ -2149,9 +2421,16 @@ function drawHUD() {
   ctx.font = font(16);
   ctx.fillText('❤️'.repeat(Math.max(0, S.lives)), 8, 17);
   ctx.textAlign = 'center';
-  for (let i = 0; i < EPP.length; i++) {
+  if (MODS[S.mod]) {
+    ctx.font = font(13); ctx.fillStyle = '#ffd166'; ctx.fillText(MODS[S.mod].title, 190, 17);
+    if (S.mod === 'medico') {
+      ctx.textAlign = 'left'; ctx.font = font(13); ctx.fillStyle = '#7f7';
+      ctx.fillText(`✚${S.cured}`, 86, 17);
+      ctx.textAlign = 'center';
+    }
+  } else for (let i = 0; i < EPP.length; i++) {
     ctx.globalAlpha = i < S.epp ? 1 : 0.25;
-    drawImgH(IMG[EPP[i].f], 140 + i * 30, 30, 26);
+    drawImgH(IMG[EPP[i].f], 120 + i * 28, 30, 26);
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'right'; ctx.font = font(14); ctx.fillStyle = '#fff';
@@ -2213,7 +2492,23 @@ function tapButton(label, y) {
   ctx.restore();
 }
 
-// Pantalla de inicio: logo, chispas y botón para jugar
+// Botones de los módulos en el menú (el primero late)
+const MENU_Y = { saltos: 435, medico: 495, emergencia: 555 };
+function moduleButton(label, sub, y, pulse) {
+  const k = pulse ? 1 + Math.sin(performance.now() / 260) * 0.04 : 1;
+  ctx.save(); ctx.translate(W / 2, y); ctx.scale(k, k);
+  ctx.fillStyle = '#111'; ctx.fillRect(-132, -27, 264, 54);
+  const g = ctx.createLinearGradient(0, -25, 0, 25);
+  g.addColorStop(0, pulse ? '#ffb000' : '#c0392b'); g.addColorStop(1, pulse ? '#e8430c' : '#7a1d12');
+  ctx.fillStyle = g; ctx.fillRect(-129, -24, 258, 48);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(21); ctx.fillStyle = '#3a0d00'; ctx.fillText(label, 2, -6);
+  ctx.fillStyle = '#fff'; ctx.fillText(label, 0, -8);
+  ctx.font = font(12); ctx.fillStyle = '#ffe9a8'; ctx.fillText(sub, 0, 13);
+  ctx.restore();
+}
+
+// Pantalla de inicio: logo, chispas y botones de los módulos
 function drawMenu() {
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#091220'); g.addColorStop(0.6, '#0e121c'); g.addColorStop(1, '#3a1206');
@@ -2232,12 +2527,19 @@ function drawMenu() {
     ctx.drawImage(lg, 8, 70 + bob, lw, lh);
   }
   ctx.font = font(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffd166'; ctx.fillText('EQUÍPATE · APAGA · RESCATA', W / 2, 430);
-  tapButton('TOCA PARA JUGAR', 520);
+  ctx.fillStyle = '#ffd166'; ctx.fillText('EQUÍPATE · APAGA · RESCATA', W / 2, 388);
+  const pr = Progress.get(), st = n => '★'.repeat(n || 0) + '☆'.repeat(3 - (n || 0));
+  moduleButton('MÓDULO 1 · SALTOS', st(pr.saltos), MENU_Y.saltos, true);
+  moduleButton('MÓDULO 2 · PARAMÉDICO', st(pr.medico), MENU_Y.medico, true);
+  moduleButton('EMERGENCIA', 'EPP · pitón · halligan', MENU_Y.emergencia, false);
   ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#000a'; ctx.fillRect(W / 2 - 80, 584, 160, 32);
-  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 80, 584, 160, 32);
-  ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 601);
+  ctx.fillStyle = '#000a'; ctx.fillRect(W / 2 - 80, 598, 160, 30);
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 80, 598, 160, 30);
+  ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 614);
+  if (Tilt.btn.style.display !== 'none') {
+    ctx.font = font(12); ctx.textAlign = 'left'; ctx.fillStyle = '#aaa';
+    ctx.fillText(Tilt.on ? 'Control: inclinación 📱' : 'Control: flechas ⬅➡', 10, 18);
+  }
 }
 
 // Pantalla final: desglose del puntaje, total sobre 1000 y récord
@@ -2265,6 +2567,31 @@ function drawScoreScreen(title, color) {
   ctx.fillStyle = F.record ? '#7f7' : '#bbb';
   ctx.fillText(F.record ? '¡NUEVO RÉCORD!' : `Récord: ${F.best}`, W / 2, 488);
   tapButton(qualifies(F.total) && !S.savedEntry ? '¡TOP 10! ANOTA TU NOMBRE' : 'VER RANKING', 560);
+}
+
+// Pantalla final del entrenamiento: estrellas, tiempo y caídas
+function drawTrainScreen(title, color) {
+  const F = S.final;
+  ctx.fillStyle = '#000d'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(30); ctx.fillStyle = color; ctx.fillText(title, W / 2, 110);
+  ctx.font = font(15); ctx.fillStyle = '#ffd166'; ctx.fillText(MODS[S.mod].title, W / 2, 150);
+  for (let i = 0; i < 3; i++) {
+    const on = i < F.stars, pop = on ? 1 + Math.max(0, 1 - (S.winT - 170 - i * 15) / 12) * 0.4 : 1;
+    ctx.save(); ctx.translate(W / 2 + (i - 1) * 78, 235); ctx.scale(Math.min(pop, 1.4), Math.min(pop, 1.4));
+    ctx.font = font(64); ctx.fillStyle = on ? '#ffd166' : '#444'; ctx.fillText('★', 0, 0);
+    ctx.restore();
+  }
+  const m = Math.floor(F.secs / 60), sec = String(Math.floor(F.secs % 60)).padStart(2, '0');
+  ctx.font = font(16); ctx.fillStyle = '#ddd';
+  ctx.fillText(`Tiempo ${m}:${sec}  ·  Caídas ${F.falls}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315);
+  if (S.mod === 'medico') { ctx.fillStyle = '#7f7'; ctx.fillText(`Heridos curados: ${F.cured} de ${F.injTotal}`, W / 2, 340); }
+  ctx.font = font(14); ctx.fillStyle = '#aaa';
+  ctx.fillText(MODS[S.mod].rule, W / 2, 368);
+  ctx.font = font(16); ctx.fillStyle = F.record ? '#7f7' : '#bbb';
+  ctx.fillText(F.record ? '¡NUEVO RÉCORD!' : `Tu mejor resultado: ${'★'.repeat(F.best) || 'sin estrellas'}`, W / 2, 400);
+  tapButton('REINTENTAR', 500);
+  ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MENÚ', W / 2, 570);
 }
 
 // Pantalla del ranking: los 10 mejores; si el puntaje entra, pide el nombre
@@ -2300,6 +2627,7 @@ function drawRankScreen(fromMenu) {
     ctx.font = font(16); ctx.fillStyle = '#ccc';
     ctx.fillText(S.myEntry ? '¡Quedaste en el ranking!' : `Tu puntaje: ${S.final.total}`, W / 2, 490);
     tapButton('JUGAR DE NUEVO', 590);
+    ctx.font = font(14); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MENÚ', W / 2, 628);
   }
 }
 
@@ -2324,7 +2652,13 @@ function draw() {
     if (S.view === 'rank') drawRankScreen(true); else drawMenu();
   } else {
     drawHUD();
-    if (S.state === 'over') {
+    if (MODS[S.mod] && S.state === 'win' && S.winT < 170) {
+      ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
+      ctx.fillStyle = '#7f7'; ctx.fillText('¡LLEGASTE A LA AZOTEA!', W / 2, 90);
+    } else if (MODS[S.mod] && (S.state === 'over' || S.state === 'win')) {
+      drawTrainScreen(S.state === 'win' ? '¡ENTRENAMIENTO SUPERADO!' : 'FIN DEL ENTRENAMIENTO', S.state === 'win' ? '#7f7' : '#ff6b6b');
+    } else if (S.state === 'over') {
       if (S.view === 'rank') drawRankScreen(false); else drawScoreScreen('FIN DEL TURNO', '#ff6b6b');
     } else if (S.state === 'win' && S.winT < 170) {
       ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

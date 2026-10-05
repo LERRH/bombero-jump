@@ -6,7 +6,7 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 
 ## Cómo se juega
 
-1. Recoge tu EPP en orden (pantalón, chaqueta, EPR, capucha, casco y guantes). No puedes seguir subiendo sin cada pieza.
+1. Recoge tu EPP en orden (botas, pantalón, chaqueta, EPR, capucha, casco y guantes). No puedes seguir subiendo sin cada pieza.
 2. Con el EPP completo recibes el pitón, la halligan y la linterna.
 3. Apaga las llamas con el pitón.
 4. Cuando un techo cerrado no te deje pasar, fuerza la puerta de la escalera del costado con la halligan y sube por ahí.
@@ -45,7 +45,7 @@ Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad po
 | Botón | Acción |
 |-------|--------|
 | ◀ ▶ | Moverse |
-| ⬆ | Saltar |
+| Tocar la pantalla | Saltar (mantén el dedo para saltar más alto) |
 | Pitón | Apagar fuego |
 | Halligan | Forzar puertas, romper ventanas y romper el techo para ventilar |
 | 🔦 | Linterna (en la zona oscura) |
