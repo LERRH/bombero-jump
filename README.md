@@ -24,7 +24,7 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 | 2 | Paramédico | ✅ |
 | 3 | Fuego expuesto (EPP + pitón) | ✅ |
 | 4 | Gas Stop (recoger Gas Stop, balones con fuga de 4 s) | ✅ |
-| 5 | Gatitos en el árbol | próximamente |
+| 5 | Gatitos en el árbol (entorno nocturno listo; faltan gatitos y mochila) | 🚧 |
 | 6 | Forestal | próximamente |
 | 7 | Ascensor | próximamente |
 | 8 | Fuego interno (recoger halligan) | ✅ |

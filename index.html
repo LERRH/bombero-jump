@@ -912,7 +912,7 @@ const TRUCK_ZONE = { x: W - 225, w: 220, y: H - 20 };
 function freeX(y, w, pref) {
   const near = S.plats.filter(o => !o.ground && !o.roof && Math.abs(o.y - y) < ART_H);
   // El carro bomba de la calle también ocupa espacio: ninguna ventana puede taparlo
-  if (Math.abs(TRUCK_ZONE.y - y) < ART_H) near.push(TRUCK_ZONE);
+  if (Math.abs(TRUCK_ZONE.y - y) < ART_H && !theme()) near.push(TRUCK_ZONE);
   const free = [];
   for (let x = 0; x <= W - w; x += 4)
     if (near.every(o => x + w + 12 < o.x || o.x + o.w + 12 < x)) free.push(x);
@@ -1026,6 +1026,13 @@ const RACE_LEVELS = [
   { name: 'Más rápido', hint: 'Apaga solo lo que te bloquee el paso', len: 1400, doors: 0, p: { flame: 0.18, fragile: 0.18, inner: 0.10 } },
   { name: 'Carrera final', hint: '¡Llega a la azotea!', len: 1500, doors: 0, p: { flame: 0.20, fragile: 0.22, inner: 0.12 } },
 ];
+// Módulo 5 (Gatitos): rescate nocturno trepando por las ramas de un árbol grande.
+// Mismo formato que Saltos (gap, w, dx). Los gatitos y la mochila se agregan con sus dibujos.
+const TREE_LEVELS = [
+  { name: 'El árbol', hint: 'Sube de rama en rama', len: 1000, gap: [65, 90], w: [80, 100], dx: [30, 150], p: {} },
+  { name: 'Ramas altas', hint: 'Mantén el dedo para saltar más alto', len: 1100, gap: [85, 110], w: [70, 90], dx: [50, 170], p: {} },
+  { name: 'La copa', hint: '¡Ya casi llegas arriba!', len: 1200, gap: [95, 120], w: [62, 80], dx: [70, 180], p: {} },
+];
 // Módulo 4: balones de gas. gas = probabilidad de balón por alféizar
 const GAS_LEVELS = [
   { name: 'Primer balón', hint: 'Junto al balón con fuga, mantén el Gas Stop 1 segundo', len: 1100, doors: 0, p: { gas: 0.16 } },
@@ -1050,6 +1057,8 @@ const MOD_LIST = [
 const MODS = {
   fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
+  gatos: { title: 'MÓDULO 5 · GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS,
+    start: 'Rescate nocturno: sube por las ramas del árbol', rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
   gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge el Gas Stop', rule: TASK_RULE },
   interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
@@ -1200,7 +1209,7 @@ function queueTools() {
 
 // ¿Se puede usar esta herramienta ahora? (según el módulo, el EPP y lo recogido)
 function toolOk(t) {
-  if (S.mod === 'saltos' || S.mod === 'medico' || !hasTools()) return false;
+  if (S.mod === 'saltos' || S.mod === 'medico' || (MODS[S.mod] && MODS[S.mod].notools) || !hasTools()) return false;
   const M = MODS[S.mod];
   if (M && M.tools && !M.tools.includes(t)) return false;
   if (M && M.pickups && M.pickups.includes(t) && !S.have[t]) return false;
@@ -1255,7 +1264,7 @@ function updateControls() {
     b.classList.toggle('hide', t === 'gasstop' ? !(M && M.tools && M.tools.includes(t)) : !!(M && M.tools && !M.tools.includes(t)));
     b.classList.toggle('off', S.mod !== 'medico' && S.mod !== 'saltos' && !toolOk(t));
   }
-  c.classList.toggle('notools', S.mod === 'saltos');
+  c.classList.toggle('notools', S.mod === 'saltos' || !!(MODS[S.mod] && MODS[S.mod].notools));
   c.classList.toggle('medmode', S.mod === 'medico');
   c.classList.toggle('tilt', Tilt.on);
   c.querySelector('.lamp').classList.toggle('on', S.lamp);
@@ -2081,7 +2090,149 @@ function hash(a, b) {
   return v - Math.floor(v);
 }
 
+// Tema visual del módulo actual ('tree' = árbol nocturno; null = edificio)
+const theme = () => (MODS[S.mod] && MODS[S.mod].theme) || null;
+const TRUNK_X = W - 104;   // borde izquierdo del tronco (a la derecha de la pantalla)
+
+// Fondo nocturno: cielo, estrellas, luna, nubes y ciudad a lo lejos (con paralaje)
+function drawNightBg() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#070d1f'); g.addColorStop(0.55, '#0e1a3a'); g.addColorStop(1, '#1a2850');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // estrellas que titilan
+  for (let i = 0; i < 60; i++) {
+    const x = hash(i, 3) * W, y = ((hash(i, 7) * H * 1.6 - S.camY * 0.05) % H + H) % H;
+    ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(S.t / 40 + i));
+    ctx.fillStyle = '#dfe8ff'; ctx.fillRect(x, y, 1.6, 1.6);
+  }
+  ctx.globalAlpha = 1;
+  // luna con resplandor
+  const my = 120 - S.camY * 0.04, mx = 120;
+  const halo = ctx.createRadialGradient(mx, my, 30, mx, my, 130);
+  halo.addColorStop(0, 'rgba(220,230,255,0.35)'); halo.addColorStop(1, 'rgba(220,230,255,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(mx, my, 130, 0, 7); ctx.fill();
+  ctx.fillStyle = '#e8ecf5'; ctx.beginPath(); ctx.arc(mx, my, 52, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(170,180,205,0.35)';
+  for (const [dx, dy, r] of [[-16, -10, 10], [14, 8, 13], [-6, 20, 7], [20, -18, 6]]) { ctx.beginPath(); ctx.arc(mx + dx, my + dy, r, 0, 7); ctx.fill(); }
+  // nubes oscuras que cruzan la luna
+  const cloud = (cx, cy, k) => {
+    ctx.fillStyle = 'rgba(28,40,78,0.88)';
+    for (const [dx, dy, r] of [[0, 0, 26], [28, -10, 22], [54, 0, 24], [-26, 6, 18], [80, 8, 16]]) { ctx.beginPath(); ctx.arc(cx + dx * k, cy + dy * k, r * k, 0, 7); ctx.fill(); }
+  };
+  cloud(((S.t * 0.15) % (W + 260)) - 140, my + 30, 1);
+  cloud(((S.t * 0.08 + 260) % (W + 300)) - 160, 300 - S.camY * 0.06, 1.3);
+  // dos capas de edificios con ventanas encendidas
+  const city = (k, base, col, win, seed) => {
+    const off = -S.camY * k;
+    for (let i = 0; i < 9; i++) {
+      const bw = 40 + hash(i, seed) * 40, bh = 120 + hash(i, seed + 1) * 220, bx = i * 48 - 20;
+      const by = base + off - bh;
+      if (by > H) continue;
+      ctx.fillStyle = col; ctx.fillRect(bx, by, bw, H - by + 400);
+      ctx.fillStyle = win;
+      for (let wy = by + 12; wy < Math.min(H, base + off); wy += 18)
+        for (let wx = bx + 6; wx < bx + bw - 8; wx += 12)
+          if (hash(wx + seed, wy - off) > 0.72) ctx.fillRect(wx, wy, 5, 7);
+    }
+  };
+  city(0.12, H + 40, '#141f3d', 'rgba(255,214,120,0.35)', 11);
+  city(0.22, H + 160, '#0c142b', 'rgba(255,200,100,0.55)', 23);
+}
+
+// Tronco del árbol (en coordenadas del mundo), con corteza, nudos y un hueco
+function drawTrunk() {
+  const top = S.goalPlaced ? S.roofY - 40 : S.camY - 40, bot = Math.min(H + 10, S.camY + H + 40);
+  const y0 = Math.max(top, S.camY - 40);
+  ctx.fillStyle = '#111'; ctx.fillRect(TRUNK_X - 3, y0, W - TRUNK_X + 6, bot - y0);
+  const g = ctx.createLinearGradient(TRUNK_X, 0, W, 0);
+  g.addColorStop(0, '#7a4a28'); g.addColorStop(0.45, '#5e381e'); g.addColorStop(1, '#3b2312');
+  ctx.fillStyle = g; ctx.fillRect(TRUNK_X, y0, W - TRUNK_X, bot - y0);
+  // vetas de la corteza
+  ctx.strokeStyle = 'rgba(30,16,8,0.55)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 6; i++) {
+    const bx = TRUNK_X + 12 + i * 16;
+    ctx.beginPath();
+    for (let y = Math.floor(y0 / 20) * 20; y < bot; y += 20) ctx.lineTo(bx + Math.sin(y / 37 + i) * 5, y);
+    ctx.stroke();
+  }
+  // nudos y huecos repartidos a lo alto
+  const k0 = Math.floor(y0 / 260), k1 = Math.ceil(bot / 260);
+  for (let k = k0; k <= k1; k++) {
+    const ky = k * 260 + hash(k, 5) * 120, kx = TRUNK_X + 30 + hash(k, 9) * 40;
+    if (hash(k, 2) > 0.6) {
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(kx, ky, 17, 25, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#1a0f08'; ctx.beginPath(); ctx.ellipse(kx, ky, 14, 22, 0, 0, 7); ctx.fill();
+    } else {
+      ctx.strokeStyle = 'rgba(30,16,8,0.8)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(kx, ky, 8, 5, 0.3, 0, 7); ctx.stroke();
+    }
+  }
+}
+
+// Mata de hojas (estilo de la referencia: verde con contorno oscuro)
+function leaves(cx, cy, r, seed) {
+  const blobs = 7;
+  ctx.fillStyle = '#0d2410';
+  for (let i = 0; i < blobs; i++) {
+    const a = i / blobs * Math.PI * 2 + seed, rr = r * (0.55 + hash(seed, i) * 0.3);
+    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.4, rr + 2, 0, 7); ctx.fill();
+  }
+  for (let i = 0; i < blobs; i++) {
+    const a = i / blobs * Math.PI * 2 + seed, rr = r * (0.55 + hash(seed, i) * 0.3);
+    ctx.fillStyle = i % 2 ? '#2f7d2a' : '#3e9a32';
+    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.4, rr, 0, 7); ctx.fill();
+  }
+  ctx.fillStyle = '#6cc04a';
+  for (let i = 0; i < 4; i++) {
+    const a = seed * 3 + i * 1.6;
+    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.4, cy - r * 0.15 + Math.sin(a) * r * 0.25, r * 0.16, 0, 7); ctx.fill();
+  }
+}
+
+// Rama: tronco horizontal donde se pisa, con hojas en el extremo que da al borde
+function drawBranch(pl) {
+  const { x, y, w } = pl, th = 17, seed = (x * 13 + y * 7) % 97;
+  const toTrunk = x + w / 2 > W / 2;   // las ramas del lado derecho salen del tronco
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x + 4, y + th, w - 8, 5);
+  // tronco de la rama
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.roundRect(x - 2, y - 2, w + 4, th + 4, 7); ctx.fill();
+  const g = ctx.createLinearGradient(0, y, 0, y + th);
+  g.addColorStop(0, '#9a6234'); g.addColorStop(1, '#5e381e');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, y, w, th, 6); ctx.fill();
+  ctx.strokeStyle = 'rgba(40,20,8,0.6)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x + 8, y + 5); ctx.lineTo(x + w - 14, y + 4); ctx.moveTo(x + 14, y + 10); ctx.lineTo(x + w - 8, y + 10); ctx.stroke();
+  // extremo cortado (anillos) del lado contrario a las hojas
+  const cx = toTrunk ? x + 4 : x + w - 4;
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(cx, y + th / 2, 5, th / 2 + 1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#c99a62'; ctx.beginPath(); ctx.ellipse(cx, y + th / 2, 3.5, th / 2 - 1, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#8a5a30'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(cx, y + th / 2, 1.8, th / 4, 0, 0, 7); ctx.stroke();
+  // hojas: en el extremo que da al tronco o al borde, y un poco por debajo
+  // (afuera de la parte que se pisa, para que se vea bien dónde pararse)
+  const lx = toTrunk ? Math.max(x + w + 16, TRUNK_X - 4) : x - 18;
+  leaves(lx, y + 2, 25, seed);
+  leaves(toTrunk ? x + w * 0.7 : x + w * 0.3, y + th + 9, 13, seed + 2);
+}
+
+// Suelo de pasto con arbustos al pie del árbol
+function drawGrass() {
+  ctx.fillStyle = '#0f2a12'; ctx.fillRect(0, H - 20, W, 220);
+  ctx.fillStyle = '#1f4d1c'; ctx.fillRect(0, H - 20, W, 6);
+  ctx.fillStyle = '#2f6e27';
+  for (let x = 0; x < W; x += 6) { const h = 4 + hash(x, 1) * 6; ctx.fillRect(x, H - 20 - h, 2, h); }
+  leaves(30, H - 34, 26, 4); leaves(TRUNK_X - 20, H - 30, 22, 9); leaves(W - 30, H - 36, 28, 13);
+}
+
+// Copa del árbol: la meta del módulo
+function drawCanopy(pl) {
+  for (let i = 0; i < 9; i++) leaves(i * 50 - 10, pl.y - 10 - (i % 2) * 14, 40, i * 5 + 1);
+  ctx.fillStyle = '#111'; ctx.fillRect(-20, pl.y - 2, W + 40, 18);
+  const g = ctx.createLinearGradient(0, pl.y, 0, pl.y + 14);
+  g.addColorStop(0, '#9a6234'); g.addColorStop(1, '#5e381e');
+  ctx.fillStyle = g; ctx.fillRect(-20, pl.y, W + 40, 14);
+}
+
 function drawBg() {
+  if (theme() === 'tree') { drawNightBg(); return; }
   const deep = clamp(-S.camY / 6000, 0, 1);
   ctx.fillStyle = '#1c1c20';
   ctx.fillRect(0, 0, W, H);
@@ -2144,8 +2295,12 @@ function drawDecor() {
 }
 
 function drawWorld() {
+  if (theme() === 'tree') {
+    drawTrunk();
+    if (S.camY > -100) drawGrass();
+  }
   // Cielo sobre la azotea
-  if (S.goalPlaced && S.roofY > S.camY - 50) {
+  if (!theme() && S.goalPlaced && S.roofY > S.camY - 50) {
     const g = ctx.createLinearGradient(0, S.camY, 0, S.roofY);
     g.addColorStop(0, '#0b1a3a'); g.addColorStop(1, '#2d4a7a');
     ctx.fillStyle = g;
@@ -2155,7 +2310,7 @@ function drawWorld() {
   }
 
   // Calle y carro bomba al inicio
-  if (S.camY > -100) {
+  if (!theme() && S.camY > -100) {
     ctx.fillStyle = '#333'; ctx.fillRect(0, H - 20, W, 200);
     ctx.fillStyle = '#555'; ctx.fillRect(0, H - 20, W, 3);   // borde de la vereda
     // Carro bomba estacionado
@@ -2168,12 +2323,13 @@ function drawWorld() {
     }
   }
 
-  drawDecor();
+  if (!theme()) drawDecor();
   for (const pl of S.plats) {
     if (pl.ground) continue;
     if (pl.kind === 'slab' || pl.kind === 'stairstep') continue;   // los dibuja el techo de la escalera
     if (pl.kind === 'landing') { drawSill(pl.x, pl.y, pl.w); continue; }
     if (pl.kind === 'ventroof') { drawVentRoof(pl); continue; }
+    if (theme() === 'tree') { if (pl.roof) drawCanopy(pl); else drawBranch(pl); continue; }
     if (pl.roof) {
       ctx.fillStyle = '#777'; ctx.fillRect(pl.x, pl.y, pl.w, 20);
       ctx.fillStyle = '#999'; ctx.fillRect(pl.x, pl.y, pl.w, 3);
