@@ -1045,9 +1045,16 @@ const RACE_LEVELS = [
 // Módulo 5 (Gatitos): rescate nocturno trepando por las ramas de un árbol grande.
 // Mismo formato que Saltos (gap, w, dx). Los gatitos y la mochila se agregan con sus dibujos.
 const TREE_LEVELS = [
-  { name: 'El árbol', hint: 'Sube de rama en rama', len: 1000, gap: [65, 90], w: [80, 100], dx: [30, 150], p: {} },
-  { name: 'Ramas altas', hint: 'Mantén el dedo para saltar más alto', len: 1100, gap: [85, 110], w: [70, 90], dx: [50, 170], p: {} },
-  { name: 'La copa', hint: '¡Ya casi llegas arriba!', len: 1200, gap: [95, 120], w: [62, 80], dx: [70, 180], p: {} },
+  { name: 'El árbol', hint: 'Sube de rama en rama', len: 900,
+    gap: [65, 90], w: [80, 100], dx: [30, 150], p: {} },
+  { name: 'Ramas altas', hint: 'Mantén el dedo para saltar más alto', len: 1000,
+    gap: [90, 112], w: [70, 88], dx: [60, 170], p: { fragile: 0.15 }, chain: 1, win: 1 },
+  { name: 'Ramas secas', hint: 'Las ramas secas se quiebran al pisarlas: ¡salta rápido!', len: 1100,
+    gap: [95, 118], w: [64, 80], dx: [70, 180], p: { fragile: 0.4 }, chain: 2, win: 1 },
+  { name: 'Saltos largos', hint: 'Más alto y más lejos', len: 1200,
+    gap: [108, 130], w: [56, 70], dx: [90, 195], p: { fragile: 0.5 }, chain: 2, win: 1 },
+  { name: 'La copa', hint: 'Casi todo seco y se quiebra rápido: ¡no te detengas!', len: 1300,
+    gap: [118, 140], w: [50, 62], dx: [100, 205], p: { fragile: 0.85 }, chain: 4, win: 1, crack: 18 },
 ];
 // Módulo 4: balones de gas. gas = probabilidad de balón por alféizar
 const GAS_LEVELS = [
@@ -1748,19 +1755,22 @@ function update() {
   for (const pl of S.plats) {
     if (pl.fragile && !pl.broken && !S.fragileWarned && pl.y > S.camY && pl.y < S.camY + H) {
       S.fragileWarned = true;
-      toast('¡Cuidado! Los alféizares agrietados se rompen al pisarlos', '#ffd166');
+      toast(theme() === 'tree' ? '¡Cuidado! Las ramas secas se quiebran al pisarlas' : '¡Cuidado! Los alféizares agrietados se rompen al pisarlos', '#ffd166');
     }
     if (!pl.crackT || pl.broken) continue;
     pl.crackT++;
-    if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
+    const tree = theme() === 'tree', chips = tree ? ['#8a6a48', '#5e4630', '#a8916f'] : ['#c9c9c9', '#8d8d8d', '#a9a9a9'];
+    if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, tree ? chips : ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
     if (pl.crackT >= (pl.crackMax || 24)) {
       pl.broken = true;
       SFX.play('crumble');
       for (let k = 0; k < 22; k++) {
         S.parts.push({ x: pl.x + rand(0, pl.w), y: pl.y + rand(0, 10), vx: rand(-1.5, 1.5), vy: rand(-1.5, 1), g: 0.35,
-          life: 50, max: 50, c: ['#c9c9c9', '#8d8d8d', '#a9a9a9'][k % 3], s: rand(1.8, 4) });
+          life: 50, max: 50, c: chips[k % 3], s: rand(1.8, 4) });
       }
-      addSmoke(pl.x + pl.w / 2, pl.y + 4, 'light', 0.9);
+      if (tree) for (let k = 0; k < 8; k++) S.parts.push({ x: pl.x + rand(0, pl.w), y: pl.y - rand(0, 20), vx: rand(-1, 1), vy: rand(-1, 0.5), g: 0.08,
+        life: 70, max: 70, c: ['#7a6a3a', '#9a8040', '#5c6b2e'][k % 3], s: rand(2, 3.5) });   // hojas secas que caen
+      else addSmoke(pl.x + pl.w / 2, pl.y + 4, 'light', 0.9);
       if (p.ground === pl) p.ground = null;
     }
   }
@@ -2266,6 +2276,28 @@ function drawTrunks() {
 // Rama: sale del tronco (más gruesa) y se afina hacia la punta; arriba es plana para pararse
 function drawBranch(pl) {
   const left = pl.side < 0, dir = left ? 1 : -1;
+  if (pl.fragile && pl.broken) { drawBrokenBranch(pl); return; }
+  if (pl.fragile && pl.crackT) {   // cruje: tiembla y se dobla hacia abajo
+    const k = Math.min(1, pl.crackT / (pl.crackMax || 24)), xb0 = left ? pl.x : pl.x + pl.w;
+    ctx.save(); ctx.translate(xb0 + rand(-1, 1) * k * 2, pl.y); ctx.rotate(dir * k * 0.12); ctx.translate(-xb0, -pl.y);
+    drawBranchBody(pl, left, dir); ctx.restore(); return;
+  }
+  drawBranchBody(pl, left, dir);
+}
+
+// Muñón que queda pegado al tronco cuando una rama seca se quiebra
+function drawBrokenBranch(pl) {
+  const left = pl.side < 0, dir = left ? 1 : -1, xb = left ? pl.x : pl.x + pl.w, y = pl.y, L = 22;
+  ctx.fillStyle = '#0d0703';
+  ctx.beginPath(); ctx.moveTo(xb, y - 6); ctx.lineTo(xb + dir * (L + 2), y - 2); ctx.lineTo(xb + dir * (L - 6), y + 6);
+  ctx.lineTo(xb + dir * (L + 4), y + 12); ctx.lineTo(xb + dir * 8, y + 22); ctx.lineTo(xb, y + 30); ctx.fill();
+  ctx.fillStyle = '#6e5a44';
+  ctx.beginPath(); ctx.moveTo(xb, y - 3); ctx.lineTo(xb + dir * L, y); ctx.lineTo(xb + dir * (L - 7), y + 6);
+  ctx.lineTo(xb + dir * (L + 1), y + 11); ctx.lineTo(xb + dir * 7, y + 19); ctx.lineTo(xb, y + 26); ctx.fill();
+  ctx.fillStyle = '#c9a77a'; ctx.fillRect(xb + dir * (L - 4) - (dir < 0 ? 3 : 0), y + 2, 3, 8);   // madera clara de la quebradura
+}
+
+function drawBranchBody(pl, left, dir) {
   const xb = left ? pl.x : pl.x + pl.w, xt = left ? pl.x + pl.w : pl.x, y = pl.y;
   const t0 = 21, t1 = 11, seed = Math.floor(Math.abs(pl.x * 13 + pl.y * 7)) % 97;
   const path = () => {
@@ -2279,9 +2311,19 @@ function drawBranch(pl) {
   };
   ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse((xb + xt) / 2, y + t0 + 6, Math.abs(xt - xb) / 2, 5, 0, 0, 7); ctx.fill();
   ctx.lineWidth = 4; ctx.strokeStyle = '#0d0703'; path(); ctx.stroke();
-  const g = ctx.createLinearGradient(0, y - 4, 0, y + t0);
-  g.addColorStop(0, '#b0804f'); g.addColorStop(0.3, '#7d4f2c'); g.addColorStop(1, '#3a2110');
+  const dry = pl.fragile, g = ctx.createLinearGradient(0, y - 4, 0, y + t0);
+  if (dry) { g.addColorStop(0, '#a99a84'); g.addColorStop(0.3, '#7a6a56'); g.addColorStop(1, '#3d342a'); }
+  else { g.addColorStop(0, '#b0804f'); g.addColorStop(0.3, '#7d4f2c'); g.addColorStop(1, '#3a2110'); }
   ctx.fillStyle = g; path(); ctx.fill();
+  if (dry) {   // grietas de rama seca
+    ctx.strokeStyle = '#1a120a'; ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    for (const f of [0.35, 0.68]) {
+      const cx = xb + (xt - xb) * f;
+      ctx.moveTo(cx, y - 1); ctx.lineTo(cx + dir * 3, y + 5); ctx.lineTo(cx - dir * 2, y + 9); ctx.lineTo(cx + dir * 2, y + 14);
+    }
+    ctx.stroke();
+  }
   // vetas a lo largo de la rama y brillo de luna arriba
   ctx.strokeStyle = 'rgba(25,12,5,0.55)'; ctx.lineWidth = 1.4;
   ctx.beginPath();
@@ -2293,6 +2335,12 @@ function drawBranch(pl) {
   // nudito y ramita que sube con hojas cerca de la punta
   ctx.fillStyle = '#2a170a'; ctx.beginPath(); ctx.ellipse((xb + xt) / 2 + dir * 8, y + 9, 3, 2, 0, 0, 7); ctx.fill();
   const tx = xt - dir * 18;
+  if (pl.fragile) {   // hojas secas en la punta
+    ctx.globalAlpha = 0.95; ctx.filter = 'sepia(0.9) saturate(0.7) brightness(0.8)';
+    drawLeaves(xt + dir * 16, y - 4, 52, seed);
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+    return;
+  }
   ctx.strokeStyle = '#0d0703'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(tx, y + 2); ctx.lineTo(tx + dir * 10, y - 16); ctx.stroke();
   ctx.strokeStyle = '#7d4f2c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tx, y + 2); ctx.lineTo(tx + dir * 10, y - 16); ctx.stroke();
   // follaje: en la punta (por fuera de donde se pisa) y colgando bajo la rama
