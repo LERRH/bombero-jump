@@ -83,6 +83,7 @@
         <button data-a="hal" class="tool" aria-label="Halligan"><img src="img/botones/halligan.png" alt=""></button>
         <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
         <button data-k="cure" class="tool med" data-arc="0" aria-label="Maletín de abordaje"><img src="img/botones/maletin.png" alt=""></button>
+        <button data-k="gas" class="tool gas" data-arc="0" aria-label="Gas Stop"><img src="img/botones/gasstop.png" alt=""></button>
       </div>
     </div>
   </div>
@@ -164,6 +165,9 @@ loadImg('camion', 'img/camion.png');
 loadImg('logo', 'img/logo.png');
 for (const t of ['piton', 'halligan']) loadImg(`tool_${t}`, `img/${t}.png`);
 loadImg('tool_linterna', 'img/botones/linterna.png');
+loadImg('tool_gasstop', 'img/gas/gasstop.png');
+loadImg('balon', 'img/gas/balon.png'); loadImg('balon_fuga', 'img/gas/balon_fuga.png');
+for (let f = 1; f <= 6; f++) loadImg(`gasstop_${f}`, `img/bombero/gasstop_${f}.png`);
 for (const who of ['hombre', 'mujer'])
   for (const pose of ['atrapado', 'huida', 'victoria', 'herido']) loadImg(`${who}_${pose}`, `img/personas/${who}_${pose}.png`);
 const pickWho = () => Math.random() < 0.5 ? 'hombre' : 'mujer';
@@ -745,7 +749,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, gasT: 0, gasFixed: 0, gasWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
   SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
@@ -867,6 +871,9 @@ function gen() {
       const take = (prob, ok) => { if (!ok || !prob) return false; if (r < prob) return true; r -= prob; return false; };
       if (p.injured || p.hasTool) {
         // alféizar firme y despejado (herido o herramienta)
+      } else if (take(pr.gas, p.kind !== 'ac' && p.w >= 64)) {
+        // Balón de gas: empieza a fugar cuando el bombero se acerca
+        p.gas = { state: 'ok', t: GAS_T, side: Math.random() < 0.5 ? -1 : 1, fix: 0 };
       } else if (take(pr.trapped, win)) {
         // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
         p.trapped = 'inside'; p.who = pickWho(); p.ph = Math.random() * 6;
@@ -1019,6 +1026,13 @@ const RACE_LEVELS = [
   { name: 'Más rápido', hint: 'Apaga solo lo que te bloquee el paso', len: 1400, doors: 0, p: { flame: 0.18, fragile: 0.18, inner: 0.10 } },
   { name: 'Carrera final', hint: '¡Llega a la azotea!', len: 1500, doors: 0, p: { flame: 0.20, fragile: 0.22, inner: 0.12 } },
 ];
+// Módulo 4: balones de gas. gas = probabilidad de balón por alféizar
+const GAS_LEVELS = [
+  { name: 'Primer balón', hint: 'Junto al balón con fuga, mantén el Gas Stop 1 segundo', len: 1100, doors: 0, p: { gas: 0.16 } },
+  { name: 'Fugas', hint: 'Cada balón explota a los 4 segundos: ¡corre!', len: 1200, doors: 0, p: { gas: 0.22 } },
+  { name: 'Edificio con gas', hint: 'Más balones y pisos agrietados', len: 1300, doors: 0, p: { gas: 0.26, fragile: 0.12 } },
+];
+const GAS_T = 240, GASFIX_T = 60;   // 4 s hasta que explota; 1 s manteniendo el Gas Stop
 // Estrellas de los módulos con tareas: cuántas llamas, fuegos internos, ventanas y personas se resolvieron
 const TASK_RULE = '★ llegar  ·  ★★ la mitad de las tareas  ·  ★★★ todas';
 
@@ -1036,6 +1050,8 @@ const MOD_LIST = [
 const MODS = {
   fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
+  gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS,
+    start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge el Gas Stop', rule: TASK_RULE },
   interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
     levels: INNER_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
   backdraft: { title: 'MÓDULO 9 · BACKDRAFT', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
@@ -1058,7 +1074,7 @@ const MODS = {
 // Estrellas: en Saltos cuentan las caídas; en Paramédico, cuántos heridos se curaron
 function trainResult(won) {
   let stars = 0;
-  const M = MODS[S.mod], done = S.extOut + S.inOut + S.vented + S.rescued;
+  const M = MODS[S.mod], done = S.extOut + S.inOut + S.vented + S.rescued + S.gasFixed;
   if (won && S.mod === 'medico') stars = S.cured >= S.injTotal ? 3 : S.cured * 2 >= S.injTotal ? 2 : 1;
   else if (won && M.tasks) stars = done >= S.taskTotal ? 3 : done * 2 >= S.taskTotal ? 2 : 1;
   else if (won && M.race) stars = 3 - Math.min(2, 3 - S.lives);
@@ -1148,7 +1164,7 @@ function countTasks() {
   const top = S.camY, bot = S.camY + H;
   for (const f of S.flames) if (!f.inner && !f.seen && f.y > top && f.y < bot) { f.seen = true; S.taskTotal++; }
   for (const pl of S.plats) {
-    if ((pl.inner || pl.smokeWin || pl.trapped) && !pl.seen && pl.y > top && pl.y < bot) { pl.seen = true; S.taskTotal++; }
+    if ((pl.inner || pl.smokeWin || pl.trapped || pl.gas) && !pl.seen && pl.y > top && pl.y < bot) { pl.seen = true; S.taskTotal++; }
   }
 }
 
@@ -1234,9 +1250,9 @@ function updateControls() {
   c.classList.toggle('tools', S.mod === 'medico' ? S.medic : hasTools());
   // Cada herramienta: oculta si el módulo no la usa, apagada si aún no se puede usar
   const M = MODS[S.mod];
-  for (const [sel, t] of [['[data-k="hose"]', 'piton'], ['[data-a="hal"]', 'halligan'], ['[data-a="lamp"]', 'linterna']]) {
+  for (const [sel, t] of [['[data-k="hose"]', 'piton'], ['[data-a="hal"]', 'halligan'], ['[data-a="lamp"]', 'linterna'], ['[data-k="gas"]', 'gasstop']]) {
     const b = c.querySelector(sel);
-    b.classList.toggle('hide', !!(M && M.tools && !M.tools.includes(t)));
+    b.classList.toggle('hide', t === 'gasstop' ? !(M && M.tools && M.tools.includes(t)) : !!(M && M.tools && !M.tools.includes(t)));
     b.classList.toggle('off', S.mod !== 'medico' && S.mod !== 'saltos' && !toolOk(t));
   }
   c.classList.toggle('notools', S.mod === 'saltos');
@@ -1469,7 +1485,7 @@ function halliganHit() {
 // ---------- Entrada ----------
 const keys = {};
 const KMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose', KeyC: 'cure', KeyE: 'cure' };
+  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose', KeyC: 'cure', KeyE: 'cure', KeyG: 'gas' };
 addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
@@ -1524,7 +1540,7 @@ function update() {
   // Mientras usa la halligan en el suelo, no camina
   // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
   if (keys.hose && S.halT === 0 && toolOk('piton')) S.hoseT++; else S.hoseT = 0;
-  const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0;
+  const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0 || S.gasT > 0;
   // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
   const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : 0), -1, 1);
   if (ix) p.dir = Math.sign(ix);
@@ -1595,7 +1611,7 @@ function update() {
       it.got = true; S.have[it.tool] = true; S.eppLock = false;
       SFX.play('tools'); updateControls();
       burst(it.x, it.y, 22, ['#ffd166', '#fff'], 3, 0, 30, 3);
-      toast(it.tool === 'halligan' ? '¡Halligan lista! Fuerza puertas y rompe ventanas' : '¡Linterna lista! Úsala cuando oscurezca', '#7f7');
+      toast(it.tool === 'halligan' ? '¡Halligan lista! Fuerza puertas y rompe ventanas' : it.tool === 'gasstop' ? '¡Gas Stop listo! Junto a un balón con fuga, mantenlo 1 segundo' : '¡Linterna lista! Úsala cuando oscurezca', '#7f7');
     } else if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
       it.got = true;
       S.epp++;
@@ -1613,6 +1629,7 @@ function update() {
   }
   S.items = S.items.filter(i => !i.got);
   if (S.mod === 'medico') updateCure();
+  if (S.mod === 'gas') updateGas();
 
   // Manguera
   if (S.hoseT >= 12) {
@@ -1876,6 +1893,101 @@ function drawInjured() {
   }
 }
 
+// x del balón sobre su alféizar
+const gasX = pl => pl.gas.side > 0 ? pl.x + pl.w - 20 : pl.x + 20;
+
+// Balón con fuga al alcance del bombero (parado en el mismo alféizar)
+function gasNear() {
+  const p = S.p;
+  return S.plats.find(pl => pl.gas && pl.gas.state === 'leak' && p.ground === pl && Math.abs(gasX(pl) - p.x) < 60);
+}
+
+// Balones: se activan al acercarse, cuentan 4 s y explotan; el Gas Stop sostenido 1 s los asegura
+function updateGas() {
+  const p = S.p;
+  for (const pl of S.plats) {
+    const g = pl.gas;
+    if (!g) continue;
+    if (g.state === 'ok' && pl.y > S.camY + 40 && pl.y < S.camY + H - 40 && Math.abs(pl.y - p.y) < 170) {
+      g.state = 'leak'; g.t = GAS_T; SFX.play('click');
+      if (!S.gasWarned) { S.gasWarned = true; toast('¡Fuga de gas! Ve al balón y mantén el Gas Stop 1 segundo', '#ffb347'); }
+    }
+    if (g.state === 'leak') {
+      g.t--;
+      if (S.t % 5 === 0) addSmoke(gasX(pl) + rand(-14, 14), pl.y - rand(22, 40), 'light', 0.55);
+      if (g.t <= 0) explodeGas(pl);
+    }
+  }
+  const hp = keys.gas && toolOk('gasstop') && p.ground ? gasNear() : null;
+  if (hp) {
+    S.gasT++;
+    p.dir = gasX(hp) >= p.x ? 1 : -1;
+    if (S.gasT % 15 === 1) SFX.play('click');
+    if (S.gasT >= GASFIX_T) {
+      hp.gas.state = 'fixed'; S.gasFixed++; S.gasT = 0;
+      SFX.play('tools');
+      burst(gasX(hp), hp.y - 30, 22, ['#ffd23f', '#fff', '#9b59ff'], 3, 0.05, 36, 3);
+      toast(`¡Balón asegurado! (${S.gasFixed})`, '#7f7');
+    }
+    return;
+  }
+  if (keys.gas && !S.gasT && (!S.msg || S.msg.t < 120))
+    toast(toolOk('gasstop') ? 'Párate junto a un balón con fuga' : 'Primero recoge el Gas Stop', '#ccc');
+  S.gasT = 0;
+}
+
+// Explosión del balón: daña al bombero si está cerca
+function explodeGas(pl) {
+  const x = gasX(pl), y = pl.y - 22;
+  pl.gas.state = 'boom';
+  for (let i = 0; i < 90; i++) {
+    const a = rand(0, Math.PI * 2), v = rand(1, 7);
+    S.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1.5, g: 0.06, life: rand(25, 50), max: 50,
+      c: ['#ff3d00', '#ff8c00', '#ffd23f', '#fff1a8'][i % 4], s: rand(4, 11) });
+  }
+  for (let k = 0; k < 8; k++) addSmoke(x + rand(-25, 25), y + rand(-20, 10), 'dark', 1.5);
+  SFX.play('boom');
+  if (Math.hypot(S.p.x - x, S.p.y - pl.y) < 150) {
+    S.shake = 26; S.p.ground = null; S.p.vy = -6; S.p.vx = (S.p.x < x ? -1 : 1) * 6;
+    hurt('¡El balón explotó! Usa el Gas Stop antes de 4 segundos', true);
+  } else { S.shake = 10; toast('¡Un balón explotó!', '#ff8a8a'); }
+}
+
+// Balones de gas sobre los alféizares, con su cuenta regresiva
+function drawGas() {
+  for (const pl of S.plats) {
+    const g = pl.gas;
+    if (!g || g.state === 'boom') continue;
+    const x = gasX(pl), leak = g.state === 'leak';
+    const jit = leak ? Math.sin(S.t * 1.7) * (1 + (GAS_T - g.t) / GAS_T * 2) : 0;
+    const im = IMG[leak ? 'balon_fuga' : 'balon'];
+    if (im && im.complete && im.naturalWidth) {
+      const h = 44, w = im.naturalWidth * h / im.naturalHeight;
+      ctx.drawImage(im, x - w / 2 + jit, pl.y - h + 1, w, h);
+    }
+    if (g.state === 'fixed') drawImgH(IMG.tool_gasstop, x, pl.y - 36, 13);
+    if (leak) {
+      const sec = Math.ceil(g.t / 60), k = 1 + (g.t % 60) / 60 * 0.35;
+      ctx.save(); ctx.translate(x, pl.y - 62); ctx.scale(k, k);
+      ctx.font = font(26); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#111'; ctx.fillText(sec, 2, 2);
+      ctx.fillStyle = sec <= 1 ? '#ff3b3b' : sec <= 2 ? '#ff9a3c' : '#ffd23f'; ctx.fillText(sec, 0, 0);
+      ctx.restore();
+    }
+  }
+}
+
+// Barra de avance del Gas Stop sobre el bombero
+function drawGasBar() {
+  if (!S.gasT) return;
+  const p = S.p, k = S.gasT / GASFIX_T, w = 52, x = p.x - w / 2, y = p.y - 78;
+  box(x - 2, y - 2, w + 4, 11, '#111');
+  ctx.fillStyle = '#333'; ctx.fillRect(x, y, w, 7);
+  ctx.fillStyle = '#ffd23f'; ctx.fillRect(x, y, w * k, 7);
+  ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+  ctx.fillText('GAS STOP', p.x, y - 9);
+}
+
 // Barra de avance de la curación sobre el paramédico
 function drawCureBar() {
   if (!S.cureT) return;
@@ -2084,8 +2196,10 @@ function drawWorld() {
 
   drawPeople();
   drawInjured();
+  drawGas();
   drawPlayer();
   drawCureBar();
+  drawGasBar();
   drawJet();
   if (MODS[S.mod] && MODS[S.mod].race) drawRaceFire();
 
@@ -2515,6 +2629,8 @@ function drawPlayer() {
     key = `${S.tool}_${f}`; h = -1;
   } else if (S.hoseT > 0) {
     key = S.hoseT < 6 ? 'piton_1' : S.hoseT < 12 ? 'piton_2' : `apunta_${S.aim || 'frente'}`; h = -1;
+  } else if (S.gasT > 0) {
+    key = `gasstop_${1 + Math.min(5, Math.floor(S.gasT / (GASFIX_T / 6)))}`; h = 54;   // arrodillado: 6 cuadros en 1 s
   } else if (S.cureT > 0) {
     key = `curar_${1 + Math.min(2, Math.floor(S.cureT / (CURE_T / 3)))}`; h = 0;   // venda: 3 cuadros en 1 s
   } else if (S.inv > 0 && Math.floor(S.t / 4) % 2) return;
