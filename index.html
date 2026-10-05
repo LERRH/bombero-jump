@@ -815,7 +815,8 @@ function gen() {
           ex = rand(0, W - 80);
           S.plats = S.plats.filter(o => o.ground || Math.abs(o.y - ey) >= ART_H || ex + 80 + 12 < o.x || o.x + o.w + 12 < ex);
         }
-        addPlat(ex, ey, 80, { kind: 'window' });
+        const pe = addPlat(ex, ey, 80, { kind: 'window' });
+        if (theme() === 'tree') treeify(pe);
       }
       if (ev.t === 'goal') {
         addPlat(-20, ev.y, W + 40, { roof: true });
@@ -839,6 +840,7 @@ function gen() {
     for (let k = 1; x === null; k++) { y += TL && k <= 3 ? 8 : -10; x = freeX(y, w, reach); }
     const prevY = S.genY;
     const p = addPlat(x, y, w, TL && Math.random() < (TL.win || 0) ? { kind: 'window' } : {});
+    if (theme() === 'tree') treeify(p);
     if (TL && TL.crack) p.crackMax = TL.crack;
     if (hurtHere) {
       p.injured = { who: pickWho(), side: Math.random() < 0.5 ? -1 : 1, state: 'hurt', t: 0 };
@@ -857,7 +859,7 @@ function gen() {
       S.items.push({ f: 'tool_' + t, tool: t, x: p.x + p.w / 2, y: p.y - 24 });
       p.hasTool = true; S.eppLock = true; S.lockCamY = p.y - 140; S.toolMinY = y - 260;
     }
-    S.genY = y; S.prevCx = p.x + w / 2;
+    S.genY = y; S.prevCx = x + w / 2;
     if (S.phase === 1 && S.itemToPlace >= 0 && y < S.nextItemMinY) {
       S.items.push({ i: S.itemToPlace, x: p.x + p.w / 2, y: p.y - 24 });
       S.itemToPlace = -1;
@@ -909,7 +911,21 @@ const stairX = b => b.side > 0 ? W - STAIR_GAP : 0;
 const inStair = (b, x) => b.side > 0 ? x - 9 >= W - STAIR_GAP : x + 9 <= STAIR_GAP;
 const TRUCK_ZONE = { x: W - 225, w: 220, y: H - 20 };
 // Busca una x donde la ventana/puerta no se monte sobre otra plataforma cercana
+// Árbol: la rama estirada hasta su tronco no puede pisar otra rama cercana y debe salir al menos 60 px
+function freeBranchX(y, w, pref) {
+  const near = S.plats.filter(o => !o.ground && !o.roof && Math.abs(o.y - y) < 46);
+  const free = [];
+  for (let x = 0; x <= W - w; x += 4) {
+    const r = treeRect(x, w);
+    if (r.w < 60 + 6 || (x + w / 2 < W / 2 ? x + w > W - TRUNK_W - 20 : x < TRUNK_W + 20)) continue;
+    if (near.every(o => r.x + r.w + 10 < o.x || o.x + o.w + 10 < r.x)) free.push(x);
+  }
+  const best = pref ? free.filter(pref) : free, pool = best.length ? best : free;
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
 function freeX(y, w, pref) {
+  if (theme() === 'tree') return freeBranchX(y, w, pref);
   const near = S.plats.filter(o => !o.ground && !o.roof && Math.abs(o.y - y) < ART_H);
   // El carro bomba de la calle también ocupa espacio: ninguna ventana puede taparlo
   if (Math.abs(TRUCK_ZONE.y - y) < ART_H && !theme()) near.push(TRUCK_ZONE);
@@ -2092,41 +2108,115 @@ function hash(a, b) {
 
 // Tema visual del módulo actual ('tree' = árbol nocturno; null = edificio)
 const theme = () => (MODS[S.mod] && MODS[S.mod].theme) || null;
-const TRUNK_X = W - 104;   // borde izquierdo del tronco (a la derecha de la pantalla)
+const TRUNK_W = 58;   // ancho de cada tronco (uno a cada lado); las ramas salen de ellos
+
+// Números pseudoaleatorios con semilla (para que el dibujo prearmado sea siempre igual)
+function seeded(n) { return () => { n |= 0; n = n + 0x6D2B79F5 | 0; let t = Math.imul(n ^ n >>> 15, 1 | n); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// Una hoja con punta, rotada
+function leafShape(x, cx, cy, len, ang) {
+  x.save(); x.translate(cx, cy); x.rotate(ang);
+  x.beginPath(); x.moveTo(-len / 2, 0);
+  x.quadraticCurveTo(0, -len * 0.42, len / 2, 0); x.quadraticCurveTo(0, len * 0.42, -len / 2, 0);
+  x.fill(); x.restore();
+}
+
+// Mata de follaje en capas: contorno, sombra, verdes medios, claros y brillo de luna arriba a la izquierda
+function leafCluster(x, cx, cy, R, seed) {
+  const rnd = seeded(seed * 977 + 13), pts = [];
+  for (let i = 0; i < 120; i++) {
+    const a = rnd() * Math.PI * 2, r = Math.pow(rnd(), 0.65) * R;
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.72, rnd() * Math.PI, 0.75 + rnd() * 0.5]);
+  }
+  const layer = (col, dx, dy, k, filter) => {
+    x.fillStyle = col;
+    for (const [px, py, a, s] of pts) if (!filter || filter(px - cx, py - cy)) leafShape(x, px + dx, py + dy, 20 * s * k, a);
+  };
+  layer('#07140a', 0, 2, 1.45);                                    // contorno oscuro
+  layer('#143a17', 0, 3, 1.15);                                    // sombra de abajo
+  layer('#24642a', 0, 0, 1.0);                                     // verde base
+  layer('#3a8a34', -1, -2, 0.85, (dx, dy) => dy < R * 0.35);       // verde medio
+  layer('#5aae44', -2, -4, 0.62, (dx, dy) => dy < 0 && dx < R * 0.5);   // verde claro
+  layer('#9fd38a', -3, -6, 0.32, (dx, dy) => dy < -R * 0.25 && dx < 0); // brillo de la luna
+}
+
+// Arte del árbol prearmado una sola vez: corteza (textura que se repite) y matas de hojas
+const TREE = {};
+(function makeTreeArt() {
+  const TH = 360;   // alto de la textura de corteza
+  for (const side of ['L', 'R']) {
+    const c = document.createElement('canvas'); c.width = TRUNK_W + 14; c.height = TH;
+    const x = c.getContext('2d'), Wc = c.width, inner = side === 'L' ? Wc : 0, outer = Wc - inner;
+    // madera: oscura hacia afuera, iluminada por la luna hacia el centro de la pantalla
+    const g = x.createLinearGradient(outer, 0, inner, 0);
+    g.addColorStop(0, '#1e1008'); g.addColorStop(0.45, '#4a2b16'); g.addColorStop(0.8, '#6e4325'); g.addColorStop(0.95, '#8a6046'); g.addColorStop(1, '#a3876f');
+    x.fillStyle = g; x.fillRect(0, 0, Wc, TH);
+    // placas de corteza: surcos ondulados (periódicos para que la textura no tenga costura)
+    const wave = (i, y) => Math.sin(y / TH * Math.PI * 4 + i * 1.3) * 4 + Math.sin(y / TH * Math.PI * 10 + i) * 1.5;
+    for (let i = 0; i < 7; i++) {
+      const bx = 5 + i * (Wc - 10) / 6;
+      x.strokeStyle = 'rgba(20,10,4,0.75)'; x.lineWidth = 2.5 + (i % 2);
+      x.beginPath(); for (let y = 0; y <= TH; y += 6) { const xx = bx + wave(i, y); y ? x.lineTo(xx, y) : x.moveTo(xx, y); } x.stroke();
+      x.strokeStyle = 'rgba(190,140,95,0.22)'; x.lineWidth = 1.2;   // borde iluminado de cada placa
+      x.beginPath(); for (let y = 0; y <= TH; y += 6) { const xx = bx + 3 + wave(i, y); y ? x.lineTo(xx, y) : x.moveTo(xx, y); } x.stroke();
+    }
+    // grietas cortas
+    const rnd = seeded(side === 'L' ? 5 : 9);
+    for (let k = 0; k < 16; k++) {
+      const cy = 10 + k * 21 + rnd() * 6, cx = 6 + rnd() * (Wc - 22);
+      x.strokeStyle = 'rgba(20,10,4,0.6)'; x.lineWidth = 1.4;
+      x.beginPath(); x.moveTo(cx, cy); x.quadraticCurveTo(cx + 6, cy + 3, cx + 12, cy + 1); x.stroke();
+    }
+    // musgo en el lado de afuera y un nudo con anillos
+    for (let k = 0; k < 3; k++) {
+      const my = 50 + k * 115, mx = side === 'L' ? Wc * 0.3 : Wc * 0.7;
+      for (let n = 0; n < 14; n++) {
+        x.fillStyle = ['#2f5d22', '#3f7a2a', '#58913a'][n % 3];
+        x.beginPath(); x.arc(mx + (rnd() - 0.5) * 18, my + (rnd() - 0.5) * 28, 2 + rnd() * 3, 0, 7); x.fill();
+      }
+    }
+    const kx = Wc / 2, ky = 230;
+    x.fillStyle = '#1a0d05'; x.beginPath(); x.ellipse(kx, ky, 9, 13, 0, 0, 7); x.fill();
+    x.strokeStyle = '#7a5032'; x.lineWidth = 1.5;
+    for (const r of [4, 7, 10]) { x.beginPath(); x.ellipse(kx, ky, r * 0.7, r, 0, 0, 7); x.stroke(); }
+    TREE['bark' + side] = c;
+  }
+  for (let v = 0; v < 6; v++) {
+    const c = document.createElement('canvas'); c.width = 130; c.height = 110;
+    leafCluster(c.getContext('2d'), 65, 58, 46, v);
+    TREE['leaf' + v] = c;
+  }
+})();
+const drawLeaves = (cx, cy, size, v) => { const im = TREE['leaf' + (((v % 6) + 6) % 6)]; ctx.drawImage(im, cx - size / 2, cy - size * 0.42, size, size * im.height / im.width); };
 
 // Fondo nocturno: cielo, estrellas, luna, nubes y ciudad a lo lejos (con paralaje)
 function drawNightBg() {
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#070d1f'); g.addColorStop(0.55, '#0e1a3a'); g.addColorStop(1, '#1a2850');
+  g.addColorStop(0, '#060b1c'); g.addColorStop(0.55, '#0d1838'); g.addColorStop(1, '#18264d');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // estrellas que titilan
   for (let i = 0; i < 60; i++) {
     const x = hash(i, 3) * W, y = ((hash(i, 7) * H * 1.6 - S.camY * 0.05) % H + H) % H;
     ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(S.t / 40 + i));
     ctx.fillStyle = '#dfe8ff'; ctx.fillRect(x, y, 1.6, 1.6);
   }
   ctx.globalAlpha = 1;
-  // luna con resplandor
-  const my = 120 - S.camY * 0.04, mx = 120;
-  const halo = ctx.createRadialGradient(mx, my, 30, mx, my, 130);
+  const my = 120 - S.camY * 0.04, mx = W / 2 - 40;
+  const halo = ctx.createRadialGradient(mx, my, 30, mx, my, 140);
   halo.addColorStop(0, 'rgba(220,230,255,0.35)'); halo.addColorStop(1, 'rgba(220,230,255,0)');
-  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(mx, my, 130, 0, 7); ctx.fill();
-  ctx.fillStyle = '#e8ecf5'; ctx.beginPath(); ctx.arc(mx, my, 52, 0, 7); ctx.fill();
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(mx, my, 140, 0, 7); ctx.fill();
+  ctx.fillStyle = '#e8ecf5'; ctx.beginPath(); ctx.arc(mx, my, 50, 0, 7); ctx.fill();
   ctx.fillStyle = 'rgba(170,180,205,0.35)';
   for (const [dx, dy, r] of [[-16, -10, 10], [14, 8, 13], [-6, 20, 7], [20, -18, 6]]) { ctx.beginPath(); ctx.arc(mx + dx, my + dy, r, 0, 7); ctx.fill(); }
-  // nubes oscuras que cruzan la luna
   const cloud = (cx, cy, k) => {
-    ctx.fillStyle = 'rgba(28,40,78,0.88)';
+    ctx.fillStyle = 'rgba(26,38,74,0.9)';
     for (const [dx, dy, r] of [[0, 0, 26], [28, -10, 22], [54, 0, 24], [-26, 6, 18], [80, 8, 16]]) { ctx.beginPath(); ctx.arc(cx + dx * k, cy + dy * k, r * k, 0, 7); ctx.fill(); }
   };
   cloud(((S.t * 0.15) % (W + 260)) - 140, my + 30, 1);
   cloud(((S.t * 0.08 + 260) % (W + 300)) - 160, 300 - S.camY * 0.06, 1.3);
-  // dos capas de edificios con ventanas encendidas
   const city = (k, base, col, win, seed) => {
     const off = -S.camY * k;
     for (let i = 0; i < 9; i++) {
-      const bw = 40 + hash(i, seed) * 40, bh = 120 + hash(i, seed + 1) * 220, bx = i * 48 - 20;
-      const by = base + off - bh;
+      const bw = 40 + hash(i, seed) * 40, bh = 120 + hash(i, seed + 1) * 220, bx = i * 48 - 20, by = base + off - bh;
       if (by > H) continue;
       ctx.fillStyle = col; ctx.fillRect(bx, by, bw, H - by + 400);
       ctx.fillStyle = win;
@@ -2135,101 +2225,123 @@ function drawNightBg() {
           if (hash(wx + seed, wy - off) > 0.72) ctx.fillRect(wx, wy, 5, 7);
     }
   };
-  city(0.12, H + 40, '#141f3d', 'rgba(255,214,120,0.35)', 11);
-  city(0.22, H + 160, '#0c142b', 'rgba(255,200,100,0.55)', 23);
+  city(0.12, H + 40, '#131d3a', 'rgba(255,214,120,0.32)', 11);
+  city(0.22, H + 160, '#0b1329', 'rgba(255,200,100,0.5)', 23);
 }
 
-// Tronco del árbol (en coordenadas del mundo), con corteza, nudos y un hueco
-function drawTrunk() {
-  const top = S.goalPlaced ? S.roofY - 40 : S.camY - 40, bot = Math.min(H + 10, S.camY + H + 40);
-  const y0 = Math.max(top, S.camY - 40);
-  ctx.fillStyle = '#111'; ctx.fillRect(TRUNK_X - 3, y0, W - TRUNK_X + 6, bot - y0);
-  const g = ctx.createLinearGradient(TRUNK_X, 0, W, 0);
-  g.addColorStop(0, '#7a4a28'); g.addColorStop(0.45, '#5e381e'); g.addColorStop(1, '#3b2312');
-  ctx.fillStyle = g; ctx.fillRect(TRUNK_X, y0, W - TRUNK_X, bot - y0);
-  // vetas de la corteza
-  ctx.strokeStyle = 'rgba(30,16,8,0.55)'; ctx.lineWidth = 2;
-  for (let i = 0; i < 6; i++) {
-    const bx = TRUNK_X + 12 + i * 16;
-    ctx.beginPath();
-    for (let y = Math.floor(y0 / 20) * 20; y < bot; y += 20) ctx.lineTo(bx + Math.sin(y / 37 + i) * 5, y);
-    ctx.stroke();
+// Los dos troncos (izquierdo y derecho) en coordenadas del mundo, con raíces abajo y matas de hojas pegadas
+function drawTrunks() {
+  const top = Math.max(S.goalPlaced ? S.roofY - 60 : -1e9, S.camY - 40), bot = Math.min(H + 30, S.camY + H + 40);
+  if (bot <= top) return;
+  for (const side of ['L', 'R']) {
+    const im = TREE['bark' + side], x0 = side === 'L' ? TRUNK_W - im.width : W - TRUNK_W;
+    ctx.save(); ctx.beginPath(); ctx.rect(x0, top, im.width, bot - top); ctx.clip();
+    for (let y = Math.floor(top / im.height) * im.height; y < bot; y += im.height) ctx.drawImage(im, x0, y);
+    ctx.restore();
+    // borde con contorno y sombra que el tronco proyecta hacia adentro
+    const ex = side === 'L' ? TRUNK_W : W - TRUNK_W, dir = side === 'L' ? 1 : -1;
+    const sh = ctx.createLinearGradient(ex, 0, ex + dir * 16, 0);
+    sh.addColorStop(0, 'rgba(0,0,0,0.35)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sh; ctx.fillRect(Math.min(ex, ex + dir * 16), top, 16, bot - top);
+    ctx.fillStyle = '#0d0703'; ctx.fillRect(ex - 2, top, 3, bot - top);
+    // matas de hojas que brotan del tronco
+    for (let k = Math.floor(top / 230) - 1; k <= Math.ceil(bot / 230); k++) {
+      if (hash(k, side === 'L' ? 31 : 37) < 0.45) continue;
+      const ly = k * 230 + hash(k, 41) * 90;
+      drawLeaves(ex + dir * 6, ly, 64, k + (side === 'L' ? 0 : 3));
+    }
   }
-  // nudos y huecos repartidos a lo alto
-  const k0 = Math.floor(y0 / 260), k1 = Math.ceil(bot / 260);
-  for (let k = k0; k <= k1; k++) {
-    const ky = k * 260 + hash(k, 5) * 120, kx = TRUNK_X + 30 + hash(k, 9) * 40;
-    if (hash(k, 2) > 0.6) {
-      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(kx, ky, 17, 25, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = '#1a0f08'; ctx.beginPath(); ctx.ellipse(kx, ky, 14, 22, 0, 0, 7); ctx.fill();
-    } else {
-      ctx.strokeStyle = 'rgba(30,16,8,0.8)'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.ellipse(kx, ky, 8, 5, 0.3, 0, 7); ctx.stroke();
+  // raíces que se abren sobre el pasto
+  if (S.camY > -140) for (const side of [-1, 1]) {
+    const ex = side < 0 ? TRUNK_W : W - TRUNK_W;
+    for (const [dx, h] of [[22, 30], [44, 18], [10, 40]]) {
+      ctx.fillStyle = '#0d0703';
+      ctx.beginPath(); ctx.moveTo(ex, H - 20 - h - 2); ctx.quadraticCurveTo(ex - side * dx * 0.2, H - 24, ex - side * dx - side * 4, H - 18); ctx.lineTo(ex, H - 18); ctx.fill();
+      ctx.fillStyle = '#5a361d';
+      ctx.beginPath(); ctx.moveTo(ex, H - 20 - h); ctx.quadraticCurveTo(ex - side * dx * 0.2, H - 24, ex - side * dx, H - 20); ctx.lineTo(ex, H - 20); ctx.fill();
     }
   }
 }
 
-// Mata de hojas (estilo de la referencia: verde con contorno oscuro)
-function leaves(cx, cy, r, seed) {
-  const blobs = 7;
-  ctx.fillStyle = '#0d2410';
-  for (let i = 0; i < blobs; i++) {
-    const a = i / blobs * Math.PI * 2 + seed, rr = r * (0.55 + hash(seed, i) * 0.3);
-    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.4, rr + 2, 0, 7); ctx.fill();
-  }
-  for (let i = 0; i < blobs; i++) {
-    const a = i / blobs * Math.PI * 2 + seed, rr = r * (0.55 + hash(seed, i) * 0.3);
-    ctx.fillStyle = i % 2 ? '#2f7d2a' : '#3e9a32';
-    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.4, rr, 0, 7); ctx.fill();
-  }
-  ctx.fillStyle = '#6cc04a';
-  for (let i = 0; i < 4; i++) {
-    const a = seed * 3 + i * 1.6;
-    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.4, cy - r * 0.15 + Math.sin(a) * r * 0.25, r * 0.16, 0, 7); ctx.fill();
-  }
-}
-
-// Rama: tronco horizontal donde se pisa, con hojas en el extremo que da al borde
+// Rama: sale del tronco (más gruesa) y se afina hacia la punta; arriba es plana para pararse
 function drawBranch(pl) {
-  const { x, y, w } = pl, th = 17, seed = (x * 13 + y * 7) % 97;
-  const toTrunk = x + w / 2 > W / 2;   // las ramas del lado derecho salen del tronco
-  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x + 4, y + th, w - 8, 5);
-  // tronco de la rama
-  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.roundRect(x - 2, y - 2, w + 4, th + 4, 7); ctx.fill();
-  const g = ctx.createLinearGradient(0, y, 0, y + th);
-  g.addColorStop(0, '#9a6234'); g.addColorStop(1, '#5e381e');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, y, w, th, 6); ctx.fill();
-  ctx.strokeStyle = 'rgba(40,20,8,0.6)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(x + 8, y + 5); ctx.lineTo(x + w - 14, y + 4); ctx.moveTo(x + 14, y + 10); ctx.lineTo(x + w - 8, y + 10); ctx.stroke();
-  // extremo cortado (anillos) del lado contrario a las hojas
-  const cx = toTrunk ? x + 4 : x + w - 4;
-  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(cx, y + th / 2, 5, th / 2 + 1, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#c99a62'; ctx.beginPath(); ctx.ellipse(cx, y + th / 2, 3.5, th / 2 - 1, 0, 0, 7); ctx.fill();
-  ctx.strokeStyle = '#8a5a30'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(cx, y + th / 2, 1.8, th / 4, 0, 0, 7); ctx.stroke();
-  // hojas: en el extremo que da al tronco o al borde, y un poco por debajo
-  // (afuera de la parte que se pisa, para que se vea bien dónde pararse)
-  const lx = toTrunk ? Math.max(x + w + 16, TRUNK_X - 4) : x - 18;
-  leaves(lx, y + 2, 25, seed);
-  leaves(toTrunk ? x + w * 0.7 : x + w * 0.3, y + th + 9, 13, seed + 2);
+  const left = pl.side < 0, dir = left ? 1 : -1;
+  const xb = left ? pl.x : pl.x + pl.w, xt = left ? pl.x + pl.w : pl.x, y = pl.y;
+  const t0 = 21, t1 = 11, seed = Math.floor(Math.abs(pl.x * 13 + pl.y * 7)) % 97;
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(xb, y - 4);
+    ctx.lineTo(xt - dir * 6, y);
+    ctx.quadraticCurveTo(xt + dir * 3, y + t1 / 2, xt - dir * 6, y + t1);   // punta redondeada
+    ctx.quadraticCurveTo((xb + xt) / 2, y + t1 + 3, xb + dir * 16, y + t0);
+    ctx.quadraticCurveTo(xb + dir * 4, y + t0 + 2, xb, y + t0 + 14);         // cuello que se ensancha al tronco
+    ctx.closePath();
+  };
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse((xb + xt) / 2, y + t0 + 6, Math.abs(xt - xb) / 2, 5, 0, 0, 7); ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = '#0d0703'; path(); ctx.stroke();
+  const g = ctx.createLinearGradient(0, y - 4, 0, y + t0);
+  g.addColorStop(0, '#b0804f'); g.addColorStop(0.3, '#7d4f2c'); g.addColorStop(1, '#3a2110');
+  ctx.fillStyle = g; path(); ctx.fill();
+  // vetas a lo largo de la rama y brillo de luna arriba
+  ctx.strokeStyle = 'rgba(25,12,5,0.55)'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(xb + dir * 6, y + 7); ctx.quadraticCurveTo((xb + xt) / 2, y + 4, xt - dir * 12, y + 5);
+  ctx.moveTo(xb + dir * 10, y + 13); ctx.quadraticCurveTo((xb + xt) / 2, y + 10, xt - dir * 18, y + 8);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(225,195,150,0.55)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(xb + dir * 4, y - 2.5); ctx.lineTo(xt - dir * 8, y + 1); ctx.stroke();
+  // nudito y ramita que sube con hojas cerca de la punta
+  ctx.fillStyle = '#2a170a'; ctx.beginPath(); ctx.ellipse((xb + xt) / 2 + dir * 8, y + 9, 3, 2, 0, 0, 7); ctx.fill();
+  const tx = xt - dir * 18;
+  ctx.strokeStyle = '#0d0703'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(tx, y + 2); ctx.lineTo(tx + dir * 10, y - 16); ctx.stroke();
+  ctx.strokeStyle = '#7d4f2c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tx, y + 2); ctx.lineTo(tx + dir * 10, y - 16); ctx.stroke();
+  // follaje: en la punta (por fuera de donde se pisa) y colgando bajo la rama
+  drawLeaves(xt + dir * 20, y - 6, 78, seed);
+  drawLeaves(tx + dir * 12, y - 22, 40, seed + 1);
+  drawLeaves((xb + xt) / 2 - dir * 6, y + t0 + 8, 46, seed + 2);
+  // enredadera que cuelga en algunas ramas
+  if (seed % 3 === 0) {
+    const vx = (xb + xt) / 2 + dir * 14;
+    ctx.strokeStyle = '#1c4a1a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(vx, y + t1 + 2);
+    for (let k = 1; k <= 6; k++) ctx.lineTo(vx + Math.sin(k * 1.3 + S.t / 50) * 4, y + t1 + 2 + k * 9);
+    ctx.stroke();
+    ctx.fillStyle = '#3a8a34';
+    for (let k = 1; k <= 6; k += 1) leafShape(ctx, vx + Math.sin(k * 1.3 + S.t / 50) * 4 + (k % 2 ? 4 : -4), y + t1 + 2 + k * 9, 8, k % 2 ? 0.6 : -0.6);
+  }
 }
 
 // Suelo de pasto con arbustos al pie del árbol
 function drawGrass() {
-  ctx.fillStyle = '#0f2a12'; ctx.fillRect(0, H - 20, W, 220);
-  ctx.fillStyle = '#1f4d1c'; ctx.fillRect(0, H - 20, W, 6);
-  ctx.fillStyle = '#2f6e27';
-  for (let x = 0; x < W; x += 6) { const h = 4 + hash(x, 1) * 6; ctx.fillRect(x, H - 20 - h, 2, h); }
-  leaves(30, H - 34, 26, 4); leaves(TRUNK_X - 20, H - 30, 22, 9); leaves(W - 30, H - 36, 28, 13);
+  const g = ctx.createLinearGradient(0, H - 20, 0, H + 60);
+  g.addColorStop(0, '#173d18'); g.addColorStop(1, '#081a0a');
+  ctx.fillStyle = g; ctx.fillRect(0, H - 20, W, 220);
+  ctx.fillStyle = '#2a6424'; ctx.fillRect(0, H - 20, W, 4);
+  for (let x = 0; x < W; x += 5) {
+    const h = 4 + hash(x, 1) * 8;
+    ctx.fillStyle = hash(x, 2) > 0.5 ? '#2f7027' : '#3f8a32'; ctx.fillRect(x, H - 20 - h, 2, h);
+  }
+  drawLeaves(W / 2 - 70, H - 30, 70, 2); drawLeaves(W / 2 + 60, H - 28, 60, 4);
 }
 
-// Copa del árbol: la meta del módulo
+// Copa del árbol: la meta del módulo (una rama gruesa de tronco a tronco cubierta de hojas)
 function drawCanopy(pl) {
-  for (let i = 0; i < 9; i++) leaves(i * 50 - 10, pl.y - 10 - (i % 2) * 14, 40, i * 5 + 1);
-  ctx.fillStyle = '#111'; ctx.fillRect(-20, pl.y - 2, W + 40, 18);
-  const g = ctx.createLinearGradient(0, pl.y, 0, pl.y + 14);
-  g.addColorStop(0, '#9a6234'); g.addColorStop(1, '#5e381e');
-  ctx.fillStyle = g; ctx.fillRect(-20, pl.y, W + 40, 14);
+  for (let i = 0; i < 8; i++) drawLeaves(i * 58 - 4, pl.y - 26 - (i % 2) * 16, 110, i);
+  ctx.fillStyle = '#0d0703'; ctx.fillRect(-20, pl.y - 3, W + 40, 22);
+  const g = ctx.createLinearGradient(0, pl.y, 0, pl.y + 18);
+  g.addColorStop(0, '#b0804f'); g.addColorStop(0.35, '#7d4f2c'); g.addColorStop(1, '#3a2110');
+  ctx.fillStyle = g; ctx.fillRect(-20, pl.y, W + 40, 17);
+  for (let i = 0; i < 7; i++) drawLeaves(i * 66 + 20, pl.y + 26, 64, i + 3);
 }
+
+// En el árbol, cada rama se estira hasta el tronco más cercano
+function treeify(p) {
+  const tip0 = p.x, tip1 = p.x + p.w;
+  if (tip0 + p.w / 2 < W / 2) { p.side = -1; p.x = TRUNK_W - 6; p.w = tip1 - p.x; }
+  else { p.side = 1; p.w = W - TRUNK_W + 6 - tip0; }
+}
+// Rectángulo que ocupará una rama candidata ya estirada hasta su tronco
+const treeRect = (x, w) => x + w / 2 < W / 2 ? { x: TRUNK_W - 6, w: x + w - TRUNK_W + 6 } : { x, w: W - TRUNK_W + 6 - x };
 
 function drawBg() {
   if (theme() === 'tree') { drawNightBg(); return; }
@@ -2296,8 +2408,8 @@ function drawDecor() {
 
 function drawWorld() {
   if (theme() === 'tree') {
-    drawTrunk();
     if (S.camY > -100) drawGrass();
+    drawTrunks();
   }
   // Cielo sobre la azotea
   if (!theme() && S.goalPlaced && S.roofY > S.camY - 50) {
