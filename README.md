@@ -16,6 +16,25 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
    Si ves a una persona pidiendo ayuda en una ventana, rompe el vidrio con la halligan para que salga.
 6. En la zona de humo enciende tu linterna para ver el camino y rescata a la víctima en la azotea.
 
+## Módulos de entrenamiento
+
+| # | Módulo | Estado |
+|---|---|---|
+| 1 | Saltos | ✅ |
+| 2 | Paramédico | ✅ |
+| 3 | Fuego expuesto (EPP + pitón) | ✅ |
+| 4 | Gas Stop | próximamente |
+| 5 | Gatitos en el árbol | próximamente |
+| 6 | Forestal | próximamente |
+| 7 | Ascensor | próximamente |
+| 8 | Fuego interno (recoger halligan) | ✅ |
+| 9 | Backdraft | ✅ |
+| 10 | Entrada forzada | ✅ |
+| 11 | Linterna (recoger linterna, humo) | ✅ |
+| 12 | Extremo (todo combinado) | ✅ |
+| 13 | Contrarreloj (el fuego sube desde abajo) | ✅ |
+| 14 | Postes eléctricos | próximamente |
+
 ## Niveles de la emergencia
 
 Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad poco a poco y luego la combinan. En todos hay personas atrapadas para rescatar.

@@ -45,6 +45,8 @@
   /* Herramientas visibles siempre, pero apagadas hasta completar el EPP */
   #controls:not(.tools) .tool{opacity:.35;filter:grayscale(.7)}
   #controls.notools .tool{display:none}
+  #controls .tool.hide{display:none}
+  #controls .tool.off{opacity:.35;filter:grayscale(.7)}
   /* Módulo paramédico: solo el maletín (apagado hasta recogerlo) */
   #controls .med{display:none}
   #controls.medmode .tool:not(.med){display:none}
@@ -161,6 +163,7 @@ for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
 loadImg('camion', 'img/camion.png');
 loadImg('logo', 'img/logo.png');
 for (const t of ['piton', 'halligan']) loadImg(`tool_${t}`, `img/${t}.png`);
+loadImg('tool_linterna', 'img/botones/linterna.png');
 for (const who of ['hombre', 'mujer'])
   for (const pose of ['atrapado', 'huida', 'victoria', 'herido']) loadImg(`${who}_${pose}`, `img/personas/${who}_${pose}.png`);
 const pickWho = () => Math.random() < 0.5 ? 'hombre' : 'mujer';
@@ -702,14 +705,26 @@ function handleTap(e) {
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
   if (S.state === 'menu') {
     if (S.view === 'rank') { S.view = 'menu'; return; }
+    if (S.view === 'mods') {
+      const x = (e.clientX - r.left) * W / r.width;
+      if (y > 590) { S.view = 'menu'; return; }
+      MOD_LIST.forEach(([id], i) => {
+        const tx = TILE.x[i % 2], ty = TILE.y0 + Math.floor(i / 2) * TILE.dy;
+        if (x > tx && x < tx + TILE.w && y > ty && y < ty + TILE.h) {
+          if (MODS[id]) newGame('play', id); else toast('Este módulo llegará pronto', '#ccc');
+        }
+      });
+      return;
+    }
     if (Math.abs(y - 614) < 18) { refreshRank(); S.view = 'rank'; return; }
-    for (const m in MENU_Y) if (Math.abs(y - MENU_Y[m]) < 27) { newGame('play', m); break; }
+    if (Math.abs(y - MENU_Y.modulos) < 27) { S.view = 'mods'; return; }
+    if (Math.abs(y - MENU_Y.emergencia) < 27) newGame('play', 'emergencia');
     return;
   }
   // Módulos de entrenamiento: sin ranking, solo reintentar o volver al menú
   if ((S.state === 'over' || S.state === 'win') && MODS[S.mod]) {
     if (Math.abs(y - 500) < 28) newGame('play', S.mod);
-    else if (Math.abs(y - 570) < 22) newGame('menu');
+    else if (Math.abs(y - 570) < 22) { newGame('menu'); S.view = 'mods'; }
     return;
   }
   if (S.state === 'over' || S.state === 'win') {
@@ -730,11 +745,16 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
   SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
-  if (MODS[mod]) { S.phase = 2; S.itemToPlace = -1; buildLevels(MODS[mod].levels, H - 20); }
+  const M = MODS[mod];
+  if (M && !M.epp) {
+    S.phase = 2; S.itemToPlace = -1;
+    if (M.gear) S.epp = EPP.length;   // empieza ya equipado
+    buildLevels(M.levels, H - 20); queueTools();
+  }
   gen();
   S.p.ground = S.lastSafe = S.plats[0];
   updateControls();
@@ -762,7 +782,8 @@ function gen() {
   // Mientras haya una pieza del EPP sin recoger, no se genera nada por encima de ella
   while (S.genY > S.camY - 120 && !S.goalPlaced && !S.eppLock) {
     const ev = S.events[0];
-    const TL = MODS[S.mod] ? levelAt(S.genY) || S.levels[S.levels.length - 1] : null;
+    let TL = MODS[S.mod] ? levelAt(S.genY) || S.levels[S.levels.length - 1] : null;
+    if (TL && !TL.gap) TL = null;   // los módulos de fuego usan la generación de la Emergencia
     let y = S.genY - (TL ? rand(...TL.gap) : S.phase === 1 ? rand(50, 85) : rand(60, 100));
     if (ev && y <= ev.y + STAIR_DROP && ev.t === 'door') {
       S.events.shift();
@@ -826,6 +847,12 @@ function gen() {
       S.eppLock = true;
       S.lockCamY = p.y - 140;
     }
+    // Herramienta para recoger (halligan, linterna): la pantalla no sube hasta tomarla
+    if (S.phase === 2 && S.toolQueue.length && !hurtHere && y < S.toolMinY) {
+      const t = S.toolQueue.shift();
+      S.items.push({ f: 'tool_' + t, tool: t, x: p.x + p.w / 2, y: p.y - 24 });
+      p.hasTool = true; S.eppLock = true; S.lockCamY = p.y - 140; S.toolMinY = y - 260;
+    }
     S.genY = y; S.prevCx = p.x + w / 2;
     if (S.phase === 1 && S.itemToPlace >= 0 && y < S.nextItemMinY) {
       S.items.push({ i: S.itemToPlace, x: p.x + p.w / 2, y: p.y - 24 });
@@ -838,8 +865,8 @@ function gen() {
       const nearEvent = S.events[0] && p.y - S.events[0].y < 320, win = p.kind === 'window';
       let r = Math.random();
       const take = (prob, ok) => { if (!ok || !prob) return false; if (r < prob) return true; r -= prob; return false; };
-      if (p.injured) {
-        // alféizar firme y despejado para atender al herido
+      if (p.injured || p.hasTool) {
+        // alféizar firme y despejado (herido o herramienta)
       } else if (take(pr.trapped, win)) {
         // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
         p.trapped = 'inside'; p.who = pickWho(); p.ph = Math.random() * 6;
@@ -953,8 +980,74 @@ const MEDIC_LEVELS = [
 ];
 const CURE_T = 60;   // 1 segundo manteniendo presionado el maletín
 
+// Niveles de los módulos de fuego (mismo formato que la Emergencia: len, doors, dark, p = probabilidades)
+const FIRE_LEVELS = [
+  { name: 'Primeras llamas', hint: 'Apaga las llamas con el pitón', len: 1100, doors: 0, p: { flame: 0.30 } },
+  { name: 'Más fuego', hint: 'Apágalas antes de que crezcan', len: 1200, doors: 0, p: { flame: 0.42 } },
+  { name: 'Fachada en llamas', hint: '¡No dejes ninguna encendida!', len: 1300, doors: 0, p: { flame: 0.55 } },
+];
+const INNER_LEVELS = [
+  { name: 'Fuego interno', hint: 'Rompe con la halligan y apaga con el pitón', len: 1100, doors: 0, p: { inner: 0.30, flame: 0.12 } },
+  { name: 'Puertas y ventanas', hint: 'Las puertas se abren haciendo palanca', len: 1200, doors: 0, p: { inner: 0.38, flame: 0.15 } },
+  { name: 'Piso en llamas', hint: 'Fuego detrás de cada ventana', len: 1300, doors: 0, p: { inner: 0.45, flame: 0.18 } },
+];
+const BACKDRAFT_LEVELS = [
+  { name: 'Humo negro', hint: '¡No abras las ventanas con humo! Ventila arriba con la halligan', len: 1100, doors: 0, p: { smoke: 0.15, inner: 0.20, flame: 0.10 } },
+  { name: 'Riesgo de backdraft', hint: 'Primero ventila, después entra', len: 1200, doors: 0, p: { smoke: 0.20, inner: 0.20, flame: 0.12 } },
+  { name: 'Piso a punto de explotar', hint: 'Lee cada ventana antes de golpear', len: 1300, doors: 0, p: { smoke: 0.25, inner: 0.18, flame: 0.12 } },
+];
+const FORCED_LEVELS = [
+  { name: 'Puerta cerrada', hint: 'Fuerza la puerta de la escalera con la halligan', len: 1100, doors: 1, p: { inner: 0.20, flame: 0.12 } },
+  { name: 'Escaleras', hint: 'Cada techo cerrado tiene una puerta al costado', len: 1300, doors: 2, p: { inner: 0.20, smoke: 0.08, flame: 0.12 } },
+  { name: 'Edificio sellado', hint: 'Fuerza, ventila y apaga', len: 1500, doors: 3, p: { inner: 0.20, smoke: 0.12, flame: 0.12 } },
+];
+const LAMP_LEVELS = [
+  { name: 'Humo que baja', hint: 'Recoge tu linterna antes de que oscurezca', len: 1000, doors: 0, p: { inner: 0.15, flame: 0.15 } },
+  { name: 'Sin visibilidad', hint: 'Enciende la linterna 🔦', len: 1300, doors: 1, dark: true, p: { inner: 0.20, flame: 0.15 } },
+  { name: 'A ciegas', hint: 'Fuego, humo y oscuridad', len: 1400, doors: 1, dark: true, p: { inner: 0.18, smoke: 0.10, flame: 0.15 } },
+];
+const EXTREME_LEVELS = [
+  { name: 'Todo junto', hint: 'Fuego, humo, puertas y personas atrapadas', len: 1300, doors: 1,
+    p: { trapped: 0.12, smoke: 0.10, inner: 0.18, fragile: 0.12, flame: 0.18 } },
+  { name: 'Sin respiro', hint: 'Más rápido y más seguido', len: 1400, doors: 2,
+    p: { trapped: 0.12, smoke: 0.12, inner: 0.18, fragile: 0.18, flame: 0.20 } },
+  { name: 'Infierno', hint: 'A oscuras y con todo encima', len: 1500, doors: 2, dark: true,
+    p: { trapped: 0.14, smoke: 0.12, inner: 0.18, fragile: 0.20, flame: 0.22 } },
+];
+const RACE_LEVELS = [
+  { name: '¡El fuego sube!', hint: 'No te detengas: el incendio avanza desde abajo', len: 1300, doors: 0, p: { flame: 0.15, fragile: 0.12 } },
+  { name: 'Más rápido', hint: 'Apaga solo lo que te bloquee el paso', len: 1400, doors: 0, p: { flame: 0.18, fragile: 0.18, inner: 0.10 } },
+  { name: 'Carrera final', hint: '¡Llega a la azotea!', len: 1500, doors: 0, p: { flame: 0.20, fragile: 0.22, inner: 0.12 } },
+];
+// Estrellas de los módulos con tareas: cuántas llamas, fuegos internos, ventanas y personas se resolvieron
+const TASK_RULE = '★ llegar  ·  ★★ la mitad de las tareas  ·  ★★★ todas';
+
+// Lista del menú de módulos (en orden). Los que no están en MODS aparecen como "próximamente".
+const MOD_LIST = [
+  ['saltos', 'SALTOS'], ['medico', 'PARAMÉDICO'], ['fuego', 'FUEGO EXPUESTO'], ['gas', 'GAS STOP'],
+  ['gatos', 'GATITOS'], ['forestal', 'FORESTAL'], ['ascensor', 'ASCENSOR'], ['interno', 'FUEGO INTERNO'],
+  ['backdraft', 'BACKDRAFT'], ['forzada', 'ENTRADA FORZADA'], ['linterna', 'LINTERNA'], ['extremo', 'EXTREMO'],
+  ['reloj', 'CONTRARRELOJ'], ['postes', 'POSTES ELÉCTRICOS'],
+];
+
 // Módulos de entrenamiento (sin ranking; se ganan estrellas al llegar a la azotea)
+// epp: se recoge el EPP antes; gear: empieza ya equipado; tools: herramientas del módulo;
+// pickups: herramientas que hay que recoger en el camino; tasks: estrellas por tareas; race: el fuego sube
 const MODS = {
+  fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS,
+    start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
+  interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+    levels: INNER_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
+  backdraft: { title: 'MÓDULO 9 · BACKDRAFT', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+    levels: BACKDRAFT_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
+  forzada: { title: 'MÓDULO 10 · ENTRADA FORZADA', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+    levels: FORCED_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
+  linterna: { title: 'MÓDULO 11 · LINTERNA', epp: true, tools: ['piton', 'halligan', 'linterna'], pickups: ['halligan', 'linterna'],
+    tasks: true, levels: LAMP_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan y la linterna', rule: TASK_RULE },
+  extremo: { title: 'MÓDULO 12 · EXTREMO', epp: true, tools: ['piton', 'halligan', 'linterna'], tasks: true, levels: EXTREME_LEVELS,
+    start: 'Equípate con tu EPP', go: '¡EPP completo! Pitón, halligan y linterna: ¡todo junto!', rule: TASK_RULE },
+  reloj: { title: 'MÓDULO 13 · CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], levels: RACE_LEVELS,
+    start: '¡El fuego sube desde abajo! No te detengas', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
   saltos: { title: 'MÓDULO 1 · SALTOS', levels: TRAIN_LEVELS,
     start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto',
     rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
@@ -965,10 +1058,13 @@ const MODS = {
 // Estrellas: en Saltos cuentan las caídas; en Paramédico, cuántos heridos se curaron
 function trainResult(won) {
   let stars = 0;
+  const M = MODS[S.mod], done = S.extOut + S.inOut + S.vented + S.rescued;
   if (won && S.mod === 'medico') stars = S.cured >= S.injTotal ? 3 : S.cured * 2 >= S.injTotal ? 2 : 1;
+  else if (won && M.tasks) stars = done >= S.taskTotal ? 3 : done * 2 >= S.taskTotal ? 2 : 1;
+  else if (won && M.race) stars = 3 - Math.min(2, 3 - S.lives);
   else if (won) stars = 3 - Math.min(2, S.falls);
   const best = Progress.get()[S.mod] || 0, record = Progress.set(S.mod, stars);
-  return { stars, secs: S.t / 60, falls: S.falls, cured: S.cured, injTotal: S.injTotal,
+  return { stars, secs: S.t / 60, falls: S.falls, cured: S.cured, injTotal: S.injTotal, done: Math.min(done, S.taskTotal), taskTotal: S.taskTotal,
     best: Math.max(best, stars), record, total: 0 };
 }
 const finalResult = won => MODS[S.mod] ? trainResult(won) : computeScore(won);
@@ -1039,10 +1135,60 @@ function buildLevels(list, y) {
 
 function startPhase2() {
   S.phase = 2;
-  buildLevels(LEVELS, S.genY - 250);
+  const M = MODS[S.mod];
+  buildLevels(M ? M.levels : LEVELS, S.genY - 250);
+  queueTools();
   updateControls();
   SFX.play('tools'); SFX.music(2);
-  toast('¡EPP completo! Recibes pitón, halligan y linterna. ¡A la emergencia!', '#7f7');
+  toast(M ? M.go : '¡EPP completo! Recibes pitón, halligan y linterna. ¡A la emergencia!', '#7f7');
+}
+
+// Cuenta cada tarea (llama, fuego interno, ventana con humo, persona) cuando aparece en pantalla
+function countTasks() {
+  const top = S.camY, bot = S.camY + H;
+  for (const f of S.flames) if (!f.inner && !f.seen && f.y > top && f.y < bot) { f.seen = true; S.taskTotal++; }
+  for (const pl of S.plats) {
+    if ((pl.inner || pl.smokeWin || pl.trapped) && !pl.seen && pl.y > top && pl.y < bot) { pl.seen = true; S.taskTotal++; }
+  }
+}
+
+// Contrarreloj: el incendio sube desde abajo cada vez más rápido y nunca se detiene
+function updateRace() {
+  if (S.t < 180) return;   // 3 segundos de ventaja al empezar
+  S.fireV = Math.min(1.05, 0.5 + (S.t - 180) / 60 * 0.004);
+  S.fireY = Math.min(S.fireY - S.fireV, S.camY + H + 140);   // nunca se queda muy atrás
+  if (S.p.y - 12 > S.fireY && S.state === 'play') { S.lives = 1; hurt('¡El fuego te alcanzó!', true); }
+}
+
+// Muro de fuego del contrarreloj
+function drawRaceFire() {
+  const y0 = S.fireY;
+  if (y0 > S.camY + H + 60) return;
+  const g = ctx.createLinearGradient(0, y0 - 50, 0, y0 + 220);
+  g.addColorStop(0, 'rgba(255,140,0,0)'); g.addColorStop(0.2, 'rgba(255,90,0,0.85)'); g.addColorStop(1, 'rgba(110,10,0,0.97)');
+  ctx.fillStyle = g; ctx.fillRect(0, y0 - 50, W, S.camY + H - y0 + 80);
+  for (let x = -20, i = 0; x < W + 30; x += 30, i++) {
+    const im = IMG[`llama_${1 + (i % 3)}`];
+    if (!im || !im.complete || !im.naturalWidth) continue;
+    const h = 62 + Math.sin(S.t / 6 + i * 1.7) * 10, w = im.naturalWidth * h / im.naturalHeight;
+    ctx.drawImage(im, x - w / 2, y0 + 18 - h, w, h);
+  }
+}
+
+// Herramientas que el módulo pide recoger en el camino (halligan, linterna)
+function queueTools() {
+  const M = MODS[S.mod];
+  S.toolQueue = M && M.pickups ? M.pickups.slice() : [];
+  S.toolMinY = S.genY - 120;
+}
+
+// ¿Se puede usar esta herramienta ahora? (según el módulo, el EPP y lo recogido)
+function toolOk(t) {
+  if (S.mod === 'saltos' || S.mod === 'medico' || !hasTools()) return false;
+  const M = MODS[S.mod];
+  if (M && M.tools && !M.tools.includes(t)) return false;
+  if (M && M.pickups && M.pickups.includes(t) && !S.have[t]) return false;
+  return true;
 }
 
 function nearBar() {
@@ -1086,6 +1232,13 @@ const hasTools = () => S.epp >= EPP.length;
 function updateControls() {
   const c = document.getElementById('controls');
   c.classList.toggle('tools', S.mod === 'medico' ? S.medic : hasTools());
+  // Cada herramienta: oculta si el módulo no la usa, apagada si aún no se puede usar
+  const M = MODS[S.mod];
+  for (const [sel, t] of [['[data-k="hose"]', 'piton'], ['[data-a="hal"]', 'halligan'], ['[data-a="lamp"]', 'linterna']]) {
+    const b = c.querySelector(sel);
+    b.classList.toggle('hide', !!(M && M.tools && !M.tools.includes(t)));
+    b.classList.toggle('off', S.mod !== 'medico' && S.mod !== 'saltos' && !toolOk(t));
+  }
   c.classList.toggle('notools', S.mod === 'saltos');
   c.classList.toggle('medmode', S.mod === 'medico');
   c.classList.toggle('tilt', Tilt.on);
@@ -1102,7 +1255,7 @@ function darkLevel() {
 
 // Linterna: solo se puede usar en la zona oscura
 function toggleLamp() {
-  if (S.state !== 'play' || !hasTools()) return;
+  if (S.state !== 'play' || !toolOk('linterna')) return;
   if (darkLevel() <= 0) { toast('La linterna se usa en la zona oscura', '#ccc'); return; }
   S.lamp = !S.lamp;
   SFX.play('click');
@@ -1111,7 +1264,7 @@ function toggleLamp() {
 // Apertura de puertas con palanca: 5 cuadros (62 frames); la puerta cede en el último tirón
 const LEV_T = 62, LEV_HIT = 10;
 function useTool(tool) {
-  if (S.state !== 'play' || S.halT > 0 || !hasTools()) return;
+  if (S.state !== 'play' || S.halT > 0 || !toolOk('halligan')) return;
   const dx = doorTargetX();
   if (dx !== null) {
     S.tool = 'palanca'; S.halT = LEV_T;
@@ -1370,7 +1523,7 @@ function update() {
   const p = S.p;
   // Mientras usa la halligan en el suelo, no camina
   // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
-  if (keys.hose && S.halT === 0 && hasTools()) S.hoseT++; else S.hoseT = 0;
+  if (keys.hose && S.halT === 0 && toolOk('piton')) S.hoseT++; else S.hoseT = 0;
   const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0;
   // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
   const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : 0), -1, 1);
@@ -1427,7 +1580,7 @@ function update() {
   // Sin la pieza del EPP, el bombero no puede salir por arriba de la pantalla
   if (S.eppLock && p.y - PH < S.camY + 36) {
     p.y = S.camY + 36 + PH; p.vy = Math.max(p.vy, 1); p.ground = null;
-    if (!S.msg || S.msg.t < 120) toast(S.mod === 'medico' ? 'Recoge tu maletín para seguir subiendo' : 'Recoge tu EPP para seguir subiendo', '#ffd166');
+    if (!S.msg || S.msg.t < 120) toast(S.mod === 'medico' ? 'Recoge tu maletín para seguir subiendo' : S.phase === 2 ? 'Recoge la herramienta para seguir subiendo' : 'Recoge tu EPP para seguir subiendo', '#ffd166');
   }
   gen();
 
@@ -1438,6 +1591,11 @@ function update() {
       SFX.play('tools'); updateControls();
       burst(it.x, it.y, 24, ['#ff4d4d', '#fff'], 3, 0, 30, 3);
       toast('¡Maletín listo! Junto a un herido, mantén presionado el maletín 1 segundo', '#7f7');
+    } else if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30 && it.tool) {
+      it.got = true; S.have[it.tool] = true; S.eppLock = false;
+      SFX.play('tools'); updateControls();
+      burst(it.x, it.y, 22, ['#ffd166', '#fff'], 3, 0, 30, 3);
+      toast(it.tool === 'halligan' ? '¡Halligan lista! Fuerza puertas y rompe ventanas' : '¡Linterna lista! Úsala cuando oscurezca', '#7f7');
     } else if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
       it.got = true;
       S.epp++;
@@ -1540,6 +1698,8 @@ function update() {
     S.trappedWarned = true;
     toast('¡Hay personas atrapadas! Rompe la ventana con la halligan para que salgan', '#7fd3ff');
   }
+  if (MODS[S.mod] && MODS[S.mod].tasks) countTasks();
+  if (MODS[S.mod] && MODS[S.mod].race) updateRace();
   updateSmoke();
 
   // Alféizares agrietados: al pisarlos crujen y a los ~0,4 s se desmoronan
@@ -1927,6 +2087,7 @@ function drawWorld() {
   drawPlayer();
   drawCureBar();
   drawJet();
+  if (MODS[S.mod] && MODS[S.mod].race) drawRaceFire();
 
   for (const q of S.parts) {
     ctx.globalAlpha = clamp(q.life / q.max, 0, 1);
@@ -1937,11 +2098,12 @@ function drawWorld() {
 
   // Indicación sobre el jugador
   const nb = S.state === 'play' && nearBar();
-  const ipc = S.state === 'play' && hasTools() && innerTarget(['closed']);
-  const ipo = S.state === 'play' && hasTools() && !ipc && innerTarget(['open']);
-  const vr = S.state === 'play' && hasTools() && ventTarget();
-  const swn = S.state === 'play' && hasTools() && smokeWinNear();
-  const trn = S.state === 'play' && hasTools() && trappedNear();
+  const hal = S.state === 'play' && toolOk('halligan');
+  const ipc = hal && innerTarget(['closed']);
+  const ipo = S.state === 'play' && toolOk('piton') && !ipc && innerTarget(['open']);
+  const vr = hal && ventTarget();
+  const swn = hal && smokeWinNear();
+  const trn = hal && trappedNear();
   if (nb || ipc || ipo || vr || swn || trn) {
     // Indicación con el dibujo de la herramienta que hay que usar
     const [tool, txt] = vr ? ['halligan', 'Romper techo y ventilar'] : trn ? ['halligan', 'Romper ventana y rescatar']
@@ -2421,12 +2583,16 @@ function drawHUD() {
   ctx.font = font(16);
   ctx.fillText('❤️'.repeat(Math.max(0, S.lives)), 8, 17);
   ctx.textAlign = 'center';
-  if (MODS[S.mod]) {
+  if (MODS[S.mod] && !(MODS[S.mod].epp && S.phase === 1)) {
     ctx.font = font(13); ctx.fillStyle = '#ffd166'; ctx.fillText(MODS[S.mod].title, 190, 17);
     if (S.mod === 'medico') {
       ctx.textAlign = 'left'; ctx.font = font(13); ctx.fillStyle = '#7f7';
       ctx.fillText(`✚${S.cured}`, 86, 17);
       ctx.textAlign = 'center';
+    }
+    if (MODS[S.mod].race) {   // distancia al fuego
+      ctx.font = font(13); ctx.fillStyle = '#ff8a4d';
+      ctx.fillText(`🔥 ${Math.max(0, Math.round((S.fireY - S.p.y) / 30))} m`, 190, 46);
     }
   } else for (let i = 0; i < EPP.length; i++) {
     ctx.globalAlpha = i < S.epp ? 1 : 0.25;
@@ -2493,7 +2659,7 @@ function tapButton(label, y) {
 }
 
 // Botones de los módulos en el menú (el primero late)
-const MENU_Y = { saltos: 435, medico: 495, emergencia: 555 };
+const MENU_Y = { modulos: 450, emergencia: 520 };
 function moduleButton(label, sub, y, pulse) {
   const k = pulse ? 1 + Math.sin(performance.now() / 260) * 0.04 : 1;
   ctx.save(); ctx.translate(W / 2, y); ctx.scale(k, k);
@@ -2506,6 +2672,30 @@ function moduleButton(label, sub, y, pulse) {
   ctx.fillStyle = '#fff'; ctx.fillText(label, 0, -8);
   ctx.font = font(12); ctx.fillStyle = '#ffe9a8'; ctx.fillText(sub, 0, 13);
   ctx.restore();
+}
+
+// Pantalla con los 14 módulos en dos columnas
+const TILE = { x: [12, 206], y0: 66, dy: 74, w: 182, h: 66 };
+function drawModsScreen() {
+  ctx.fillStyle = '#0b0f18'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(24); ctx.fillStyle = '#ffd166'; ctx.fillText('MÓDULOS DE ENTRENAMIENTO', W / 2, 32);
+  const pr = Progress.get();
+  MOD_LIST.forEach(([id, name], i) => {
+    const x = TILE.x[i % 2], y = TILE.y0 + Math.floor(i / 2) * TILE.dy, soon = !MODS[id];
+    ctx.fillStyle = '#111'; ctx.fillRect(x - 2, y - 2, TILE.w + 4, TILE.h + 4);
+    const g = ctx.createLinearGradient(0, y, 0, y + TILE.h);
+    g.addColorStop(0, soon ? '#2a2d36' : '#d9481c'); g.addColorStop(1, soon ? '#1b1d24' : '#7a1d12');
+    ctx.fillStyle = g; ctx.fillRect(x, y, TILE.w, TILE.h);
+    ctx.font = font(34); ctx.textAlign = 'center'; ctx.fillStyle = soon ? '#555' : '#ffd166';
+    ctx.fillText(i + 1, x + 24, y + TILE.h / 2 + 2);
+    ctx.textAlign = 'left'; ctx.font = font(15); ctx.fillStyle = soon ? '#888' : '#fff';
+    ctx.fillText(name, x + 46, y + 23, TILE.w - 52);
+    ctx.font = font(soon ? 11 : 15);
+    ctx.fillStyle = soon ? '#777' : '#ffe9a8';
+    ctx.fillText(soon ? '🔒 PRÓXIMAMENTE' : '★'.repeat(pr[id] || 0) + '☆'.repeat(3 - (pr[id] || 0)), x + 46, y + 46);
+  });
+  ctx.textAlign = 'center'; ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MENÚ', W / 2, 612);
 }
 
 // Pantalla de inicio: logo, chispas y botones de los módulos
@@ -2529,9 +2719,9 @@ function drawMenu() {
   ctx.font = font(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffd166'; ctx.fillText('EQUÍPATE · APAGA · RESCATA', W / 2, 388);
   const pr = Progress.get(), st = n => '★'.repeat(n || 0) + '☆'.repeat(3 - (n || 0));
-  moduleButton('MÓDULO 1 · SALTOS', st(pr.saltos), MENU_Y.saltos, true);
-  moduleButton('MÓDULO 2 · PARAMÉDICO', st(pr.medico), MENU_Y.medico, true);
-  moduleButton('EMERGENCIA', 'EPP · pitón · halligan', MENU_Y.emergencia, false);
+  const got = MOD_LIST.reduce((a, [id]) => a + (pr[id] || 0), 0), playable = MOD_LIST.filter(([id]) => MODS[id]).length;
+  moduleButton('MÓDULOS', `${MOD_LIST.length} entrenamientos · ★ ${got}/${playable * 3}`, MENU_Y.modulos, true);
+  moduleButton('EMERGENCIA', 'Todo junto · ranking mundial', MENU_Y.emergencia, false);
   ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#000a'; ctx.fillRect(W / 2 - 80, 598, 160, 30);
   ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 80, 598, 160, 30);
@@ -2586,6 +2776,7 @@ function drawTrainScreen(title, color) {
   ctx.font = font(16); ctx.fillStyle = '#ddd';
   ctx.fillText(`Tiempo ${m}:${sec}  ·  Caídas ${F.falls}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315);
   if (S.mod === 'medico') { ctx.fillStyle = '#7f7'; ctx.fillText(`Heridos curados: ${F.cured} de ${F.injTotal}`, W / 2, 340); }
+  if (MODS[S.mod].tasks) { ctx.fillStyle = '#7f7'; ctx.fillText(`Tareas resueltas: ${F.done} de ${F.taskTotal}`, W / 2, 340); }
   ctx.font = font(14); ctx.fillStyle = '#aaa';
   ctx.fillText(MODS[S.mod].rule, W / 2, 368);
   ctx.font = font(16); ctx.fillStyle = F.record ? '#7f7' : '#bbb';
@@ -2649,7 +2840,7 @@ function draw() {
   drawDarkness();
   ctx.restore();
   if (S.state === 'menu') {
-    if (S.view === 'rank') drawRankScreen(true); else drawMenu();
+    if (S.view === 'rank') drawRankScreen(true); else if (S.view === 'mods') drawModsScreen(); else drawMenu();
   } else {
     drawHUD();
     if (MODS[S.mod] && S.state === 'win' && S.winT < 170) {
