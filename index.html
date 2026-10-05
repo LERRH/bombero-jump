@@ -84,6 +84,7 @@
         <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
         <button data-k="cure" class="tool med" data-arc="0" aria-label="Maletín de abordaje"><img src="img/botones/maletin.png" alt=""></button>
         <button data-k="gas" class="tool gas" data-arc="0" aria-label="Gas Stop"><img src="img/botones/gasstop.png" alt=""></button>
+        <button data-k="key" class="tool key" data-arc="0" aria-label="Llave de ascensor"><img src="img/botones/llave.png" alt=""></button>
       </div>
     </div>
   </div>
@@ -166,6 +167,7 @@ loadImg('logo', 'img/logo.png');
 for (const t of ['piton', 'halligan']) loadImg(`tool_${t}`, `img/${t}.png`);
 loadImg('tool_linterna', 'img/botones/linterna.png');
 loadImg('tool_gasstop', 'img/gas/gasstop.png');
+loadImg('tool_llave', 'img/llave.png');
 loadImg('balon', 'img/gas/balon.png'); loadImg('balon_fuga', 'img/gas/balon_fuga.png');
 for (let f = 1; f <= 6; f++) loadImg(`gasstop_${f}`, `img/bombero/gasstop_${f}.png`);
 for (const who of ['hombre', 'mujer'])
@@ -749,7 +751,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
   SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
@@ -873,6 +875,9 @@ function gen() {
       const take = (prob, ok) => { if (!ok || !prob) return false; if (r < prob) return true; r -= prob; return false; };
       if (p.injured || p.hasTool) {
         // alféizar firme y despejado (herido o herramienta)
+      } else if (take(pr.elev, p.w >= 66 && !nearEvent)) {
+        // Ascensor detenido con una persona adentro
+        p.kind = 'elev'; p.elev = { state: 'closed', t: 0 }; p.who = pickWho(); p.ph = Math.random() * 6;
       } else if (take(pr.gas, p.kind !== 'ac' && p.w >= 64)) {
         // Balón de gas: empieza a fugar cuando el bombero se acerca
         p.gas = { state: 'ok', t: GAS_T, side: Math.random() < 0.5 ? -1 : 1, fix: 0 };
@@ -1063,6 +1068,13 @@ const FOREST_LEVELS = [
   { name: 'La ladera', hint: 'Caen más rocas: muévete apenas veas el aviso', len: 1100, gap: [88, 112], w: [70, 88], dx: [60, 170], p: {}, rocks: [140, 190] },
   { name: 'La cumbre', hint: '¡Lluvia de rocas! Llega a la cima', len: 1200, gap: [100, 125], w: [62, 80], dx: [80, 185], p: {}, rocks: [95, 140] },
 ];
+// Módulo 7 (Ascensor): con la llave triangular se abren los ascensores con personas atrapadas
+const ELEV_LEVELS = [
+  { name: 'Primer ascensor', hint: 'Frente al ascensor, mantén la llave 1 segundo', len: 1100, doors: 0, p: { elev: 0.16 } },
+  { name: 'Pisos altos', hint: 'Abre todos los ascensores que encuentres', len: 1200, doors: 0, p: { elev: 0.2, fragile: 0.08 } },
+  { name: 'Corte de energía', hint: 'Más ascensores detenidos entre pisos', len: 1300, doors: 0, p: { elev: 0.24, fragile: 0.14 } },
+];
+const KEY_T = 60;   // 1 s girando la llave
 // Módulo 4: balones de gas. gas = probabilidad de balón por alféizar
 const GAS_LEVELS = [
   { name: 'Primer balón', hint: 'Junto al balón con fuga, mantén el Gas Stop 1 segundo', len: 1100, doors: 0, p: { gas: 0.16 } },
@@ -1091,6 +1103,8 @@ const MODS = {
     start: 'Rescate nocturno: sube por las ramas del árbol', rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
   forestal: { title: 'MÓDULO 6 · FORESTAL', theme: 'forest', notools: true, livesStars: true, levels: FOREST_LEVELS,
     start: 'Incendio forestal: trepa y esquiva las rocas que caen', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
+  ascensor: { title: 'MÓDULO 7 · ASCENSOR', epp: true, tools: ['llave'], pickups: ['llave'], tasks: true, levels: ELEV_LEVELS,
+    start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la llave de ascensor', rule: TASK_RULE },
   gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge el Gas Stop', rule: TASK_RULE },
   interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
@@ -1205,7 +1219,7 @@ function countTasks() {
   const top = S.camY, bot = S.camY + H;
   for (const f of S.flames) if (!f.inner && !f.seen && f.y > top && f.y < bot) { f.seen = true; S.taskTotal++; }
   for (const pl of S.plats) {
-    if ((pl.inner || pl.smokeWin || pl.trapped || pl.gas) && !pl.seen && pl.y > top && pl.y < bot) { pl.seen = true; S.taskTotal++; }
+    if ((pl.inner || pl.smokeWin || pl.trapped || pl.gas || pl.elev) && !pl.seen && pl.y > top && pl.y < bot) { pl.seen = true; S.taskTotal++; }
   }
 }
 
@@ -1291,9 +1305,10 @@ function updateControls() {
   c.classList.toggle('tools', S.mod === 'medico' ? S.medic : hasTools());
   // Cada herramienta: oculta si el módulo no la usa, apagada si aún no se puede usar
   const M = MODS[S.mod];
-  for (const [sel, t] of [['[data-k="hose"]', 'piton'], ['[data-a="hal"]', 'halligan'], ['[data-a="lamp"]', 'linterna'], ['[data-k="gas"]', 'gasstop']]) {
+  for (const [sel, t] of [['[data-k="hose"]', 'piton'], ['[data-a="hal"]', 'halligan'], ['[data-a="lamp"]', 'linterna'], ['[data-k="gas"]', 'gasstop'], ['[data-k="key"]', 'llave']]) {
     const b = c.querySelector(sel);
-    b.classList.toggle('hide', t === 'gasstop' ? !(M && M.tools && M.tools.includes(t)) : !!(M && M.tools && !M.tools.includes(t)));
+    const own = t === 'gasstop' || t === 'llave';   // herramientas que solo existen en su módulo
+    b.classList.toggle('hide', own ? !(M && M.tools && M.tools.includes(t)) : !!(M && M.tools && !M.tools.includes(t)));
     b.classList.toggle('off', S.mod !== 'medico' && S.mod !== 'saltos' && !toolOk(t));
   }
   c.classList.toggle('notools', S.mod === 'saltos' || !!(MODS[S.mod] && MODS[S.mod].notools));
@@ -1526,7 +1541,7 @@ function halliganHit() {
 // ---------- Entrada ----------
 const keys = {};
 const KMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose', KeyC: 'cure', KeyE: 'cure', KeyG: 'gas' };
+  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyF: 'hose', KeyJ: 'hose', KeyC: 'cure', KeyE: 'cure', KeyG: 'gas', KeyK: 'key' };
 addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
@@ -1581,7 +1596,7 @@ function update() {
   // Mientras usa la halligan en el suelo, no camina
   // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
   if (keys.hose && S.halT === 0 && toolOk('piton')) S.hoseT++; else S.hoseT = 0;
-  const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0 || S.gasT > 0;
+  const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0 || S.gasT > 0 || S.keyT > 0;
   // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
   const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : 0), -1, 1);
   if (ix) p.dir = Math.sign(ix);
@@ -1652,7 +1667,7 @@ function update() {
       it.got = true; S.have[it.tool] = true; S.eppLock = false;
       SFX.play('tools'); updateControls();
       burst(it.x, it.y, 22, ['#ffd166', '#fff'], 3, 0, 30, 3);
-      toast(it.tool === 'halligan' ? '¡Halligan lista! Fuerza puertas y rompe ventanas' : it.tool === 'gasstop' ? '¡Gas Stop listo! Junto a un balón con fuga, mantenlo 1 segundo' : '¡Linterna lista! Úsala cuando oscurezca', '#7f7');
+      toast(it.tool === 'llave' ? '¡Llave lista! Frente a un ascensor, mantenla 1 segundo' : it.tool === 'halligan' ? '¡Halligan lista! Fuerza puertas y rompe ventanas' : it.tool === 'gasstop' ? '¡Gas Stop listo! Junto a un balón con fuga, mantenlo 1 segundo' : '¡Linterna lista! Úsala cuando oscurezca', '#7f7');
     } else if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
       it.got = true;
       S.epp++;
@@ -1671,6 +1686,7 @@ function update() {
   S.items = S.items.filter(i => !i.got);
   if (S.mod === 'medico') updateCure();
   if (S.mod === 'gas') updateGas();
+  if (S.mod === 'ascensor') updateElev();
   if (theme() === 'forest') updateRocks();
 
   // Manguera
@@ -1936,6 +1952,102 @@ function drawInjured() {
       ctx.globalAlpha = 1;
     }
   }
+}
+
+// Puertas del ascensor (rectángulo en el mundo)
+const elevDoor = pl => ({ x: pl.x + pl.w / 2 - 25, y: pl.y - 60, w: 50, h: 60 });
+
+// Ascensor cerrado frente al bombero
+function elevNear() {
+  const p = S.p;
+  return S.plats.find(pl => pl.elev && pl.elev.state === 'closed' && p.ground === pl && Math.abs(pl.x + pl.w / 2 - p.x) < 50);
+}
+
+// Llave: mantenerla 1 s frente al ascensor abre las puertas y la persona sale
+function updateElev() {
+  for (const pl of S.plats) {
+    const e = pl.elev;
+    if (!e) continue;
+    e.t++;
+    if (!S.elevWarned && e.state === 'closed' && pl.y > S.camY + 60 && pl.y < S.camY + H) {
+      S.elevWarned = true; toast('¡Gente atrapada en el ascensor! Ábrelo con la llave', '#7fd3ff');
+    }
+    if (e.state === 'opening' && e.t >= 34) {
+      e.state = 'open';
+      const dir = pl.x + pl.w / 2 < W / 2 ? -1 : 1;
+      S.people.push({ x: pl.x + pl.w / 2, y: pl.y, dir, who: pl.who, t: 0, pl });
+      S.saved.push(pl.who); S.rescued++;
+      SFX.play('rescue'); toast(`¡Persona rescatada! (${S.rescued})`, '#7f7');
+    }
+  }
+  const p = S.p, hp = keys.key && toolOk('llave') && p.ground ? elevNear() : null;
+  if (hp) {
+    S.keyT++;
+    p.dir = hp.x + hp.w / 2 >= p.x ? 1 : -1;
+    if (S.keyT % 15 === 1) SFX.play('click');
+    if (S.keyT >= KEY_T) { hp.elev.state = 'opening'; hp.elev.t = 0; S.keyT = 0; SFX.play('tools'); }
+    return;
+  }
+  if (keys.key && !S.keyT && (!S.msg || S.msg.t < 120))
+    toast(toolOk('llave') ? 'Párate frente a un ascensor cerrado' : 'Primero recoge la llave de ascensor', '#ccc');
+  S.keyT = 0;
+}
+
+// Ascensor: marco de acero, indicador de piso, puertas que se abren y persona adentro
+function drawElevator(pl) {
+  const d = elevDoor(pl), e = pl.elev, cx = d.x + d.w / 2;
+  box(d.x - 8, d.y - 22, d.w + 16, d.h + 22, '#5b616b');
+  ctx.fillStyle = '#737a85'; ctx.fillRect(d.x - 8, d.y - 22, d.w + 16, 3);
+  // indicador de piso con flecha que parpadea
+  box(cx - 15, d.y - 18, 30, 12, '#111');
+  ctx.fillStyle = e.state === 'closed' && Math.floor(S.t / 20) % 2 ? '#ff4d3a' : '#5a1810';
+  ctx.beginPath(); ctx.moveTo(cx - 5, d.y - 9); ctx.lineTo(cx, d.y - 15); ctx.lineTo(cx + 5, d.y - 9); ctx.fill();
+  ctx.fillRect(cx + 7, d.y - 15, 5, 6);
+  // cabina y persona (visible cuando las puertas se abren)
+  const k = e.state === 'closed' ? 0 : Math.min(1, e.t / 34);
+  ctx.save(); ctx.beginPath(); ctx.rect(d.x, d.y, d.w, d.h); ctx.clip();
+  const g = ctx.createLinearGradient(0, d.y, 0, d.y + d.h);
+  g.addColorStop(0, '#d8cfa8'); g.addColorStop(1, '#8a8060');
+  ctx.fillStyle = g; ctx.fillRect(d.x, d.y, d.w, d.h);
+  if (e.state !== 'open') drawWho(`${pl.who}_atrapado`, cx + Math.sin(S.t / 9 + pl.ph) * 1.5, d.y + d.h + 12, 62, pl.ph > 3 ? -1 : 1);
+  // puertas de acero que se deslizan
+  const half = d.w / 2, open = half * k;
+  for (const [x0, dir] of [[d.x, -1], [cx, 1]]) {
+    const x = x0 + dir * open;
+    const dg = ctx.createLinearGradient(x, 0, x + half, 0);
+    dg.addColorStop(0, '#9aa3ad'); dg.addColorStop(0.5, '#d5dbe2'); dg.addColorStop(1, '#8a929c');
+    ctx.fillStyle = dg; ctx.fillRect(x, d.y, half, d.h);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x + (dir < 0 ? half - 2 : 0), d.y, 2, d.h);
+  }
+  ctx.restore();
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.strokeRect(d.x, d.y, d.w, d.h);
+  // cerradura triangular y globo de ayuda
+  if (e.state === 'closed') {
+    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.moveTo(cx - 4, d.y - 26); ctx.lineTo(cx + 4, d.y - 26); ctx.lineTo(cx, d.y - 20); ctx.fill();
+    if (Math.floor(S.t / 30 + pl.ph) % 3 !== 2) {
+      const by = d.y - 40;
+      ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText('¡AYUDA!').width + 10;
+      box(cx - tw / 2, by - 7, tw, 14, '#ffffff');
+      ctx.fillStyle = '#c1121f'; ctx.fillText('¡AYUDA!', cx, by + 0.5);
+    }
+  }
+  // piso del ascensor (donde se pisa)
+  box(pl.x, pl.y, pl.w, 8, '#7a8089');
+  ctx.fillStyle = '#c9ced6'; ctx.fillRect(pl.x, pl.y, pl.w, 2);
+  ctx.fillStyle = '#f2c230';
+  for (let x = pl.x + 4; x < pl.x + pl.w - 6; x += 12) ctx.fillRect(x, pl.y + 3, 6, 3);   // franja de seguridad
+}
+
+// Barra de avance de la llave sobre el bombero
+function drawKeyBar() {
+  if (!S.keyT) return;
+  const p = S.p, k = S.keyT / KEY_T, w = 52, x = p.x - w / 2, y = p.y - 78;
+  box(x - 2, y - 2, w + 4, 11, '#111');
+  ctx.fillStyle = '#333'; ctx.fillRect(x, y, w, 7);
+  ctx.fillStyle = '#7fd3ff'; ctx.fillRect(x, y, w * k, 7);
+  ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+  ctx.fillText('ABRIENDO', p.x, y - 9);
 }
 
 // x del balón sobre su alféizar
@@ -2775,6 +2887,7 @@ function drawWorld() {
     if (pl.ground) continue;
     if (pl.kind === 'slab' || pl.kind === 'stairstep') continue;   // los dibuja el techo de la escalera
     if (pl.kind === 'landing') { drawSill(pl.x, pl.y, pl.w); continue; }
+    if (pl.kind === 'elev') { drawElevator(pl); continue; }
     if (pl.kind === 'ventroof') { drawVentRoof(pl); continue; }
     if (theme() === 'tree') { if (pl.roof) drawCanopy(pl); else drawBranch(pl); continue; }
     if (theme() === 'forest') { if (pl.roof) drawSummit(pl); else drawLedge(pl); continue; }
@@ -2804,6 +2917,7 @@ function drawWorld() {
   drawPlayer();
   drawCureBar();
   drawGasBar();
+  drawKeyBar();
   drawJet();
   if (theme() === 'forest') drawRocks();
   if (MODS[S.mod] && MODS[S.mod].race) drawRaceFire();
@@ -3234,6 +3348,8 @@ function drawPlayer() {
     key = `${S.tool}_${f}`; h = -1;
   } else if (S.hoseT > 0) {
     key = S.hoseT < 6 ? 'piton_1' : S.hoseT < 12 ? 'piton_2' : `apunta_${S.aim || 'frente'}`; h = -1;
+  } else if (S.keyT > 0) {
+    key = 'palanca_3'; h = -1;   // mete y gira la llave
   } else if (S.gasT > 0) {
     key = `gasstop_${1 + Math.min(5, Math.floor(S.gasT / (GASFIX_T / 6)))}`; h = 54;   // arrodillado: 6 cuadros en 1 s
   } else if (S.cureT > 0) {

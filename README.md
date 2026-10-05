@@ -26,7 +26,7 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 | 4 | Gas Stop (recoger Gas Stop, balones con fuga de 4 s) | ✅ |
 | 5 | Gatitos en el árbol (entorno nocturno listo; faltan gatitos y mochila) | 🚧 |
 | 6 | Forestal (entorno listo; faltan matorrales, rocas/troncos que caen y ropa forestal) | 🚧 |
-| 7 | Ascensor | próximamente |
+| 7 | Ascensor (recoger llave, abrir ascensores con gente atrapada) | ✅ |
 | 8 | Fuego interno (recoger halligan) | ✅ |
 | 9 | Backdraft | ✅ |
 | 10 | Entrada forzada | ✅ |
