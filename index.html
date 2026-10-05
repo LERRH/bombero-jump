@@ -917,7 +917,7 @@ function freeBranchX(y, w, pref) {
   const free = [];
   for (let x = 0; x <= W - w; x += 4) {
     const r = treeRect(x, w);
-    if (r.w < 60 + 6 || (x + w / 2 < W / 2 ? x + w > W - TRUNK_W - 20 : x < TRUNK_W + 20)) continue;
+    if (r.w < 60 + 6 || (x + w / 2 < W / 2 ? x + w > W - wallW() - 20 : x < wallW() + 20)) continue;
     if (near.every(o => r.x + r.w + 10 < o.x || o.x + o.w + 10 < r.x)) free.push(x);
   }
   const best = pref ? free.filter(pref) : free, pool = best.length ? best : free;
@@ -2129,6 +2129,8 @@ function hash(a, b) {
 const theme = () => (MODS[S.mod] && MODS[S.mod].theme) || null;
 const TRUNK_W = 58;   // ancho de cada tronco o pared de roca (uno a cada lado); las plataformas salen de ellos
 const attachTheme = () => theme() === 'tree' || theme() === 'forest';
+// Desde dónde salen las plataformas: el tronco en el árbol, el borde de la pantalla en el bosque
+const wallW = () => theme() === 'forest' ? 0 : TRUNK_W;
 
 // Números pseudoaleatorios con semilla (para que el dibujo prearmado sea siempre igual)
 function seeded(n) { return () => { n |= 0; n = n + 0x6D2B79F5 | 0; let t = Math.imul(n ^ n >>> 15, 1 | n); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -2209,227 +2211,208 @@ const TREE = {};
 })();
 const drawLeaves = (cx, cy, size, v) => { const im = TREE['leaf' + (((v % 6) + 6) % 6)]; ctx.drawImage(im, cx - size / 2, cy - size * 0.42, size, size * im.height / im.width); };
 
-// Arte del cerro prearmado: paredes de roca con estratos, grietas, pasto seco y luz del incendio
-const ROCK = {};
-(function makeRockArt() {
-  const TH = 320;
-  for (const side of ['L', 'R']) {
-    const c = document.createElement('canvas'); c.width = TRUNK_W + 14; c.height = TH;
-    const x = c.getContext('2d'), Wc = c.width, inner = side === 'L' ? Wc : 0, outer = Wc - inner;
-    const g = x.createLinearGradient(outer, 0, inner, 0);
-    g.addColorStop(0, '#141010'); g.addColorStop(0.5, '#2e2621'); g.addColorStop(0.85, '#4a3c31'); g.addColorStop(1, '#8a5c3c');
-    x.fillStyle = g; x.fillRect(0, 0, Wc, TH);
-    const rnd = seeded(side === 'L' ? 21 : 29);
-    // bloques de roca: cada uno con cara iluminada arriba y sombra abajo
-    for (let k = 0; k < 18; k++) {
-      const bx = rnd() * Wc, by = 8 + k * (TH - 16) / 18 + rnd() * 6, bw = 18 + rnd() * 26, bh = 12 + rnd() * 10;
-      x.fillStyle = 'rgba(0,0,0,0.35)'; x.beginPath(); x.ellipse(bx + 1, by + 3, bw / 2, bh / 2, 0, 0, 7); x.fill();
-      x.fillStyle = ['#3d322a', '#4a3c32', '#342b25'][k % 3]; x.beginPath(); x.ellipse(bx, by, bw / 2, bh / 2, 0, 0, 7); x.fill();
-      x.fillStyle = 'rgba(210,150,100,0.18)'; x.beginPath(); x.ellipse(bx, by - bh * 0.18, bw * 0.4, bh * 0.22, 0, 0, 7); x.fill();
-    }
-    // estratos ondulados (periódicos) y grietas
-    for (let k = 0; k < 6; k++) {
-      const yy = 20 + k * 54;
-      x.strokeStyle = 'rgba(15,10,8,0.6)'; x.lineWidth = 2;
-      x.beginPath(); for (let xx = 0; xx <= Wc; xx += 6) { const v = yy + Math.sin(xx / 9 + k) * 3; xx ? x.lineTo(xx, v) : x.moveTo(xx, v); } x.stroke();
-    }
-    for (let k = 0; k < 10; k++) {
-      const cx = rnd() * Wc, cy = rnd() * TH;
-      x.strokeStyle = 'rgba(10,6,4,0.7)'; x.lineWidth = 1.4;
-      x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + 4, cy + 7); x.lineTo(cx + 1, cy + 13); x.lineTo(cx + 5, cy + 19); x.stroke();
-    }
-    // matas de pasto seco
-    for (let k = 0; k < 7; k++) {
-      const gx = side === 'L' ? Wc * (0.35 + rnd() * 0.5) : Wc * (0.15 + rnd() * 0.5), gy = 20 + rnd() * (TH - 40);
-      for (let n = 0; n < 7; n++) {
-        x.strokeStyle = ['#8a7a3a', '#a89448', '#6b6a2e'][n % 3]; x.lineWidth = 1.5;
-        x.beginPath(); x.moveTo(gx, gy); x.lineTo(gx + (n - 3) * 2.2, gy - 6 - rnd() * 6); x.stroke();
-      }
-    }
-    // luz cálida del incendio en el borde de adentro
-    const rim = x.createLinearGradient(inner, 0, inner + (side === 'L' ? -14 : 14), 0);
-    rim.addColorStop(0, 'rgba(255,140,60,0.35)'); rim.addColorStop(1, 'rgba(255,140,60,0)');
-    x.fillStyle = rim; x.fillRect(0, 0, Wc, TH);
-    ROCK['wall' + side] = c;
-  }
-})();
+// ===== Bosque incendiado (módulo 6) =====
 
-// Fondo del incendio forestal: cielo rojizo, humo, cerros en capas con fuego en las crestas y brasas que suben
+// Llama decorativa (lengua de fuego en capas)
+function fireTongue(x, y, h, ph) {
+  const f = Math.sin(S.t / 5 + ph) * h * 0.12, w = h * 0.38;
+  for (const [col, k] of [['rgba(200,40,10,0.9)', 1], ['#ff7a1a', 0.75], ['#ffd23f', 0.42]]) {
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(x - w * k, y);
+    ctx.quadraticCurveTo(x - w * k * 0.9, y - h * k * 0.55, x + f * k, y - h * k);
+    ctx.quadraticCurveTo(x + w * k * 0.9, y - h * k * 0.5, x + w * k, y);
+    ctx.fill();
+  }
+}
+
+// Pino en silueta
+function pineSil(x, y, h, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  for (let k = 0; k < 4; k++) {
+    const ty = y - h + k * h * 0.22, bw = h * (0.16 + k * 0.08);
+    ctx.moveTo(x, ty); ctx.lineTo(x + bw, ty + h * 0.32); ctx.lineTo(x - bw, ty + h * 0.32);
+  }
+  ctx.fill(); ctx.fillRect(x - h * 0.03, y - h * 0.12, h * 0.06, h * 0.14);
+}
+
+// Fondo: cielo anaranjado con humo, montañas, bosque en capas con focos de fuego y brasas
 function drawForestBg() {
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#120a1c'); g.addColorStop(0.45, '#3a1420'); g.addColorStop(0.8, '#8a2f18'); g.addColorStop(1, '#c4551c');
+  g.addColorStop(0, '#4a1a16'); g.addColorStop(0.35, '#8a2e1c'); g.addColorStop(0.7, '#c4521f'); g.addColorStop(1, '#a8431c');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  for (let i = 0; i < 25; i++) {   // pocas estrellas que se ven entre el humo
-    const x = hash(i, 4) * W, y = ((hash(i, 8) * H * 0.6 - S.camY * 0.04) % (H * 0.5) + H * 0.5) % (H * 0.5);
-    ctx.globalAlpha = 0.25 + 0.3 * Math.abs(Math.sin(S.t / 50 + i));
-    ctx.fillStyle = '#ffe9d6'; ctx.fillRect(x, y, 1.4, 1.4);
+  // humo espeso arriba
+  for (let i = 0; i < 7; i++) {
+    const cx = ((S.t * (0.1 + (i % 3) * 0.04) + i * 140) % (W + 320)) - 160, cy = 30 + (i % 4) * 55 - (S.camY * 0.02) % 40;
+    ctx.fillStyle = `rgba(${40 + i * 4},${28 + i * 2},${28 + i * 2},${0.55 + (i % 2) * 0.15})`;
+    for (const [dx, dy, r] of [[0, 0, 46], [44, -16, 38], [86, 2, 42], [-40, 10, 32], [120, 14, 28]]) { ctx.beginPath(); ctx.arc(cx + dx, cy + dy, r, 0, 7); ctx.fill(); }
   }
-  ctx.globalAlpha = 1;
-  // nubes de humo que avanzan
-  for (let i = 0; i < 5; i++) {
-    const cx = ((S.t * (0.12 + i * 0.03) + i * 170) % (W + 300)) - 150, cy = 80 + i * 90 - S.camY * 0.03;
-    ctx.fillStyle = `rgba(40,22,24,${0.45 + (i % 2) * 0.15})`;
-    for (const [dx, dy, r] of [[0, 0, 40], [40, -14, 32], [76, 0, 36], [-36, 8, 28]]) { ctx.beginPath(); ctx.arc(cx + dx, cy + dy, r, 0, 7); ctx.fill(); }
-  }
-  // cerros en capas (lejos → cerca); el del medio con fuego en la cresta
-  const ridge = (k, base, amp, col, seed, fire) => {
-    const off = -S.camY * k, pts = [];
-    for (let i = -1; i <= 11; i++) pts.push([i * 44, base + off - amp * (0.4 + hash(i, seed) * 0.6)]);
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.moveTo(-50, H + 10);
-    for (const [x, y] of pts) ctx.lineTo(x, y);
-    ctx.lineTo(W + 50, H + 10); ctx.fill();
-    if (fire) {
-      for (const [lw, a] of [[16, 0.12], [8, 0.25], [3, 0.6]]) {   // resplandor suave sobre la cresta
-        ctx.strokeStyle = `rgba(255,${110 + Math.sin(S.t / 6) * 30},40,${a})`; ctx.lineWidth = lw;
-        ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
-      }
-      const fl = [];
-      for (let i = 1; i < pts.length; i++) for (const f of [0, 0.5]) fl.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f]);
-      for (const [x, y] of fl) {   // llamitas sobre la cresta
-        const h = 8 + Math.abs(Math.sin(S.t / 5 + x)) * 10;
-        ctx.fillStyle = '#ff9a2e';
-        ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.quadraticCurveTo(x, y - h * 1.3, x + 5, y); ctx.fill();
-        ctx.fillStyle = '#ffe066';
-        ctx.beginPath(); ctx.moveTo(x - 2, y); ctx.quadraticCurveTo(x, y - h * 0.7, x + 2, y); ctx.fill();
-      }
+  // montaña al fondo
+  const mo = -S.camY * 0.015;
+  ctx.fillStyle = '#7a3324';
+  ctx.beginPath(); ctx.moveTo(-20, H * 0.5 + mo); ctx.lineTo(W * 0.35, H * 0.3 + mo); ctx.lineTo(W * 0.55, H * 0.38 + mo); ctx.lineTo(W * 0.75, H * 0.22 + mo); ctx.lineTo(W + 20, H * 0.45 + mo); ctx.lineTo(W + 20, H); ctx.lineTo(-20, H); ctx.fill();
+  // tres capas de bosque (lejos a cerca) con fuego entre los árboles
+  const layers = [
+    { y: H * 0.5, k: 0.02, h: 34, col: '#6a2a20', gap: 15, fire: 0.25 },
+    { y: H * 0.68, k: 0.035, h: 52, col: '#4a1c16', gap: 22, fire: 0.35 },
+    { y: H * 0.88, k: 0.05, h: 78, col: '#2a100c', gap: 32, fire: 0.3 },
+  ];
+  layers.forEach((L, li) => {
+    const yb = L.y + ((-S.camY * L.k) % 60);
+    ctx.fillStyle = L.col; ctx.fillRect(0, yb - 4, W, H - yb + 8);
+    for (let i = -1; i < W / L.gap + 1; i++) {
+      const x = i * L.gap + hash(i, li + 3) * L.gap * 0.6, h = L.h * (0.75 + hash(i, li + 5) * 0.5);
+      pineSil(x, yb + 4, h, L.col);
+      if (hash(i, li + 9) < L.fire) fireTongue(x + L.gap * 0.4, yb + 2, L.h * (0.45 + hash(i, li + 1) * 0.4), i + li);
     }
-  };
-  ridge(0.03, H - 150, 120, '#2a1420', 3, false);
-  ridge(0.06, H - 60, 110, '#1e0f17', 7, true);
-  // pinos en silueta, algunos encendidos
-  const pine = (x, y, h, burning) => {
-    ctx.fillStyle = '#0c0609';
-    ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x + h * 0.3, y); ctx.lineTo(x - h * 0.3, y); ctx.fill();
-    ctx.fillRect(x - 2, y, 4, 8);
-    if (burning) {
-      const f = Math.sin(S.t / 4 + x) * 3;
-      ctx.fillStyle = 'rgba(255,120,30,0.9)'; ctx.beginPath(); ctx.moveTo(x - 6, y - h * 0.5); ctx.quadraticCurveTo(x + f, y - h - 14, x + 6, y - h * 0.5); ctx.fill();
-      ctx.fillStyle = 'rgba(255,220,90,0.9)'; ctx.beginPath(); ctx.moveTo(x - 3, y - h * 0.55); ctx.quadraticCurveTo(x + f / 2, y - h - 4, x + 3, y - h * 0.55); ctx.fill();
-    }
-  };
-  const py = H - 40 - S.camY * 0.1;
-  for (let i = 0; i < 12; i++) pine(i * 36 + hash(i, 2) * 14, py - hash(i, 5) * 30, 40 + hash(i, 6) * 30, hash(i, 9) > 0.55);
-  // resplandor del incendio que late
-  const glow = ctx.createLinearGradient(0, H * 0.55, 0, H);
-  glow.addColorStop(0, 'rgba(255,90,20,0)'); glow.addColorStop(1, `rgba(255,110,30,${0.25 + Math.sin(S.t / 18) * 0.08})`);
-  ctx.fillStyle = glow; ctx.fillRect(0, H * 0.55, W, H * 0.45);
+    // neblina de humo sobre cada capa
+    const hz = ctx.createLinearGradient(0, yb - L.h, 0, yb + 20);
+    hz.addColorStop(0, 'rgba(200,90,50,0)'); hz.addColorStop(1, 'rgba(200,90,50,0.22)');
+    ctx.fillStyle = hz; ctx.fillRect(0, yb - L.h, W, L.h + 20);
+  });
   // brasas que suben
-  for (let i = 0; i < 45; i++) {
-    const sp = 25 + (i % 7) * 10, x = (hash(i, 11) * W + Math.sin(S.t / 30 + i) * 12) % W;
+  for (let i = 0; i < 50; i++) {
+    const sp = 22 + (i % 7) * 10, x = (hash(i, 11) * W + Math.sin(S.t / 30 + i) * 14) % W;
     const y = H - ((S.t * sp / 60 + i * 61) % (H + 20));
     ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(S.t / 7 + i));
-    ctx.fillStyle = i % 3 ? '#ff8c1a' : '#ffd23f'; ctx.fillRect(x, y, 2 + (i % 2), 2 + (i % 2));
+    ctx.fillStyle = i % 3 ? '#ff9a2e' : '#ffe066'; ctx.fillRect(x, y, 2 + (i % 2), 2 + (i % 2));
   }
   ctx.globalAlpha = 1;
 }
 
-// Paredes de roca del cerro (una a cada lado)
-function drawRockWalls() {
-  const top = Math.max(S.goalPlaced ? S.roofY - 60 : -1e9, S.camY - 40), bot = Math.min(H + 30, S.camY + H + 40);
-  if (bot <= top) return;
-  for (const side of ['L', 'R']) {
-    const im = ROCK['wall' + side], x0 = side === 'L' ? TRUNK_W - im.width : W - TRUNK_W;
-    ctx.save(); ctx.beginPath(); ctx.rect(x0, top, im.width, bot - top); ctx.clip();
-    for (let y = Math.floor(top / im.height) * im.height; y < bot; y += im.height) ctx.drawImage(im, x0, y);
-    ctx.restore();
-    const ex = side === 'L' ? TRUNK_W : W - TRUNK_W, dir = side === 'L' ? 1 : -1;
-    // borde irregular de la pared y sombra hacia adentro
-    ctx.fillStyle = '#0d0907';
-    for (let y = Math.floor(top / 16) * 16; y < bot; y += 16) {
-      const d = hash(y, 3) * 6;
-      ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + dir * d, y + 8); ctx.lineTo(ex, y + 16); ctx.fill();
-    }
-    const sh = ctx.createLinearGradient(ex, 0, ex + dir * 18, 0);
-    sh.addColorStop(0, 'rgba(0,0,0,0.4)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = sh; ctx.fillRect(Math.min(ex, ex + dir * 18), top, 18, bot - top);
-  }
-}
-
-// Saliente de roca: arriba plana con tierra y pasto seco; abajo se angosta hacia la pared
-function drawLedge(pl) {
-  const left = pl.side < 0, dir = left ? 1 : -1;
-  const xb = left ? pl.x : pl.x + pl.w, xt = left ? pl.x + pl.w : pl.x, y = pl.y, len = Math.abs(xt - xb);
-  const seed = Math.floor(Math.abs(pl.x * 11 + pl.y * 5)) % 89;
+// Cuerpo de roca del acantilado (se dibuja antes que el pasto de arriba, de arriba hacia abajo)
+function drawCliffBody(pl) {
+  const left = pl.side < 0, dir = left ? 1 : -1, y = pl.y;
+  const xe = left ? -12 : W + 12, xt = left ? pl.x + pl.w : pl.x, len = Math.abs(xt - xe);
+  const seed = Math.floor(Math.abs(pl.x * 11 + pl.y * 5)) % 89, depth = 150 + hash(seed, 2) * 60;
   const path = () => {
     ctx.beginPath();
-    ctx.moveTo(xb, y - 3);
-    ctx.lineTo(xt - dir * 4, y);
-    ctx.quadraticCurveTo(xt + dir * 4, y + 6, xt - dir * 3, y + 13);
-    ctx.lineTo(xt - dir * len * 0.3, y + 19 + hash(seed, 1) * 4);
-    ctx.lineTo(xt - dir * len * 0.6, y + 26);
-    ctx.quadraticCurveTo(xb + dir * 10, y + 36, xb, y + 44);
+    ctx.moveTo(xe, y);
+    ctx.lineTo(xt, y);
+    ctx.quadraticCurveTo(xt + dir * 6, y + 14, xt - dir * 4, y + 26);                     // borde que sobresale
+    ctx.quadraticCurveTo(xt - dir * len * 0.12, y + 60, xt - dir * len * 0.25, y + 92);   // se mete hacia adentro
+    ctx.quadraticCurveTo(xt - dir * len * 0.3, y + depth * 0.8, xt - dir * len * 0.45, y + depth);
+    ctx.lineTo(xe, y + depth + 30);
     ctx.closePath();
   };
-  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse((xb + xt) / 2, y + 30, len / 2, 6, 0, 0, 7); ctx.fill();
-  ctx.lineWidth = 4; ctx.strokeStyle = '#0d0907'; path(); ctx.stroke();
-  const g = ctx.createLinearGradient(0, y - 3, 0, y + 40);
-  g.addColorStop(0, '#9a7a5c'); g.addColorStop(0.25, '#6a5442'); g.addColorStop(1, '#2a211b');
+  ctx.lineWidth = 5; ctx.strokeStyle = '#0e0a0a'; path(); ctx.stroke();
+  const g = ctx.createLinearGradient(0, y, 0, y + depth);
+  g.addColorStop(0, '#4a3e3a'); g.addColorStop(0.35, '#2e2725'); g.addColorStop(1, '#151110');
   ctx.fillStyle = g; path(); ctx.fill();
-  // estratos y grietas
-  ctx.strokeStyle = 'rgba(15,10,8,0.6)'; ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(xb + dir * 4, y + 12); ctx.lineTo(xt - dir * 10, y + 10);
-  ctx.moveTo(xb + dir * 6, y + 22); ctx.lineTo(xt - dir * len * 0.45, y + 21);
-  const cx = xb + dir * len * 0.55; ctx.moveTo(cx, y + 1); ctx.lineTo(cx + dir * 3, y + 7); ctx.lineTo(cx - dir * 1, y + 12);
-  ctx.stroke();
-  // capa de tierra, pasto seco y piedritas arriba; brillo del fuego en el borde
-  ctx.fillStyle = '#4a3624'; ctx.fillRect(Math.min(xb, xt), y - 1, len, 4);
-  ctx.strokeStyle = 'rgba(255,170,90,0.6)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(xb, y - 2.5); ctx.lineTo(xt - dir * 5, y - 0.5); ctx.stroke();
-  for (let i = 0; i < len / 9; i++) {
-    const gx = Math.min(xb, xt) + 4 + i * 9 + hash(seed, i) * 4;
-    ctx.strokeStyle = ['#a89448', '#8a7a3a', '#c2ad5a'][i % 3]; ctx.lineWidth = 1.3;
-    ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx - 2, y - 5 - hash(i, seed) * 4); ctx.moveTo(gx, y); ctx.lineTo(gx + 2, y - 4 - hash(seed, i + 3) * 4); ctx.stroke();
+  ctx.save(); path(); ctx.clip();
+  // bloques de roca con luz cálida del fuego en el borde exterior
+  for (let k = 0; k < 7; k++) {
+    const bx = xt - dir * (12 + hash(seed, k) * len * 0.7), by = y + 24 + hash(k, seed) * depth * 0.8, r = 12 + hash(seed + k, 3) * 16;
+    // bloque anguloso: polígono irregular con cara de arriba iluminada
+    const poly = (ox, oy, sc) => { ctx.beginPath(); for (let q = 0; q < 6; q++) { const a = q / 6 * Math.PI * 2 + hash(seed, k + q) * 0.5, rr = r * sc * (0.7 + hash(k, q + seed) * 0.4); ctx.lineTo(ox + Math.cos(a) * rr, oy + Math.sin(a) * rr * 0.8); } ctx.closePath(); };
+    ctx.fillStyle = '#0e0a0a'; poly(bx + 1, by + 2, 1.12); ctx.fill();
+    ctx.fillStyle = ['#3d3330', '#463a36', '#332b28'][k % 3]; poly(bx, by, 1); ctx.fill();
+    ctx.fillStyle = 'rgba(255,150,80,0.15)'; poly(bx + dir * r * 0.15, by - r * 0.25, 0.55); ctx.fill();
   }
-  for (let i = 0; i < 2; i++) {
-    const sx = xt - dir * (8 + i * 14 + hash(seed, i + 7) * 6);
-    ctx.fillStyle = '#0d0907'; ctx.beginPath(); ctx.ellipse(sx, y - 2, 4, 3, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#7a6250'; ctx.beginPath(); ctx.ellipse(sx, y - 2.5, 3, 2, 0, 0, 7); ctx.fill();
+  // grietas verticales con brasas adentro
+  for (let k = 0; k < 3; k++) {
+    const cx = xt - dir * (16 + k * len * 0.22 + hash(seed, k + 4) * 10);
+    ctx.strokeStyle = '#0e0a0a'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx, y + 10);
+    for (let q = 1; q <= 5; q++) ctx.lineTo(cx + Math.sin(q * 2 + k) * 5, y + 10 + q * depth * 0.15);
+    ctx.stroke();
+    if (hash(seed, k + 9) > 0.5) { ctx.fillStyle = `rgba(255,${120 + Math.sin(S.t / 8 + k) * 40},30,0.9)`; ctx.fillRect(cx - 1, y + 30 + k * 20, 3, 5); }
   }
-  // arbusto seco junto a la pared en algunas salientes
-  if (seed % 3 === 0) {
-    ctx.filter = 'sepia(0.85) saturate(0.8) brightness(0.75)';
-    drawLeaves(xb + dir * 16, y - 10, 40, seed);
-    ctx.filter = 'none';
+  // borde del acantilado iluminado por el incendio
+  ctx.strokeStyle = 'rgba(255,140,60,0.45)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(xt - dir * 2, y + 6); ctx.quadraticCurveTo(xt + dir * 2, y + 16, xt - dir * 4, y + 26); ctx.stroke();
+  ctx.restore();
+  // llamas que trepan por la cara de algunos acantilados
+  if (seed % 3 === 0) for (let k = 0; k < 3; k++) fireTongue(xt - dir * (len * 0.25 + k * 12), y + 92 - k * 6, 26 + k * 6, seed + k);
+}
+
+// Árbol quemado sobre el acantilado (tronco negro sin hojas)
+function deadTree(x, y, h, dir, seed) {
+  const br = (x0, y0, a, l, w) => {
+    const x1 = x0 + Math.cos(a) * l, y1 = y0 - Math.sin(a) * l;
+    ctx.strokeStyle = '#0e0a0a'; ctx.lineWidth = w + 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.strokeStyle = '#2a1e1a'; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    return [x1, y1];
+  };
+  ctx.lineCap = 'round';
+  const [tx, ty] = br(x, y, Math.PI / 2 + dir * 0.08, h, 6);
+  for (let k = 0; k < 4; k++) {
+    const f = 0.35 + k * 0.17, bx = x + (tx - x) * f, by = y + (ty - y) * f, side = k % 2 ? 1 : -1;
+    const [ex, ey] = br(bx, by, Math.PI / 2 + side * (0.7 + hash(seed, k) * 0.4), h * (0.3 - k * 0.04), 3);
+    br(ex, ey, Math.PI / 2 + side * 1.2, h * 0.1, 1.5);
+  }
+  ctx.strokeStyle = 'rgba(255,140,60,0.5)'; ctx.lineWidth = 1.5;   // filo iluminado
+  ctx.beginPath(); ctx.moveTo(x + dir * 2, y); ctx.lineTo(tx + dir * 2, ty); ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
+// Parte de arriba del acantilado: pasto dorado, arbustos, piedras, árbol quemado y algo de fuego
+function drawLedge(pl) {
+  const left = pl.side < 0, dir = left ? 1 : -1, y = pl.y;
+  const xe = left ? -12 : W + 12, xt = left ? pl.x + pl.w : pl.x, len = Math.abs(xt - xe);
+  const seed = Math.floor(Math.abs(pl.x * 11 + pl.y * 5)) % 89;
+  const x0 = Math.min(xe, xt), x1 = Math.max(xe, xt);
+  if (seed % 2 === 0) deadTree(xe + dir * (36 + hash(seed, 6) * 18), y, 80 + hash(seed, 7) * 50, dir, seed);
+  // arbusto verde junto al borde (algunos ardiendo)
+  drawLeaves(xe + dir * 44, y - 10, 58, seed);
+  if (seed % 4 === 1) fireTongue(xe + dir * 44, y - 6, 34, seed);
+  // piedra suelta arriba
+  if (seed % 3 === 2) {
+    const rx = xe + dir * (len * 0.45);
+    ctx.fillStyle = '#0e0a0a'; ctx.beginPath(); ctx.ellipse(rx, y - 8, 15, 11, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#4a4040'; ctx.beginPath(); ctx.ellipse(rx, y - 9, 13, 9, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,170,100,0.3)'; ctx.beginPath(); ctx.ellipse(rx - 3, y - 13, 6, 3, 0, 0, 7); ctx.fill();
+  }
+  // capa de pasto dorado con mechones que cuelgan por el borde
+  ctx.fillStyle = '#0e0a0a'; ctx.fillRect(x0, y - 4, x1 - x0, 10);
+  const gg = ctx.createLinearGradient(0, y - 4, 0, y + 6);
+  gg.addColorStop(0, '#f0c050'); gg.addColorStop(0.5, '#c8902e'); gg.addColorStop(1, '#7a4e1a');
+  ctx.fillStyle = gg; ctx.fillRect(x0, y - 3, x1 - x0, 8);
+  for (let x = x0; x < x1; x += 4) {
+    const h = 4 + hash(x, seed) * 7;
+    ctx.fillStyle = hash(x, 3) > 0.5 ? '#e8b84a' : '#b8822a';
+    ctx.beginPath(); ctx.moveTo(x, y - 2); ctx.lineTo(x + 2, y - 2 - h); ctx.lineTo(x + 4, y - 2); ctx.fill();
+  }
+  for (let k = 0; k < 3; k++) {   // mechones colgando en la punta
+    const hx = xt - dir * (2 + k * 5);
+    ctx.fillStyle = '#c8902e'; ctx.beginPath(); ctx.moveTo(hx - 2, y + 4); ctx.lineTo(hx, y + 12 + k * 2); ctx.lineTo(hx + 2, y + 4); ctx.fill();
   }
 }
 
-// Suelo del bosque: tierra con pasto seco, piedras y arbustos
+// Suelo del bosque al inicio
 function drawForestGround() {
+  ctx.fillStyle = '#0e0a0a'; ctx.fillRect(0, H - 24, W, 220);
   const g = ctx.createLinearGradient(0, H - 20, 0, H + 60);
-  g.addColorStop(0, '#3a2a1c'); g.addColorStop(1, '#140d08');
+  g.addColorStop(0, '#3a2a22'); g.addColorStop(1, '#120c0a');
   ctx.fillStyle = g; ctx.fillRect(0, H - 20, W, 220);
-  ctx.fillStyle = '#5a4226'; ctx.fillRect(0, H - 20, W, 3);
-  for (let x = 0; x < W; x += 5) {
-    const h = 3 + hash(x, 3) * 9;
-    ctx.fillStyle = hash(x, 4) > 0.5 ? '#9a8540' : '#7a6a32'; ctx.fillRect(x, H - 20 - h, 2, h);
+  const gg = ctx.createLinearGradient(0, H - 23, 0, H - 14);
+  gg.addColorStop(0, '#f0c050'); gg.addColorStop(1, '#7a4e1a');
+  ctx.fillStyle = gg; ctx.fillRect(0, H - 23, W, 8);
+  for (let x = 0; x < W; x += 4) {
+    const h = 4 + hash(x, 5) * 8;
+    ctx.fillStyle = hash(x, 6) > 0.5 ? '#e8b84a' : '#b8822a';
+    ctx.beginPath(); ctx.moveTo(x, H - 22); ctx.lineTo(x + 2, H - 22 - h); ctx.lineTo(x + 4, H - 22); ctx.fill();
   }
-  for (const [x, r] of [[TRUNK_W + 30, 9], [W / 2 + 40, 12], [W - TRUNK_W - 24, 8]]) {
-    ctx.fillStyle = '#0d0907'; ctx.beginPath(); ctx.ellipse(x, H - 22, r + 2, r * 0.7 + 2, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#6a5442'; ctx.beginPath(); ctx.ellipse(x, H - 23, r, r * 0.7, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = 'rgba(255,170,90,0.3)'; ctx.beginPath(); ctx.ellipse(x - r * 0.2, H - 26, r * 0.6, r * 0.3, 0, 0, 7); ctx.fill();
-  }
-  ctx.filter = 'sepia(0.85) saturate(0.8) brightness(0.75)';
-  drawLeaves(W / 2 - 60, H - 30, 60, 3);
-  ctx.filter = 'none';
+  deadTree(30, H - 22, 120, 1, 3); drawLeaves(W - 50, H - 34, 64, 4); fireTongue(W - 50, H - 26, 30, 2);
 }
 
-// Cima del cerro: la meta del módulo
+// Cima: meseta de lado a lado con pasto, árbol quemado y banderín
 function drawSummit(pl) {
-  ctx.fillStyle = '#0d0907';
-  ctx.beginPath(); ctx.moveTo(-20, pl.y - 3); ctx.lineTo(W + 20, pl.y - 3); ctx.lineTo(W + 20, pl.y + 40); ctx.lineTo(-20, pl.y + 40); ctx.fill();
-  const g = ctx.createLinearGradient(0, pl.y, 0, pl.y + 38);
-  g.addColorStop(0, '#9a7a5c'); g.addColorStop(0.3, '#6a5442'); g.addColorStop(1, '#2a211b');
-  ctx.fillStyle = g; ctx.fillRect(-20, pl.y, W + 40, 38);
-  ctx.fillStyle = '#4a3624'; ctx.fillRect(-20, pl.y - 1, W + 40, 4);
-  for (let x = 0; x < W; x += 6) {
-    ctx.strokeStyle = hash(x, 8) > 0.5 ? '#a89448' : '#8a7a3a'; ctx.lineWidth = 1.3;
-    ctx.beginPath(); ctx.moveTo(x, pl.y); ctx.lineTo(x - 2, pl.y - 5 - hash(x, 9) * 5); ctx.stroke();
+  ctx.fillStyle = '#0e0a0a'; ctx.fillRect(-20, pl.y - 4, W + 40, 60);
+  const g = ctx.createLinearGradient(0, pl.y, 0, pl.y + 56);
+  g.addColorStop(0, '#4a3e3a'); g.addColorStop(1, '#151110');
+  ctx.fillStyle = g; ctx.fillRect(-20, pl.y + 4, W + 40, 52);
+  deadTree(W - 40, pl.y, 110, -1, 7);
+  const gg = ctx.createLinearGradient(0, pl.y - 3, 0, pl.y + 6);
+  gg.addColorStop(0, '#f0c050'); gg.addColorStop(1, '#7a4e1a');
+  ctx.fillStyle = gg; ctx.fillRect(-20, pl.y - 3, W + 40, 8);
+  for (let x = 0; x < W; x += 4) {
+    const h = 4 + hash(x, 8) * 8;
+    ctx.fillStyle = hash(x, 9) > 0.5 ? '#e8b84a' : '#b8822a';
+    ctx.beginPath(); ctx.moveTo(x, pl.y - 2); ctx.lineTo(x + 2, pl.y - 2 - h); ctx.lineTo(x + 4, pl.y - 2); ctx.fill();
   }
-  // banderín de cumbre
-  const fx = W - 90;
-  ctx.fillStyle = '#0d0907'; ctx.fillRect(fx - 2, pl.y - 64, 5, 64);
+  const fx = 70;
+  ctx.fillStyle = '#0e0a0a'; ctx.fillRect(fx - 2, pl.y - 64, 5, 64);
   ctx.fillStyle = '#d9d0c4'; ctx.fillRect(fx - 1, pl.y - 63, 3, 62);
   const wv = Math.sin(S.t / 10) * 4;
   ctx.fillStyle = '#d62828'; ctx.beginPath(); ctx.moveTo(fx + 2, pl.y - 62); ctx.quadraticCurveTo(fx + 20, pl.y - 58 + wv, fx + 36, pl.y - 52); ctx.lineTo(fx + 2, pl.y - 42); ctx.fill();
@@ -2620,12 +2603,12 @@ function drawCanopy(pl) {
 
 // En el árbol, cada rama se estira hasta el tronco más cercano
 function treeify(p) {
-  const tip0 = p.x, tip1 = p.x + p.w;
-  if (tip0 + p.w / 2 < W / 2) { p.side = -1; p.x = TRUNK_W - 6; p.w = tip1 - p.x; }
-  else { p.side = 1; p.w = W - TRUNK_W + 6 - tip0; }
+  const tip0 = p.x, tip1 = p.x + p.w, ww = wallW();
+  if (tip0 + p.w / 2 < W / 2) { p.side = -1; p.x = ww - 6; p.w = tip1 - p.x; }
+  else { p.side = 1; p.w = W - ww + 6 - tip0; }
 }
 // Rectángulo que ocupará una rama candidata ya estirada hasta su tronco
-const treeRect = (x, w) => x + w / 2 < W / 2 ? { x: TRUNK_W - 6, w: x + w - TRUNK_W + 6 } : { x, w: W - TRUNK_W + 6 - x };
+const treeRect = (x, w) => x + w / 2 < W / 2 ? { x: wallW() - 6, w: x + w - wallW() + 6 } : { x, w: W - wallW() + 6 - x };
 
 function drawBg() {
   if (theme() === 'tree') { drawNightBg(); return; }
@@ -2698,7 +2681,8 @@ function drawWorld() {
   }
   if (theme() === 'forest') {
     if (S.camY > -100) drawForestGround();
-    drawRockWalls();
+    S.plats.filter(pl => !pl.ground && !pl.roof && pl.y > S.camY - 260 && pl.y < S.camY + H + 40)
+      .sort((a, b) => a.y - b.y).forEach(drawCliffBody);
   }
   // Cielo sobre la azotea
   if (!theme() && S.goalPlaced && S.roofY > S.camY - 50) {
