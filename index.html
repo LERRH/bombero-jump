@@ -396,6 +396,13 @@ const SFX = (() => {
       [988, 740, 988, 740].forEach((f, i) => tone('triangle', f, f, 0.22, 0.05, 0.2 + i * 0.24, sfxBus, 0.5));
     },
     click() { tone('square', 1400, 1400, 0.025, 0.06); },
+    // Descarga eléctrica: zumbido grave, chasquidos y un golpe
+    zap() {
+      tone('sawtooth', 120, 60, 0.5, 0.25); tone('square', 60, 60, 0.45, 0.12);
+      noise(0.35, 0.6, 'highpass', 3000, 1500);
+      for (let i = 0; i < 8; i++) noise(0.02, 0.4, 'bandpass', rand(2500, 6000), rand(2000, 5000), rand(0, 0.35), 6);
+    },
+    buzz() { tone('sawtooth', 100, 100, 0.12, 0.05); noise(0.05, 0.08, 'bandpass', 4000, 4000, 0, 5); },
     win() {
       tone('sine', 73, 40, 1.2, 0.6, 0, sfxBus, 0.4);
       [[147, 220, 294], [175, 262, 349], [196, 294, 392], [220, 330, 440, 587]].forEach((ch, i) =>
@@ -751,7 +758,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, poles: [], shock: 0, hoseLock: false, poleWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
   SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
@@ -893,6 +900,8 @@ function gen() {
         p.fragile = true;   // alféizar agrietado: se rompe al pisarlo una vez
       } else if (take(pr.inner, p.kind !== 'ac')) {
         p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
+      } else if (take(pr.pole, !S.poles.length || S.poles[S.poles.length - 1].y - p.y > 280)) {
+        addPole(p);
       } else if (take(pr.flame, true)) {
         S.flames.push({ x: p.x + rand(14, p.w - 14), y: p.y, hp: 40, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 });
       }
@@ -1082,6 +1091,14 @@ const GAS_LEVELS = [
   { name: 'Edificio con gas', hint: 'Más balones y pisos agrietados', len: 1300, doors: 0, p: { gas: 0.26, fragile: 0.12 } },
 ];
 const GAS_T = 240, GASFIX_T = 60;   // 4 s hasta que explota; 1 s manteniendo el Gas Stop
+// Módulo 14: postes eléctricos con el transformador en llamas. pole = probabilidad de poste por alféizar.
+// En un fuego con electricidad no se usa chorro continuo: el agua conduce la corriente hasta el bombero.
+const POLE_LEVELS = [
+  { name: 'Transformador en llamas', hint: 'Chorros cortos: presiona, suelta y vuelve a presionar', len: 1100, doors: 0, p: { pole: 0.2 } },
+  { name: 'Cables energizados', hint: 'Nunca un chorro continuo sobre la electricidad', len: 1200, doors: 0, p: { pole: 0.24, flame: 0.12 } },
+  { name: 'Apagón', hint: 'Postes, llamas y pisos agrietados', len: 1300, doors: 0, p: { pole: 0.26, flame: 0.15, fragile: 0.12 } },
+];
+const SHOCK_T = 30;   // cuadros seguidos mojando el poste antes de electrocutarse (0,5 s)
 // Estrellas de los módulos con tareas: cuántas llamas, fuegos internos, ventanas y personas se resolvieron
 const TASK_RULE = '★ llegar  ·  ★★ la mitad de las tareas  ·  ★★★ todas';
 
@@ -1117,6 +1134,8 @@ const MODS = {
     tasks: true, levels: LAMP_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan y la linterna', rule: TASK_RULE },
   extremo: { title: 'MÓDULO 12 · EXTREMO', epp: true, tools: ['piton', 'halligan', 'linterna'], tasks: true, levels: EXTREME_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Pitón, halligan y linterna: ¡todo junto!', rule: TASK_RULE },
+  postes: { title: 'MÓDULO 14 · POSTES ELÉCTRICOS', epp: true, tools: ['piton'], tasks: true, levels: POLE_LEVELS,
+    start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: en la electricidad, solo chorros cortos', rule: TASK_RULE },
   reloj: { title: 'MÓDULO 13 · CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], levels: RACE_LEVELS,
     start: '¡El fuego sube desde abajo! No te detengas', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
   saltos: { title: 'MÓDULO 1 · SALTOS', levels: TRAIN_LEVELS,
@@ -1212,6 +1231,25 @@ function startPhase2() {
   updateControls();
   SFX.play('tools'); SFX.music(2);
   toast(M ? M.go : '¡EPP completo! Recibes pitón, halligan y linterna. ¡A la emergencia!', '#7f7');
+}
+
+// Poste eléctrico al costado del edificio, a la altura del alféizar, con el transformador en llamas
+const POLE_X = 26;
+function addPole(pl) {
+  const side = pl.x + pl.w / 2 < W / 2 ? -1 : 1, x = side < 0 ? POLE_X : W - POLE_X, y = pl.y - 34;
+  // El fuego está sobre el transformador, que cuelga del lado del edificio
+  const f = { x: x - side * 12, y: y - 24, hp: 70, elec: true, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 };
+  S.flames.push(f);
+  S.poles.push({ x, y, side, f, ph: Math.random() * 6 });
+}
+// Descarga: pierde una vida, sale despedido y no puede volver a disparar hasta soltar el pitón
+function electrocute(f) {
+  const p = S.p;
+  S.shock = 0; S.hoseLock = true; S.hoseT = 0;
+  SFX.play('zap'); S.shake = 18;
+  burst(p.x, p.y - 30, 30, ['#fff8a0', '#7fd3ff', '#ffffff'], 5, 0.05, 25, 3);
+  burst(f.x, f.y - 10, 30, ['#fff8a0', '#7fd3ff', '#ffffff'], 6, 0.05, 25, 3);
+  hurt('⚡ ¡Electrocución! Sobre la electricidad, solo chorros cortos', true);
 }
 
 // Cuenta cada tarea (llama, fuego interno, ventana con humo, persona) cuando aparece en pantalla
@@ -1595,7 +1633,8 @@ function update() {
   const p = S.p;
   // Mientras usa la halligan en el suelo, no camina
   // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
-  if (keys.hose && S.halT === 0 && toolOk('piton')) S.hoseT++; else S.hoseT = 0;
+  if (!keys.hose) S.hoseLock = false;
+  if (keys.hose && S.halT === 0 && toolOk('piton') && !S.hoseLock) S.hoseT++; else S.hoseT = 0;
   const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0 || S.gasT > 0 || S.keyT > 0;
   // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
   const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : 0), -1, 1);
@@ -1694,7 +1733,7 @@ function update() {
     let best = null, bd = 230;
     for (const f of S.flames) {
       if (f.hp <= 0) continue;
-      const d = Math.hypot(f.x - p.x, (f.y - 15) - (p.y - 30));
+      const d = Math.hypot(f.x - p.x, (f.y - 15) - (p.y - 30)) - (f.elec ? 40 : 0);   // el poste se alcanza un poco más lejos
       if (d < bd) { bd = d; best = f; }
     }
     if (!best && innerTarget(['closed']) && (!S.msg || S.msg.t < 120)) toast('El fuego está adentro: primero rompe con la halligan', '#ffd166');
@@ -1708,6 +1747,12 @@ function update() {
     S.jetLen = Math.min(1, S.jetLen + 0.12);
     S.jet = { sx, sy, tx, ty, hit: !!best };
     SFX.jet(S.jetLen, best && S.jetLen >= 1);
+    if (best && S.jetLen >= 1 && best.elec) {
+      // Agua sobre la electricidad: si el chorro sigue más de 0,5 s, la corriente llega al bombero
+      S.shock++;
+      if (S.shock % 8 === 1) SFX.play('buzz');
+      if (S.shock >= SHOCK_T) { electrocute(best); best = null; }
+    } else S.shock = Math.max(0, S.shock - 2);
     if (best && S.jetLen >= 1) {
       best.hp -= 1.2;
       if (best.hp <= 0) {
@@ -1728,7 +1773,7 @@ function update() {
     const q = jetPoint(S.jet, rand(0.25, S.jetLen));
     S.parts.push({ x: q.x, y: q.y, vx: rand(-0.4, 0.4) + p.dir * 0.5, vy: rand(0, 0.8), g: 0.2,
       life: 22, max: 22, c: '#a8dcff', s: rand(0.9, 1.6) });
-  } else { S.jetLen = 0; S.jet = null; SFX.jet(0); }
+  } else { S.jetLen = 0; S.jet = null; SFX.jet(0); S.shock = Math.max(0, S.shock - 2); }
   // Las llamas crecen con el tiempo; las apagadas quedan como brasas un momento y desaparecen
   for (const f of S.flames) {
     f.age++;
@@ -1801,6 +1846,12 @@ function update() {
     }
   }
   S.flames = S.flames.filter(f => f.dead < 70 && f.y < S.camY + H + 100);
+
+  if (S.mod === 'postes' && !S.poleWarned && S.poles.some(o => o.f.hp > 0 && o.y > S.camY + 60 && o.y < S.camY + H)) {
+    S.poleWarned = true;
+    toast('⚡ ¡Poste energizado! Apágalo con chorros cortos: presiona y suelta', '#fff38a');
+  }
+  S.poles = S.poles.filter(o => o.y < S.camY + H + 400);
 
   // Daño por llamas
   for (const f of S.flames) {
@@ -2883,6 +2934,7 @@ function drawWorld() {
   }
 
   if (!theme()) drawDecor();
+  drawPoles();
   for (const pl of S.plats) {
     if (pl.ground) continue;
     if (pl.kind === 'slab' || pl.kind === 'stairstep') continue;   // los dibuja el techo de la escalera
@@ -2917,6 +2969,7 @@ function drawWorld() {
   drawPlayer();
   drawCureBar();
   drawGasBar();
+  drawShockBar();
   drawKeyBar();
   drawJet();
   if (theme() === 'forest') drawRocks();
@@ -3219,6 +3272,64 @@ function drawFlame(f) {
   ctx.globalAlpha = alpha;
   ctx.drawImage(im, f.x - w / 2, f.y + 3 - h, w, h);
   ctx.globalAlpha = 1;
+}
+
+// Postes de concreto con cruceta, aisladores, transformador y cables hacia la fachada.
+// El fuste se desvanece hacia abajo (sigue detrás de los techos de la cuadra).
+function drawPoles() {
+  for (const o of S.poles) {
+    if (o.y < S.camY - 120 || o.y > S.camY + H + 360) continue;
+    const { x, y, side } = o, burning = o.f.hp > 0, out = !burning;
+    // Fuste
+    const g = ctx.createLinearGradient(0, y - 40, 0, y + 320);
+    g.addColorStop(0, '#9a9a9a'); g.addColorStop(0.7, 'rgba(110,110,110,0.9)'); g.addColorStop(1, 'rgba(110,110,110,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - 5, y - 40, 10, 360);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x + 2, y - 40, 3, 360);
+    // Cruceta y aisladores
+    ctx.fillStyle = '#5b4632'; ctx.fillRect(x - 26, y - 36, 52, 6);
+    ctx.fillStyle = '#d9e3ea';
+    for (const dx of [-22, 0, 22]) ctx.fillRect(x + dx - 2, y - 44, 4, 8);
+    // Cables hacia la fachada (con comba) y fuera de pantalla
+    ctx.strokeStyle = '#1b1b1d'; ctx.lineWidth = 1.4;
+    for (const dx of [-22, 0, 22]) {
+      ctx.beginPath(); ctx.moveTo(x + dx, y - 44);
+      ctx.quadraticCurveTo(x + dx - side * 70, y - 14, x - side * 150, y - 40 + dx * 0.3); ctx.stroke();
+    }
+    // Transformador (tambor gris colgado del poste)
+    const tx = x - side * 12;
+    ctx.fillStyle = out ? '#3a3a3e' : '#7b8188'; ctx.fillRect(tx - 9, y - 26, 18, 26);
+    ctx.fillStyle = out ? '#2a2a2e' : '#5d636b'; ctx.fillRect(tx - 9, y - 26, 18, 4);
+    ctx.fillStyle = '#26262a'; ctx.fillRect(tx - 7, y - 30, 3, 4); ctx.fillRect(tx + 4, y - 30, 3, 4);
+    // Señal de peligro eléctrico
+    ctx.fillStyle = '#ffd400';
+    ctx.beginPath(); ctx.moveTo(x, y + 14); ctx.lineTo(x - 7, y + 26); ctx.lineTo(x + 7, y + 26); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.font = font(9); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚡', x, y + 22);
+    // Chispas mientras sigue energizado y ardiendo
+    if (burning && Math.random() < 0.35) {
+      const a = rand(0, Math.PI * 2);
+      S.parts.push({ x: tx + rand(-8, 8), y: y - 26 + rand(-6, 6), vx: Math.cos(a) * rand(1, 3), vy: Math.sin(a) * rand(1, 3) - 1,
+        g: 0.12, life: rand(8, 16), max: 16, c: Math.random() < 0.5 ? '#fff38a' : '#9fe3ff', s: rand(1, 2) });
+    }
+    // Destello eléctrico ocasional
+    if (burning && Math.sin(S.t / 9 + o.ph) > 0.93) {
+      ctx.strokeStyle = 'rgba(190,235,255,0.9)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x - 22, y - 44);
+      for (let k = 1; k <= 4; k++) ctx.lineTo(x - 22 + k * 11, y - 44 + rand(-6, 6));
+      ctx.stroke();
+    }
+  }
+}
+
+// Barra de carga eléctrica sobre el bombero mientras moja un poste
+function drawShockBar() {
+  if (!S.shock) return;
+  const p = S.p, k = Math.min(1, S.shock / SHOCK_T), w = 52, x = p.x - w / 2, y = p.y - 92;
+  box(x - 2, y - 2, w + 4, 11, '#111');
+  ctx.fillStyle = '#333'; ctx.fillRect(x, y, w, 7);
+  ctx.fillStyle = k < 0.6 ? '#ffd400' : Math.floor(S.t / 4) % 2 ? '#ff3b30' : '#ffd400';
+  ctx.fillRect(x, y, w * k, 7);
+  ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = k < 0.6 ? '#fff38a' : '#ff8a8a';
+  ctx.fillText(k < 0.6 ? '⚡ CARGA' : '⚡ ¡SUELTA!', p.x, y - 9);
 }
 
 // Techo cerrado con escalera lateral: losa + caja de escalera con puerta
