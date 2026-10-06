@@ -605,8 +605,11 @@ const Tilt = {
     const a = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
     const v = a === 90 ? e.beta : a === 270 || a === -90 ? -e.beta : a === 180 ? -e.gamma : e.gamma;
     this.raw = v; this.got = true;
-    const d = v - this.zero, dead = 4, full = 22;
-    this.x = Math.abs(d) < dead ? 0 : clamp((d - Math.sign(d) * dead) / (full - dead), -1, 1);
+    // Margen muerto de 1,5° y velocidad máxima a los 9°; la curva da bastante velocidad con poca inclinación
+    const d = v - this.zero, dead = 1.5, full = 9;
+    const k = Math.abs(d) < dead ? 0 : Math.min(1, Math.pow((Math.abs(d) - dead) / (full - dead), 0.6));
+    this.x = this.x * 0.4 + Math.sign(d) * k * 0.6;   // suaviza el temblor del sensor
+    if (Math.abs(this.x) < 0.02) this.x = 0;
   },
   calibrate() { this.zero = this.got ? clamp(this.raw, -25, 25) : 0; },
   toggle() {
