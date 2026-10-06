@@ -48,18 +48,30 @@
   #controls .tool.hide{display:none}
   #controls .tool.off{opacity:.35;filter:grayscale(.7)}
   /* Módulo paramédico: solo el maletín (apagado hasta recogerlo) */
-  #controls .med{display:none}
+  #controls .med, #controls .cat, #controls .forest{display:none}
   #controls.medmode .tool:not(.med){display:none}
   #controls.medmode .med{display:block}
   #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
   #controls.on{display:flex}
-  #controls.tilt .grp{visibility:hidden}
+  #controls.tilt .grp, #controls.joymode .grp{visibility:hidden}
+  /* Joystick (modo 🕹️): base abajo a la izquierda con una perilla que se arrastra */
+  #controls .joy{display:none;position:absolute;left:14px;bottom:4px;width:132px;height:132px;border-radius:50%;
+    pointer-events:auto;touch-action:none;background:radial-gradient(circle,#2a2a2ecc 0 55%,#111c 56% 100%);
+    box-shadow:0 0 0 4px #c1121f inset,0 0 0 7px #111a inset,0 3px 8px #000a}
+  #controls .joy::before,#controls .joy::after{content:'◀';position:absolute;top:50%;left:12px;transform:translateY(-50%);
+    color:#fff6;font:16px sans-serif}
+  #controls .joy::after{content:'▶';left:auto;right:12px}
+  #controls .joy .knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ff6b6b,#c1121f 55%,#7a0b12);box-shadow:0 0 0 3px #111,0 3px 6px #000a;
+    pointer-events:none}
+  #controls.joymode .joy{display:block}
   #mute,#full,#tilt{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
     font-size:18px;line-height:34px;touch-action:none;-webkit-tap-highlight-color:transparent}
   /* Volver al menú: en la barra superior, a la izquierda de los corazones */
   #back{position:fixed;z-index:4;display:none;width:30px;height:30px;padding:0;border:0;border-radius:8px;
     background:#ffffff22;color:#fff;font:bold 22px/28px system-ui,sans-serif;touch-action:none;-webkit-tap-highlight-color:transparent}
   #back.on{display:block}
+  #controls.catmode .cat, #controls.forestmode .forest{display:block}
   #nameBox{position:fixed;display:none;gap:8px;align-items:center;z-index:5}
   #nameBox.on{display:flex}
   #nameBox input{width:150px;font:24px Bangers,Impact,sans-serif;letter-spacing:2px;text-transform:uppercase;
@@ -78,6 +90,7 @@
   <button id="back" aria-label="Volver al menú">‹</button>
   <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
   <div id="controls">
+    <div class="joy" aria-label="Joystick"><div class="knob"></div></div>
     <div class="row">
       <div class="grp">
         <button data-k="left" class="move" aria-label="Izquierda"><img src="img/botones/izquierda.png" alt=""></button>
@@ -88,6 +101,8 @@
         <button data-a="hal" class="tool" aria-label="Halligan"><img src="img/botones/halligan.png" alt=""></button>
         <button data-a="lamp" class="tool lamp" aria-label="Linterna"><img src="img/botones/linterna.png" alt=""></button>
         <button data-k="cure" class="tool med" data-arc="0" aria-label="Maletín de abordaje"><img src="img/botones/maletin.png" alt=""></button>
+        <button data-k="cat" class="tool cat" data-arc="0" aria-label="Mochila para gatitos"><img src="img/botones/mochila.png" alt=""></button>
+        <button data-k="beat" class="tool forest" data-arc="0" aria-label="Batefuego"><img src="img/botones/batefuego.png" alt=""></button>
         <button data-k="gas" class="tool gas" data-arc="0" aria-label="Gas Stop"><img src="img/botones/gasstop.png" alt=""></button>
         <button data-k="key" class="tool key" data-arc="0" aria-label="Llave de ascensor"><img src="img/botones/llave.png" alt=""></button>
       </div>
@@ -148,6 +163,27 @@ for (const pose of ['idle', 'salto', 'aire', 'aterriza']) loadImg(`${pose}_p`, `
 for (let f = 1; f <= 6; f++) loadImg(`camina_p_${f}`, `img/bombero/camina_p_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`curar_${f}`, `img/bombero/curar_${f}.png`);
 loadImg('maletin', 'img/maletin.png');
+// Rescatista con la mochila para gatitos (etapa 'g'), animación de guardar al gatito, mochila y gatito
+for (const pose of ['idle', 'salto', 'aire', 'aterriza']) loadImg(`${pose}_g`, `img/bombero/${pose}_g.png`);
+for (let f = 1; f <= 6; f++) { loadImg(`camina_g_${f}`, `img/bombero/camina_g_${f}.png`); loadImg(`rescate_${f}`, `img/bombero/rescate_${f}.png`); }
+loadImg('mochila', 'img/mochila.png'); loadImg('gatito', 'img/gatito.png');
+// Bombero forestal: 'f' con traje, 'm' con la mochila forestal; batefuego (8 cuadros) y chorro (4 cuadros)
+for (const st of ['f', 'm']) {
+  for (const pose of ['idle', 'salto', 'aire', 'aterriza']) loadImg(`${pose}_${st}`, `img/bombero/${pose}_${st}.png`);
+  for (let f = 1; f <= 8; f++) loadImg(`camina_${st}_${f}`, `img/bombero/camina_${st}_${f}.png`);
+}
+for (let f = 1; f <= 8; f++) loadImg(`bate_${f}`, `img/bombero/bate_${f}.png`);
+for (let f = 1; f <= 4; f++) loadImg(`chorro_${f}`, `img/bombero/chorro_${f}.png`);
+loadImg('tool_traje', 'img/traje_forestal.png'); loadImg('tool_batefuego', 'img/batefuego.png'); loadImg('tool_mochilaf', 'img/mochila_forestal.png');
+for (let k = 1; k <= 3; k++) loadImg(`roca_${k}`, `img/roca_${k}.png`);
+const WALKN = { f: 8, m: 8, c: 8 };
+// Rescatista de ascensores con casco (etapa 'c') y la secuencia de abrir con la llave
+for (const pose of ['idle', 'salto', 'aire', 'aterriza']) loadImg(`${pose}_c`, `img/bombero/${pose}_c.png`);
+for (let f = 1; f <= 8; f++) loadImg(`camina_c_${f}`, `img/bombero/camina_c_${f}.png`);
+for (const f of [1, 2, 3, 7, 10]) loadImg(`llavear_${f}`, `img/bombero/llavear_${f}.png`);
+loadImg('tool_casco', 'img/casco_rescate.png');
+// sacar la llave → subirla → meterla y girarla → bajarla → abrir los brazos (las puertas)
+const KEY_SEQ = [1, 2, 3, 3, 3, 7, 10];   // cuadros de caminata por etapa (las demás tienen 6)
 const AIMS = ['frente', 'arriba45', 'arriba', 'abajo45', 'abajo'];
 for (const a of AIMS) loadImg(`apunta_${a}`, `img/bombero/apunta_${a}.png`);
 // Poses con el pitón: ax = centro de las botas (fracción del ancho, para que el bombero no "salte" al cambiar
@@ -351,6 +387,93 @@ const SFX = (() => {
     for (const n of [o, vib, br]) { n.start(t, n === br ? Math.random() * 0.5 : 0); n.stop(t + dur + 0.05); }
   }
 
+  // Un maullido: voz rica en armónicos con vibrato; la "boca" pasa de cerrada (m) a i → a → u
+  // (formantes que se mueven) y la entonación sube y luego cae (o sube al final si está contento)
+  function meowOnce(at, f0, dur, happy) {
+    const t = ac.currentTime + at, T = k => t + dur * k;
+    const o = ac.createOscillator(), vib = ac.createOscillator(), vg = ac.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 0.78, t);
+    o.frequency.linearRampToValueAtTime(f0 * 1.12, T(0.3));
+    o.frequency.linearRampToValueAtTime(f0 * (happy ? 1.2 : 1.02), T(0.55));
+    o.frequency.linearRampToValueAtTime(f0 * (happy ? 1.3 : 0.68), T(1));
+    vib.frequency.value = 7; vg.gain.value = f0 * 0.02; vib.connect(vg); vg.connect(o.frequency);
+    // Boca: muy cerrada en la "m", se abre y se cierra en la "u"
+    const mouth = ac.createBiquadFilter(); mouth.type = 'lowpass'; mouth.Q.value = 0.7;
+    mouth.frequency.setValueAtTime(500, t); mouth.frequency.exponentialRampToValueAtTime(5000, T(0.18));
+    mouth.frequency.setValueAtTime(4500, T(0.6)); mouth.frequency.exponentialRampToValueAtTime(1100, T(1));
+    o.connect(mouth);
+    const env = ac.createGain();
+    env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.5, T(0.08));
+    env.gain.exponentialRampToValueAtTime(1, T(0.22)); env.gain.setValueAtTime(0.9, T(0.7));
+    env.gain.exponentialRampToValueAtTime(0.0001, T(1));
+    // Formantes: i (600/2600) → a (900/1500) → u (450/900)
+    const F = [[[500, 0], [650, 0.22], [900, 0.5], [450, 1]], [[1900, 0], [2600, 0.22], [1500, 0.5], [900, 1]], [[3000, 0], [3300, 0.3], [2800, 1]]];
+    const sum = ac.createGain();
+    F.forEach((pts, i) => {
+      const bp = ac.createBiquadFilter(), g = ac.createGain();
+      bp.type = 'bandpass'; bp.Q.value = i === 2 ? 10 : 7;
+      pts.forEach(([f, k], j) => j ? bp.frequency.linearRampToValueAtTime(f, T(k)) : bp.frequency.setValueAtTime(f, t));
+      g.gain.value = [1.6, 1.1, 0.45][i];
+      mouth.connect(bp); bp.connect(g); g.connect(sum);
+    });
+    // Un poco de aire en la voz
+    const br = ac.createBufferSource(), bh = ac.createBiquadFilter(), bg = ac.createGain();
+    br.buffer = noiseBuf; bh.type = 'bandpass'; bh.frequency.value = 2500; bh.Q.value = 1; bg.gain.value = 0.05;
+    br.connect(bh); bh.connect(bg); bg.connect(sum);
+    sum.connect(env);
+    const out = ac.createGain(); out.gain.value = happy ? 0.32 : 0.26;
+    env.connect(out); out.connect(sfxBus); send(out, 0.12);
+    for (const n of [o, vib, br]) { n.start(t, n === br ? Math.random() : 0); n.stop(T(1) + 0.05); }
+  }
+
+  // Respaldo cuando no hay voz del sistema: "a-yu-da" sintetizado, suave y con entonación dulce
+  // [inicio, duración, tono inicial, tono final, formantes de inicio, formantes de fin]
+  function sweetAyuda(who, at) {
+    const t0 = ac.currentTime + at, man = who === 'hombre', f0 = man ? rand(165, 185) : rand(300, 340);
+    const SYL = [
+      [0, 0.15, 1.0, 1.08, [800, 1200], [780, 1300]],      // a
+      [0.15, 0.2, 1.12, 1.28, [300, 2300], [330, 850]],     // yu (sílaba fuerte: sube)
+      [0.4, 0.3, 1.1, 0.88, [750, 1250], [800, 1200]],      // da (baja suave)
+    ];
+    for (const [d, dur, p1, p2, fa, fb] of SYL) {
+      const t = t0 + d, o = ac.createOscillator(), env = ac.createGain(), out = ac.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(f0 * p1, t); o.frequency.linearRampToValueAtTime(f0 * p2, t + dur);
+      const vib = ac.createOscillator(), vg = ac.createGain();   // vibrato leve
+      vib.frequency.value = 5; vg.gain.value = f0 * 0.015; vib.connect(vg); vg.connect(o.frequency);
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(1, t + (d ? 0.025 : 0.04));
+      env.gain.setValueAtTime(0.9, t + dur * 0.7);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(env);
+      fa.forEach((f, i) => {
+        const bp = ac.createBiquadFilter(), g = ac.createGain();
+        bp.type = 'bandpass'; bp.Q.value = 6;
+        bp.frequency.setValueAtTime(f, t); bp.frequency.linearRampToValueAtTime(fb[i], t + dur);
+        g.gain.value = i ? 1 : 1.8;
+        env.connect(bp); bp.connect(g); g.connect(out);
+      });
+      env.connect(out);
+      out.gain.value = 0.2; out.connect(sfxBus);
+      o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
+    }
+  }
+  // Voz del celular en español: se elige una de mujer o de hombre según el herido (si la hay)
+  const FEM = /helena|laura|sabina|paulina|m[oó]nica|elvira|dalia|paloma|luc[ií]a|marisol|elena|camila|francisca|ximena|sof[ií]a|catalina|salom[eé]|mar[ií]a|belkys|ramona|andrea|teresa|marta|karla|yolanda|margarita|karina|tania|lorena|valentina|paola|female|mujer/i;
+  const MAS = /pablo|jorge|ra[uú]l|diego|[aá]lvaro|juan|carlos|enrique|andr[eé]s|gonzalo|tom[aá]s|marcelo|lorenzo|manuel|emilio|luis|javier|federico|roberto|alex|v[ií]ctor|mario|rodrigo|alonso|mateo|sebasti[aá]n|male|hombre/i;
+  // Preferencia: voces naturales, de Perú y Latinoamérica antes que de España
+  const voiceScore = v => (/natural|neural|enhanced|premium/i.test(v.name) ? 4 : 0) +
+    (/es-PE/i.test(v.lang) ? 3 : /es-(ES)/i.test(v.lang) ? 0 : 1);
+  function voiceFor(who) {
+    const sp = window.speechSynthesis;
+    const vs = sp ? sp.getVoices().filter(v => /^es/i.test(v.lang)).sort((x, y) => voiceScore(y) - voiceScore(x)) : [];
+    if (!vs.length) return null;
+    const re = who === 'hombre' ? MAS : FEM, other = who === 'hombre' ? FEM : MAS;
+    return vs.find(v => re.test(v.name) && !other.test(v.name)) || vs[0];
+  }
+  if (window.speechSynthesis) speechSynthesis.getVoices();   // algunos navegadores cargan las voces de a poco
+
   const FX = {
     jump() { tone('square', 260, 640, 0.13, 0.07); tone('triangle', 130, 320, 0.13, 0.1); },
     land() { noise(0.07, 0.12, 'lowpass', 500); },
@@ -403,6 +526,7 @@ const SFX = (() => {
       [988, 740, 988, 740].forEach((f, i) => tone('triangle', f, f, 0.22, 0.05, 0.2 + i * 0.24, sfxBus, 0.5));
     },
     click() { tone('square', 1400, 1400, 0.025, 0.06); },
+    beat() { noise(0.12, 0.5, 'lowpass', 900, 200); tone('sine', 110, 50, 0.12, 0.3); noise(0.25, 0.15, 'highpass', 3000, 1500, 0.03); },
     // Descarga eléctrica: zumbido grave, chasquidos y un golpe
     zap() {
       tone('sawtooth', 120, 60, 0.5, 0.25); tone('square', 60, 60, 0.45, 0.12);
@@ -425,7 +549,187 @@ const SFX = (() => {
   const DRUM1 = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
   const DRUM2 = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1];
   const st = (f, n) => f * Math.pow(2, n / 12);
-  const spb = () => 60 / (mood === 2 ? 128 : 96) / 4;   // duración de una semicorchea
+  const spb = () => mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
+
+  // mood 7 = sabana (Forestal): ritmo africano en 12/8 con djembé y shaker, kalimba en pentatónica de La menor,
+  // drone grave y terroso, una flauta lejana de vez en cuando, y el cerro ardiendo: fuego, chasquidos y viento.
+  // mood 8 = música de ascensor (Ascensor): bossa nova suave. Fa maj7 – Mi m7 – Re m7 – Sol 7 con piano
+  // eléctrico (trémolo), bajo de bossa, aro de caja en clave, shaker suave y una melodía de vibráfono.
+  const E_ROOT = [174.61, 164.81, 146.83, 196];
+  const E_CHORD = [[0, 4, 7, 11], [0, 3, 7, 10], [0, 3, 7, 10], [0, 4, 7, 10]];
+  const E_MEL = [[7, , 3, , 0, , 3, ], [10, , 7, , 5, , 2, ], [8, , 5, , 3, , 0, ], [2, , 5, , 8, 7, 5, ]];
+  function epiano(f, ch, at, dur) {
+    const t = ac.currentTime + at, g = ac.createGain(), trem = ac.createOscillator(), tg = ac.createGain();
+    trem.frequency.value = 5; tg.gain.value = 0.012; trem.connect(tg); tg.connect(g.gain);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.035, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    for (const n of ch) for (const [m, v] of [[1, 1], [2, 0.25]]) {
+      const o = ac.createOscillator(), og = ac.createGain(); o.type = 'sine'; o.frequency.value = st(f, n) * m; og.gain.value = v;
+      o.connect(og); og.connect(g); o.start(t); o.stop(t + dur + 0.02);
+    }
+    trem.start(t); trem.stop(t + dur + 0.02);
+    g.connect(musicBus); send(g, 0.3);
+  }
+  function playLounge(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = E_ROOT[bar];
+    if ([0, 3, 6, 10, 12].includes(s)) epiano(f, E_CHORD[bar], at, d * (s === 0 ? 5 : 2.5));          // acordes con ritmo de bossa
+    if (s === 0 || s === 8) pluck(f / 2, at, d * 5, 0.28);                                          // bajo: fundamental…
+    if (s === 6 || s === 14) pluck(st(f / 2, 7), at, d * 2, 0.22);                                  // …y quinta
+    if ([0, 3, 6, 10, 13].includes(s)) noise(0.03, 0.06, 'bandpass', 2400, 2400, at, 6, musicBus);  // aro de caja (clave)
+    if (s % 2 === 1) noise(0.03, 0.02, 'highpass', 8000, 8000, at, 1, musicBus);                    // shaker
+    const m = E_MEL[bar][s / 2];
+    if (loopN % 2 === 1 && s % 2 === 0 && m !== undefined) whistle(st(440, m), at, d * 3.2);        // vibráfono
+  }
+  const S_PENT = [0, 3, 5, 7, 10, 12, 15];                    // La menor pentatónica (semitonos desde La)
+  const S_KAL = [[0, 4, 2, 5, 1, 4, 0, 4, 2, 6, 3, 4],        // kalimba: índices de S_PENT, un compás de 12
+                 [1, 4, 3, 5, 2, 4, 1, 4, 3, 6, 2, 5]];
+  const S_FLUTE = [7, , , 10, , 12, 10, , 7, , 5, ];          // frase de flauta (semitonos desde La4)
+  function kalimba(f, at, vol) {
+    const t = ac.currentTime + at;
+    for (const [m, v, d] of [[1, 1, 0.9], [2.76, 0.18, 0.25], [5.4, 0.06, 0.12]]) {   // lengüeta metálica: armónicos inarmónicos
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f * m;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(musicBus); send(g, 0.25); o.start(t); o.stop(t + d + 0.02);
+    }
+  }
+  function djembe(kind, at) {
+    if (kind === 'bass') { tone('sine', 95, 55, 0.3, 0.55, at, musicBus); noise(0.06, 0.2, 'lowpass', 400, 200, at, 1, musicBus); }
+    else if (kind === 'tone') { tone('sine', 230, 190, 0.14, 0.3, at, musicBus); noise(0.05, 0.15, 'bandpass', 700, 500, at, 2, musicBus); }
+    else { noise(0.05, 0.35, 'bandpass', 2600, 1800, at, 1.5, musicBus); tone('triangle', 420, 300, 0.04, 0.12, at, musicBus); }   // slap
+  }
+  function playSavanna(at, d) {
+    const s = step % 12, bar = Math.floor(step / 12) % 4, loopN = Math.floor(step / 48);
+    const root = bar % 2 ? 196 : 220;   // La – Sol, como un vaivén
+    if (s === 0) for (const o of droneOsc) o.frequency.setTargetAtTime(bar % 2 ? 49 : 55, ac.currentTime + at, 0.4);
+    // Djembé: bajo en 1, tonos y slaps en el resto (patrón de 12/8)
+    const DJ = ['bass', , 'tone', 'tone', 'slap', , 'bass', 'tone', , 'tone', 'slap', 'slap'][s];
+    if (DJ) djembe(DJ, at);
+    noise(0.04, s % 3 === 0 ? 0.07 : 0.035, 'highpass', 6000, 6000, at, 1, musicBus);   // shaker de semillas
+    if (s % 6 === 3) noise(0.12, 0.04, 'bandpass', 5000, 3500, at, 2, musicBus);        // "chas" de calabaza
+    kalimba(st(root * 2, S_PENT[S_KAL[bar % 2][s]]), at, s % 3 === 0 ? 0.16 : 0.1);
+    const fl = S_FLUTE[s];
+    if (loopN % 2 === 1 && bar < 2 && fl !== undefined) whistle(st(440, fl), at, d * 4);   // flauta lejana
+    // Cerro en llamas: chasquidos de ramas y ráfagas de viento
+    if (Math.random() < 0.3) noise(rand(0.01, 0.04), rand(0.06, 0.2), 'bandpass', rand(1500, 4500), rand(1000, 3000), at + rand(0, d), 3);
+    if (s === 0 && bar % 2 === 0) noise(d * 18, 0.07, 'bandpass', 500, 1400, at, 0.8, sfxBus, 0, d * 8);
+  }
+
+  // mood 6 = alegre (Gatitos): Do mayor (Do – Sol – Lam – Fa). Bajo rebotón, acordes tipo marimba
+  // en contratiempo, melodía silbada con vibrato y percusión ligera con palmas.
+  const J_ROOT = [130.81, 98, 110, 87.31];
+  const J_CHORD = [[0, 4, 7], [0, 4, 7], [0, 3, 7], [0, 4, 7]];
+  const J_MEL = [[0, , 4, 7, 12, , 7, ], [11, , 7, 2, 7, , 11, ], [9, , 12, 9, 4, , 7, ], [5, , 9, 12, 9, 7, 5, ]];
+  function whistle(f, at, dur) {
+    const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain(), vib = ac.createOscillator(), vg = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f * 0.97, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.04);
+    vib.frequency.value = 6; vg.gain.value = f * 0.012; vib.connect(vg); vg.connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.03); g.gain.setValueAtTime(0.07, t + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(musicBus); send(g, 0.2); o.start(t); vib.start(t); o.stop(t + dur + 0.02); vib.stop(t + dur + 0.02);
+  }
+  function playHappy(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = J_ROOT[bar], ch = J_CHORD[bar];
+    if (s % 4 === 0) pluck(f, at, d * 2, 0.3);                                    // bajo: fundamental…
+    if (s % 4 === 2) pluck(st(f, 7), at, d * 1.6, 0.22);                          // …y quinta
+    if (s % 4 === 2) for (const n of ch) pluck(st(f * 4, n), at, d * 1.5, 0.045, 'sine');   // marimba en contratiempo
+    if (s === 0 || s === 8) tone('sine', 130, 55, 0.16, 0.35, at, musicBus);      // bombo suave
+    if (s === 4 || s === 12) noise(0.09, 0.16, 'bandpass', 1800, 1300, at, 1.2, musicBus);   // palmas
+    if (s % 2 === 1) noise(0.025, 0.03, 'highpass', 8000, 8000, at, 1, musicBus);  // shaker
+    const m = J_MEL[bar][s / 2];
+    if (s % 2 === 0 && m !== undefined && loopN % 3 !== 2) whistle(st(523.25, m), at, d * 2.6);   // silbido (descansa una vuelta de cada tres)
+  }
+
+  // mood 5 = thriller (Gas Stop): Fa# menor (Fa#m – Re – Mi – Do#m). Pulso de bajo, tic-tac de reloj,
+  // acordes de fondo y cada dos compases un siseo de gas que crece. Urgencia sin terror.
+  const T_ROOT = [92.5, 73.42, 82.41, 69.3];
+  const T_CHORD = [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 3, 7]];
+  function pad(f, ch, at, dur) {
+    const t = ac.currentTime + at, g = ac.createGain(), lp = ac.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 1100;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    for (const n of ch) for (const det of [-5, 5]) {
+      const o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = st(f * 4, n); o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.05);
+    }
+    lp.connect(g); g.connect(musicBus); send(g, 0.4);
+  }
+  function playThriller(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, f = T_ROOT[bar];
+    pluck(f * (s % 4 === 2 ? 2 : 1), at, d * 0.8, s % 4 === 0 ? 0.22 : 0.13, 'square');           // pulso de bajo
+    if (s % 4 === 0) tone('sine', 110, 45, 0.18, 0.4, at, musicBus);                                  // bombo suave
+    if (s % 2 === 0) noise(0.015, s % 4 ? 0.05 : 0.08, 'bandpass', s % 4 ? 2600 : 3400, 3000, at, 9, musicBus);   // tic-tac
+    if (s === 0) pad(f, T_CHORD[bar], at, d * 16);
+    if (s === 8 && bar % 2 === 1) noise(d * 8, 0.06, 'highpass', 2000, 7000, at, 0.7, musicBus, 0, d * 7);       // siseo de gas
+  }
+
+  // mood 4 = heroica (Fuego expuesto): rock de acción en La menor (Lam – Fa – Do – Sol), con bajo potente,
+  // golpes de bronces, batería con caja marcada y una melodía de héroe. Sin drone ni impactos de terror.
+  const H_ROOT = [110, 87.31, 130.81, 98];
+  const H_CHORD = [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 4, 7]];
+  const H_MEL = [[0, , 3, 5, 7, , 5, 3], [8, , 7, 5, 3, , 0, ], [7, , 3, , 5, 7, 10, ], [10, , 7, , 5, , 2, ]];
+  function chug(f, at, dur, vol) {   // bajo con filtro (como guitarra apagada con la palma)
+    const t = ac.currentTime + at, lp = ac.createBiquadFilter(), g = ac.createGain();
+    lp.type = 'lowpass'; lp.Q.value = 2; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(180, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    for (const [m, det] of [[1, -7], [1, 7], [1.5, 0]]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f * m; o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.02);
+    }
+    lp.connect(g); g.connect(musicBus);
+  }
+  function stab(f, ch, at, dur) {   // golpe de bronces: acorde con filtro que se abre
+    const t = ac.currentTime + at, lp = ac.createBiquadFilter(), g = ac.createGain();
+    lp.type = 'lowpass'; lp.Q.value = 3; lp.frequency.setValueAtTime(500, t);
+    lp.frequency.exponentialRampToValueAtTime(2600, t + 0.06); lp.frequency.exponentialRampToValueAtTime(600, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.1, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    for (const n of ch) for (const det of [-6, 6]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = st(f * 2, n); o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.02);
+    }
+    lp.connect(g); g.connect(musicBus); send(g, 0.3);
+  }
+  function playHero(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = H_ROOT[bar];
+    if (s % 2 === 0 || s === 15) chug(f / 2 * (s === 6 || s === 14 ? 2 : 1), at, d * 1.2, 0.2);        // bajo en corcheas
+    if (s === 0) stab(f, H_CHORD[bar], at, d * 6);
+    if (s === 10 && bar % 2 === 1) stab(f, H_CHORD[bar], at, d * 3);
+    if (s === 0 || s === 7 || s === 8) tone('sine', 140, 45, 0.22, 0.6, at, musicBus);                // bombo
+    if (s === 4 || s === 12) { noise(0.16, 0.35, 'bandpass', 1900, 1100, at, 0.9, musicBus); tone('triangle', 210, 150, 0.08, 0.2, at, musicBus); }   // caja
+    if (s % 2 === 0) noise(0.03, s % 4 ? 0.04 : 0.07, 'highpass', 7500, 7500, at, 1, musicBus);       // platillo cerrado
+    if (s === 0 && bar === 0) noise(1.2, 0.12, 'highpass', 5000, 3000, at, 0.7, musicBus, 0.4);      // platillo de golpe
+    const m = H_MEL[bar][s / 2];
+    if (loopN % 2 === 1 && s % 2 === 0 && m !== undefined) {   // melodía de héroe (metal suave)
+      const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.value = st(440, m);
+      lp.type = 'lowpass'; lp.frequency.value = 1800;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + d * 3.2);
+      o.connect(lp); lp.connect(g); g.connect(musicBus); send(g, 0.25); o.start(t); o.stop(t + d * 3.3);
+    }
+  }
+
+  // mood 3 = rescate (Paramédico): Re mayor (Re – La – Si menor – Sol), esperanzadora pero con urgencia.
+  // Bajo suave, arpegios tipo piano, una melodía y percusión ligera; sin tambores de terror ni fuego.
+  const R_ROOT = [73.42, 55, 61.74, 49];
+  const R_CHORD = [[0, 4, 7], [0, 4, 7], [0, 3, 7], [0, 4, 7]];
+  const R_MEL = [[7, , 4, , 2, 4, 7, ], [11, , 9, 7, 4, , 7, ], [9, , 12, , 14, 12, 9, ], [5, , 7, 9, 7, , 4, ]];
+  function pluck(f, at, dur, vol, type = 'triangle') {
+    const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+    o.type = type; o.frequency.value = f;
+    lp.type = 'lowpass'; lp.frequency.setValueAtTime(3500, t); lp.frequency.exponentialRampToValueAtTime(600, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(lp); lp.connect(g); g.connect(musicBus); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function playRescue(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = R_ROOT[bar], ch = R_CHORD[bar];
+    if (s % 2 === 0) pluck(f * (s % 4 ? 2 : 1), at, d * 1.8, 0.3);                                   // bajo
+    pluck(st(f * 4, ch[[0, 1, 2, 1][s % 4]] + (s >= 8 ? 12 : 0)), at, d * 2.2, 0.06, 'sine');          // arpegio
+    if (s === 0 || s === 8) tone('sine', 120, 50, 0.2, 0.35, at, musicBus);                           // bombo suave
+    if (s === 4 || s === 12) noise(0.08, 0.12, 'bandpass', 2200, 1600, at, 1, musicBus);              // palmada
+    if (s % 2 === 1) noise(0.03, 0.035, 'highpass', 7000, 7000, at, 1, musicBus);                     // shaker
+    const m = R_MEL[bar][s / 2];
+    if (loopN % 2 === 1 && s % 2 === 0 && m !== undefined) pluck(st(293.66, m), at, d * 3, 0.09);     // melodía (una vuelta sí, otra no)
+  }
 
   function strings(f, at, dur, vol) {
     const t = ac.currentTime + at, lp = ac.createBiquadFilter(), g = ac.createGain();
@@ -460,6 +764,12 @@ const SFX = (() => {
 
   function playStep(t) {
     const at = Math.max(0, t - ac.currentTime), d = spb();
+    if (mood === 3) { playRescue(at, d); return; }
+    if (mood === 4) { playHero(at, d); return; }
+    if (mood === 5) { playThriller(at, d); return; }
+    if (mood === 6) { playHappy(at, d); return; }
+    if (mood === 7) { playSavanna(at, d); return; }
+    if (mood === 8) { playLounge(at, d); return; }
     const s = step % 16, bar = Math.floor(step / 16) % 4, f = ROOT[bar];
     if (s === 0) for (const o of droneOsc) o.frequency.setTargetAtTime(f / 2, t, 0.3);
     // Cuerdas: en tensión solo corcheas y más suaves; en la emergencia, todas las semicorcheas
@@ -497,8 +807,8 @@ const SFX = (() => {
   function startSeq() {
     if (!ac) return;
     const now = ac.currentTime;
-    droneGain.gain.setTargetAtTime(mood === 2 ? 0.22 : 0.16, now, 0.5);
-    fireGain.gain.setTargetAtTime(mood === 2 ? 0.13 : 0.08, now, 0.8);
+    droneGain.gain.setTargetAtTime(mood === 2 ? 0.22 : mood === 7 ? 0.09 : mood >= 3 ? 0 : 0.16, now, 0.5);
+    fireGain.gain.setTargetAtTime(mood === 2 ? 0.13 : mood === 7 ? 0.12 : mood === 4 ? 0.05 : mood >= 3 ? 0 : 0.08, now, 0.8);
     if (seqT) return;
     step = 0; nextT = now + 0.1;
     seqT = setInterval(() => {
@@ -516,13 +826,38 @@ const SFX = (() => {
 
   addEventListener('visibilitychange', () => {
     if (!ac) return;
-    if (document.hidden) ac.suspend(); else ac.resume();
+    if (document.hidden) { ac.suspend(); if (window.speechSynthesis) speechSynthesis.cancel(); } else ac.resume();
   });
 
   return {
     init,
     play(name) { if (ac && !muted) FX[name](); },
     // Grito de la persona atrapada ('hombre' o 'mujer'); a veces dos gritos seguidos
+    // Herido pidiendo ayuda (Paramédico): un llamado suave, a veces repetido
+    // "Miau, miau" de gatito: llorando (largo y cayendo) o contento al rescatarlo (corto y subiendo)
+    meow(happy) {
+      if (!ac || muted) return;
+      const f0 = rand(560, 680), d1 = happy ? 0.32 : rand(0.55, 0.7);
+      meowOnce(0, f0, d1, happy);
+      meowOnce(d1 + rand(0.1, 0.18), f0 * rand(1.04, 1.12), d1 * rand(0.8, 1), happy);
+    },
+    // Herido pidiendo ayuda (Paramédico): "¡Ayuda!" con voz dulce, sin eco ni ronquera
+    call(who) {
+      if (!ac || muted) return;
+      const sp = window.speechSynthesis, v = window.SpeechSynthesisUtterance && voiceFor(who);
+      if (v) {
+        if (sp.speaking) return;
+        const u = new SpeechSynthesisUtterance(Math.random() < 0.3 ? '¡Ayuda, por favor!' : '¡Ayuda!');
+        u.voice = v; u.lang = v.lang;
+        const sameGender = (who === 'hombre' ? MAS : FEM).test(v.name);
+        // Dulce: algo aguda, pausada y no muy fuerte; si la voz no es del género del herido, se corrige con el tono
+        u.pitch = who === 'hombre' ? (sameGender ? 1.05 : 0.8) : (sameGender ? 1.2 : 1.6);
+        u.rate = 0.9; u.volume = 0.6;
+        sp.speak(u);
+        return;
+      }
+      sweetAyuda(who, 0);
+    },
     help(who, behindGlass = true, level = 1) {
       if (!ac || muted) return;
       scream(who, behindGlass, 0, level);
@@ -553,6 +888,7 @@ const SFX = (() => {
       muted = !muted;
       try { localStorage.setItem('firejump_mute', muted ? '1' : '0'); } catch (e) {}
       if (ac) out.gain.setTargetAtTime(muted ? 0 : 0.9, ac.currentTime, 0.05);
+      if (muted && window.speechSynthesis) speechSynthesis.cancel();
       return muted;
     },
     get muted() { return muted; },
@@ -608,9 +944,12 @@ const Tilt = {
   btn: document.getElementById('tilt'),
   get on() { return this.level > 0; },
   init() {
-    // Solo en celulares/tabletas con sensor
-    if (!matchMedia('(pointer: coarse)').matches || !window.DeviceMotionEvent) { this.btn.style.display = 'none'; return; }
+    // El botón aparece en todo celular/tableta (flechas y joystick); la inclinación solo si hay sensor
+    // (los navegadores lo ocultan en páginas sin https, por ejemplo al probar por la red local)
+    if (!matchMedia('(pointer: coarse)').matches) { this.btn.style.display = 'none'; return; }
+    this.sensor = !!window.DeviceMotionEvent;
     try { this.level = clamp(+localStorage.getItem('firejump_tilt2') || 0, 0, 3); } catch (e) {}
+    if (!this.sensor) this.level = 0;
     // En iPhone el permiso se pide con un toque: si está guardado, se vuelve a pedir al tocar el botón
     if (this.on && typeof DeviceMotionEvent.requestPermission === 'function') this.level = 0;
     if (this.on) this.listen();
@@ -648,6 +987,12 @@ const Tilt = {
   calibrate() { this.zero = this.got ? clamp(this.ang, -25, 25) : 0; },
   // ⬅➡ → suave → normal → rápida → ⬅➡
   toggle() {
+    // ⬅➡ → 🕹️ → 📱1 → 📱2 → 📱3 → ⬅➡
+    if (!this.on && !Joy.on) { Joy.set(true); this.show(); updateControls(); toast('Control con joystick: arrastra la perilla', '#7f7'); return; }
+    if (Joy.on) Joy.set(false);
+    if (!this.sensor) {   // sin sensor: solo flechas y joystick
+      this.set(0); toast('Control con flechas (la inclinación necesita el enlace https)', '#ccc'); return;
+    }
     const next = (this.level + 1) % TILT_LEVELS.length;
     if (!next) { this.set(0); toast('Control con flechas', '#ccc'); return; }
     if (this.on) { this.set(next); toast(`Inclinación ${TILT_LEVELS[next].name}`, '#7f7'); return; }
@@ -671,8 +1016,42 @@ const Tilt = {
     try { localStorage.setItem('firejump_tilt2', String(level)); } catch (e) {}
     this.show(); updateControls();
   },
-  show() { this.btn.textContent = this.on ? '📱' + this.level : '⬅➡'; },
+  show() { this.btn.textContent = this.on ? '📱' + this.level : Joy.on ? '🕹️' : '⬅➡'; },
 };
+// Joystick: la perilla se arrastra en horizontal; x va de -1 a 1 (gradual, con margen al centro)
+const Joy = {
+  on: false, x: 0, id: null,
+  el: document.querySelector('#controls .joy'),
+  init() {
+    try { this.on = localStorage.getItem('firejump_joy') === '1' && matchMedia('(pointer: coarse)').matches; } catch (e) {}
+    const knob = this.el.querySelector('.knob'), R = 44;
+    const move = e => {
+      const r = this.el.getBoundingClientRect();
+      let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.hypot(dx, dy);
+      if (d > R) { dx *= R / d; dy *= R / d; }
+      knob.style.transform = `translate(${dx}px,${dy}px)`;
+      const k = dx / R;
+      this.x = Math.abs(k) < 0.15 ? 0 : Math.sign(k) * Math.min(1, (Math.abs(k) - 0.15) / 0.75);
+    };
+    const end = e => {
+      if (e.pointerId !== this.id) return;
+      this.id = null; this.x = 0; knob.style.transform = '';
+    };
+    this.el.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation();
+      this.id = e.pointerId; move(e);
+      try { this.el.setPointerCapture(e.pointerId); } catch (err) {}   // sigue al dedo aunque salga del círculo
+    });
+    this.el.addEventListener('pointermove', e => { if (e.pointerId === this.id) move(e); });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) this.el.addEventListener(ev, end);
+  },
+  set(on) {
+    this.on = on; this.x = 0;
+    try { localStorage.setItem('firejump_joy', on ? '1' : '0'); } catch (e) {}
+  },
+};
+Joy.init();
 Tilt.init();
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && document.activeElement !== nameIn) { SFX.toggleMute(); showMute(); } });
 
@@ -798,13 +1177,13 @@ function handleTap(e) {
 
 function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
   S = {
-    state, mod, falls: 0, prevCx: W / 2, medic: false, bagToPlace: mod === 'medico', cureT: 0, cured: 0, injTotal: 0, injWarned: false, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
+    state, mod, falls: 0, prevCx: W / 2, medic: false, bagToPlace: mod === 'medico', grassOut: 0, grassTotal: 0, beatT: 0, gfTarget: null, gfWarned: false, carrier: false, sackToPlace: mod === 'gatos', catT: 0, cats: 0, catTotal: 0, catWarned: false, catTarget: null, cureT: 0, cured: 0, injTotal: 0, injWarned: false, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
     goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, poles: [], shock: 0, hoseLock: false, poleWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
-  SFX.music(state === 'play' ? 1 : 0); SFX.jet(0);
+  SFX.music(state !== 'play' ? 0 : (MODS[mod] && MODS[mod].music) || 1); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
   const M = MODS[mod];
   if (M && !M.epp) {
@@ -885,6 +1264,10 @@ function gen() {
     // Herido en este alféizar (solo después del maletín): necesita espacio para él y el paramédico
     const hurtHere = TL && TL.p.injured && !S.bagToPlace && y < H - 300 && Math.random() < TL.p.injured;
     if (hurtHere) w = Math.max(w, 84);
+    // Gatito llorando en esta rama (solo después de recoger la mochila)
+    const catHere = TL && TL.kitten && !S.sackToPlace && y < H - 300 && !hurtHere && Math.random() < TL.kitten;
+    // Fuego en el pastizal (solo con el batefuego ya recogido)
+    const fireHere = TL && TL.grass && S.have.batefuego && !hurtHere && !catHere && Math.random() < TL.grass;
     // Tras un alféizar agrietado, la siguiente plataforma debe alcanzarse también desde la anterior
     if (S.lastFragile && !TL) y = Math.max(y, S.preFragileY - 145);
     // En el entrenamiento, cada alféizar queda a una distancia horizontal del anterior según el nivel
@@ -899,6 +1282,13 @@ function gen() {
       p.injured = { who: pickWho(), side: Math.random() < 0.5 ? -1 : 1, state: 'hurt', t: 0 };
       S.injTotal++;
     }
+    if (catHere) { p.kitten = { state: 'cry', t: 0, ph: Math.random() * 6 }; S.catTotal++; }
+    if (fireHere) { p.grassFire = { state: 'burn', f: rand(0.4, 0.7), t: 0, ph: Math.random() * 6 }; S.grassTotal++; }
+    // Mochila para gatitos: en una rama cerca del inicio; la pantalla no sube hasta recogerla
+    if (S.sackToPlace && y < H - 160) {
+      S.items.push({ f: 'mochila', sack: true, x: p.x + p.w / 2, y: p.y - 24 });
+      S.sackToPlace = false; S.eppLock = true; S.lockCamY = p.y - 140;
+    }
     // Maletín de abordaje: en un alféizar cerca del inicio; la pantalla no sube hasta recogerlo
     if (S.bagToPlace && y < H - 160) {
       S.items.push({ f: 'maletin', bag: true, x: p.x + p.w / 2, y: p.y - 24 });
@@ -907,7 +1297,8 @@ function gen() {
       S.lockCamY = p.y - 140;
     }
     // Herramienta para recoger (halligan, linterna): la pantalla no sube hasta tomarla
-    if (S.phase === 2 && S.toolQueue.length && !hurtHere && y < S.toolMinY) {
+    if (S.phase === 2 && S.toolQueue.length && !hurtHere && !catHere && !fireHere && y < S.toolMinY &&
+        (S.toolQueue[0] !== 'mochilaf' || y < MID_Y)) {
       const t = S.toolQueue.shift();
       S.items.push({ f: 'tool_' + t, tool: t, x: p.x + p.w / 2, y: p.y - 24 });
       p.hasTool = true; S.eppLock = true; S.lockCamY = p.y - 140; S.toolMinY = y - 260;
@@ -924,14 +1315,15 @@ function gen() {
       const nearEvent = S.events[0] && p.y - S.events[0].y < 320, win = p.kind === 'window';
       let r = Math.random();
       const take = (prob, ok) => { if (!ok || !prob) return false; if (r < prob) return true; r -= prob; return false; };
-      if (p.injured || p.hasTool) {
+      if (p.injured || p.hasTool || p.kitten) {
         // alféizar firme y despejado (herido o herramienta)
       } else if (take(pr.elev, p.w >= 66 && !nearEvent)) {
         // Ascensor detenido con una persona adentro
         p.kind = 'elev'; p.elev = { state: 'closed', t: 0 }; p.who = pickWho(); p.ph = Math.random() * 6;
       } else if (take(pr.gas, p.kind !== 'ac' && p.w >= 64)) {
         // Balón de gas: empieza a fugar cuando el bombero se acerca
-        p.gas = { state: 'ok', t: GAS_T, side: Math.random() < 0.5 ? -1 : 1, fix: 0 };
+        const T = gasTimeAt(p.y);
+        p.gas = { state: 'ok', t: T, max: T, side: Math.random() < 0.5 ? -1 : 1, fix: 0 };
       } else if (take(pr.trapped, win)) {
         // Persona atrapada pidiendo ayuda: se rompe la ventana con la halligan y sale por el costado
         p.trapped = 'inside'; p.who = pickWho(); p.ph = Math.random() * 6;
@@ -940,14 +1332,17 @@ function gen() {
         p.smokeWin = 'sealed';
         p.vent = addPlat(p.x - 4, p.y - VENT_DY, p.w + 8, { kind: 'ventroof', win: p });
         S.genY = p.vent.y;
-      } else if (take(pr.fragile, win && S.fragRun < (TL ? TL.chain || 1 : 1) && (TL || !nearEvent))) {
+      } else if (take(pr.fragile, (win || inside()) && S.fragRun < (TL ? TL.chain || 1 : 1) && (TL || !nearEvent))) {
         p.fragile = true;   // alféizar agrietado: se rompe al pisarlo una vez
       } else if (take(pr.inner, p.kind !== 'ac')) {
         p.inner = 'closed';   // fuego dentro: 'closed' → (halligan) 'open' → (pitón) 'out'
-      } else if (take(pr.pole, !S.poles.length || S.poles[S.poles.length - 1].y - p.y > 280)) {
+      // Después de un agrietado (que se rompe en menos de medio segundo) no puede venir fuego: no habría
+      // tiempo de apagarlo y el bombero tendría que caer sobre las llamas
+      } else if (take(pr.pole, !S.lastFragile && (!S.poles.length || S.poles[S.poles.length - 1].y - p.y > 280))) {
         addPole(p);
-      } else if (take(pr.flame, true)) {
-        S.flames.push({ x: p.x + rand(14, p.w - 14), y: p.y, hp: 40, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 });
+      } else if (take(pr.flame, !S.lastFragile)) {
+        const L = levelAt(p.y) || {}, hp = L.flameHp || 40;
+        S.flames.push({ x: p.x + rand(14, p.w - 14), y: p.y, hp, max: hp, regrow: !!L.regrow, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 });
       }
     }
     S.lastFragile = !!p.fragile;
@@ -984,7 +1379,8 @@ function freeBranchX(y, w, pref) {
 
 function freeX(y, w, pref) {
   if (attachTheme()) return freeBranchX(y, w, pref);
-  const near = S.plats.filter(o => !o.ground && !o.roof && Math.abs(o.y - y) < ART_H);
+  // Un ascensor ocupa ~115 px hacia arriba de su piso: ninguna plataforma puede cruzarlo
+  const near = S.plats.filter(o => !o.ground && !o.roof && (Math.abs(o.y - y) < ART_H || (o.kind === 'elev' && y < o.y && o.y - y < 118)));
   // El carro bomba de la calle también ocupa espacio: ninguna ventana puede taparlo
   if (Math.abs(TRUCK_ZONE.y - y) < ART_H && !theme()) near.push(TRUCK_ZONE);
   const free = [];
@@ -1062,10 +1458,17 @@ const MEDIC_LEVELS = [
 const CURE_T = 60;   // 1 segundo manteniendo presionado el maletín
 
 // Niveles de los módulos de fuego (mismo formato que la Emergencia: len, doors, dark, p = probabilidades)
+// Fuego expuesto: saltos como en el Módulo 1 (gap, w, dx), alféizares agrietados y llamas cada vez más
+// resistentes (flameHp). Con regrow, una llama mojada a medias vuelve a crecer si se deja.
 const FIRE_LEVELS = [
-  { name: 'Primeras llamas', hint: 'Apaga las llamas con el pitón', len: 1100, doors: 0, p: { flame: 0.30 } },
-  { name: 'Más fuego', hint: 'Apágalas antes de que crezcan', len: 1200, doors: 0, p: { flame: 0.42 } },
-  { name: 'Fachada en llamas', hint: '¡No dejes ninguna encendida!', len: 1300, doors: 0, p: { flame: 0.55 } },
+  { name: 'Primeras llamas', hint: 'Apaga las llamas con el pitón', len: 1100, doors: 0,
+    gap: [70, 95], w: [70, 88], dx: [40, 160], p: { flame: 0.42, fragile: 0.14 }, chain: 1, win: 0.7, flameHp: 45 },
+  { name: 'Más fuego', hint: 'Apágalas antes de saltar: el fuego quema', len: 1200, doors: 0,
+    gap: [85, 108], w: [64, 82], dx: [60, 170], p: { flame: 0.48, fragile: 0.22 }, chain: 1, win: 0.75, flameHp: 55 },
+  { name: 'Fachada en llamas', hint: '¡Apágalas del todo o vuelven a crecer!', len: 1300, doors: 0,
+    gap: [95, 118], w: [60, 76], dx: [70, 180], p: { flame: 0.48, fragile: 0.3 }, chain: 2, win: 0.8, flameHp: 65, regrow: true },
+  { name: 'Llamas y grietas', hint: 'Fuego arriba y pisos que se rompen', len: 1300, doors: 0,
+    gap: [105, 128], w: [56, 70], dx: [85, 190], p: { flame: 0.45, fragile: 0.4 }, chain: 2, win: 0.85, flameHp: 75, regrow: true, crack: 20 },
 ];
 const INNER_LEVELS = [
   { name: 'Fuego interno', hint: 'Rompe con la halligan y apaga con el pitón', len: 1100, doors: 0, p: { inner: 0.30, flame: 0.12 } },
@@ -1102,39 +1505,50 @@ const RACE_LEVELS = [
 ];
 // Módulo 5 (Gatitos): rescate nocturno trepando por las ramas de un árbol grande.
 // Mismo formato que Saltos (gap, w, dx). Los gatitos y la mochila se agregan con sus dibujos.
+// kitten = probabilidad de un gatito llorando en la rama (solo en ramas firmes, después de la mochila)
 const TREE_LEVELS = [
-  { name: 'El árbol', hint: 'Sube de rama en rama', len: 900,
-    gap: [65, 90], w: [80, 100], dx: [30, 150], p: {} },
-  { name: 'Ramas altas', hint: 'Mantén el dedo para saltar más alto', len: 1000,
-    gap: [90, 112], w: [70, 88], dx: [60, 170], p: { fragile: 0.15 }, chain: 1, win: 1 },
+  { name: 'El árbol', hint: 'Recoge la mochila y rescata a los gatitos', len: 900,
+    gap: [65, 90], w: [80, 100], dx: [30, 150], p: {}, kitten: 0.13 },
+  { name: 'Ramas altas', hint: 'Junto al gatito, mantén presionada la mochila', len: 1000,
+    gap: [90, 112], w: [70, 88], dx: [60, 170], p: { fragile: 0.15 }, chain: 1, win: 1, kitten: 0.12 },
   { name: 'Ramas secas', hint: 'Las ramas secas se quiebran al pisarlas: ¡salta rápido!', len: 1100,
-    gap: [95, 118], w: [64, 80], dx: [70, 180], p: { fragile: 0.4 }, chain: 2, win: 1 },
+    gap: [95, 118], w: [64, 80], dx: [70, 180], p: { fragile: 0.4 }, chain: 2, win: 1, kitten: 0.12 },
   { name: 'Saltos largos', hint: 'Más alto y más lejos', len: 1200,
-    gap: [108, 130], w: [56, 70], dx: [90, 195], p: { fragile: 0.5 }, chain: 2, win: 1 },
+    gap: [108, 130], w: [56, 70], dx: [90, 195], p: { fragile: 0.5 }, chain: 2, win: 1, kitten: 0.11 },
   { name: 'La copa', hint: 'Casi todo seco y se quiebra rápido: ¡no te detengas!', len: 1300,
-    gap: [118, 140], w: [50, 62], dx: [100, 205], p: { fragile: 0.85 }, chain: 4, win: 1, crack: 18 },
+    gap: [118, 140], w: [50, 62], dx: [100, 205], p: { fragile: 0.85 }, chain: 4, win: 1, crack: 18, kitten: 0.11 },
 ];
+const CAT_T = 72;   // 1,2 s manteniendo presionada la mochila para guardar al gatito
 // Módulo 6 (Forestal): incendio forestal; se trepa por salientes de roca entre dos paredes del cerro.
 // Los matorrales en llamas y las rocas/troncos que caen se agregan en el siguiente paso.
+// grass = probabilidad de fuego en el pastizal de una saliente (después de recoger el batefuego)
 const FOREST_LEVELS = [
-  { name: 'El cerro', hint: '¡Cuidado con las rocas que caen! Mira el aviso rojo', len: 1000, gap: [65, 90], w: [80, 100], dx: [30, 150], p: {}, rocks: [200, 260] },
-  { name: 'La ladera', hint: 'Caen más rocas: muévete apenas veas el aviso', len: 1100, gap: [88, 112], w: [70, 88], dx: [60, 170], p: {}, rocks: [140, 190] },
-  { name: 'La cumbre', hint: '¡Lluvia de rocas! Llega a la cima', len: 1200, gap: [100, 125], w: [62, 80], dx: [80, 185], p: {}, rocks: [95, 140] },
+  { name: 'El cerro', hint: 'Recoge tu traje forestal y el batefuego', len: 1000, gap: [65, 90], w: [80, 100], dx: [30, 150], p: {}, rocks: [200, 260], grass: 0.2 },
+  { name: 'La ladera', hint: 'Junto al fuego del pastizal, mantén presionado el batefuego', len: 1100, gap: [88, 112], w: [70, 88], dx: [60, 170], p: {}, rocks: [140, 190], grass: 0.24 },
+  { name: 'La cumbre', hint: '¡Atento a las rocas y al fuego del pastizal!', len: 1200, gap: [100, 125], w: [62, 80], dx: [80, 185], p: {}, rocks: [95, 140], grass: 0.26 },
 ];
+const BEAT_T = 90, SPRAY_T = 45;   // 1,5 s con el batefuego; 0,75 s con el chorro de la mochila forestal
+const MID_Y = H - 20 - 150 * 30;   // la mochila forestal aparece a los 150 m
 // Módulo 7 (Ascensor): con la llave triangular se abren los ascensores con personas atrapadas
 const ELEV_LEVELS = [
   { name: 'Primer ascensor', hint: 'Frente al ascensor, mantén la llave 1 segundo', len: 1100, doors: 0, p: { elev: 0.16 } },
-  { name: 'Pisos altos', hint: 'Abre todos los ascensores que encuentres', len: 1200, doors: 0, p: { elev: 0.2, fragile: 0.08 } },
-  { name: 'Corte de energía', hint: 'Más ascensores detenidos entre pisos', len: 1300, doors: 0, p: { elev: 0.24, fragile: 0.14 } },
+  { name: 'Pisos altos', hint: 'Abre todos los ascensores que encuentres', len: 1200, doors: 0, p: { elev: 0.2, fragile: 0.06 } },
+  { name: 'Corte de energía', hint: 'La luz se va y hay pisos que se rompen', len: 1300, doors: 0, p: { elev: 0.22, fragile: 0.24 } },
 ];
 const KEY_T = 60;   // 1 s girando la llave
 // Módulo 4: balones de gas. gas = probabilidad de balón por alféizar
 const GAS_LEVELS = [
   { name: 'Primer balón', hint: 'Junto al balón con fuga, mantén el Gas Stop 1 segundo', len: 1100, doors: 0, p: { gas: 0.16 } },
-  { name: 'Fugas', hint: 'Cada balón explota a los 4 segundos: ¡corre!', len: 1200, doors: 0, p: { gas: 0.22 } },
+  { name: 'Fugas', hint: 'Cada nivel, los balones explotan más rápido: ¡corre!', len: 1200, doors: 0, p: { gas: 0.22 } },
   { name: 'Edificio con gas', hint: 'Más balones y pisos agrietados', len: 1300, doors: 0, p: { gas: 0.26, fragile: 0.12 } },
 ];
 const GAS_T = 240, GASFIX_T = 60;   // 4 s hasta que explota; 1 s manteniendo el Gas Stop
+// Segundos hasta que explota un balón: 8 en el primer nivel y baja parejo hasta 4 en el último
+function gasTimeAt(y) {
+  const L = levelAt(y), n = S.levels.length;
+  const secs = L && n > 1 ? 8 - 4 * L.i / (n - 1) : 8;
+  return Math.round(secs * 60);
+}
 // Módulo 14: postes eléctricos con el transformador en llamas. pole = probabilidad de poste por alféizar.
 // En un fuego con electricidad no se usa chorro continuo: el agua conduce la corriente hasta el bombero.
 const POLE_LEVELS = [
@@ -1158,16 +1572,17 @@ const MOD_LIST = [
 // epp: se recoge el EPP antes; gear: empieza ya equipado; tools: herramientas del módulo;
 // pickups: herramientas que hay que recoger en el camino; tasks: estrellas por tareas; race: el fuego sube
 const MODS = {
-  fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS,
+  fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS, music: 4, facade: 'mixed',
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
-  gatos: { title: 'MÓDULO 5 · GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS,
-    start: 'Rescate nocturno: sube por las ramas del árbol', time: [150, 210],
-    rule: '★★★ menos de 2:30  ·  ★★ menos de 3:30  ·  ★ llegar' },
-  forestal: { title: 'MÓDULO 6 · FORESTAL', theme: 'forest', notools: true, livesStars: true, levels: FOREST_LEVELS,
-    start: 'Incendio forestal: trepa y esquiva las rocas que caen', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
-  ascensor: { title: 'MÓDULO 7 · ASCENSOR', epp: true, tools: ['llave'], pickups: ['llave'], tasks: true, levels: ELEV_LEVELS,
-    start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la llave de ascensor', rule: TASK_RULE },
-  gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS,
+  gatos: { title: 'MÓDULO 5 · GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS, music: 6,
+    start: 'Rescate nocturno: recoge la mochila para gatitos',
+    rule: '★ llegar  ·  ★★ rescatar la mitad  ·  ★★★ rescatar a todos' },
+  forestal: { title: 'MÓDULO 6 · FORESTAL', theme: 'forest', notools: true, levels: FOREST_LEVELS, music: 7,
+    pickups: ['traje', 'batefuego', 'mochilaf'],
+    start: 'Incendio forestal: recoge tu traje de bombero forestal', rule: '★ llegar  ·  ★★ apagar la mitad  ·  ★★★ apagar todos' },
+  ascensor: { title: 'MÓDULO 7 · ASCENSOR', gear: true, tools: ['llave'], pickups: ['casco', 'llave'], tasks: true, levels: ELEV_LEVELS, music: 8, facade: 'interior',
+    start: 'Rescate en ascensores: recoge tu casco', rule: TASK_RULE },
+  gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS, music: 5, facade: 'cemento',
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge el Gas Stop', rule: TASK_RULE },
   interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
     levels: INNER_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
@@ -1186,7 +1601,7 @@ const MODS = {
   saltos: { title: 'MÓDULO 1 · SALTOS', levels: TRAIN_LEVELS,
     start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto', time: [150, 210],
     rule: '★★★ menos de 2:30  ·  ★★ menos de 3:30  ·  ★ llegar' },
-  medico: { title: 'MÓDULO 2 · PARAMÉDICO', levels: MEDIC_LEVELS,
+  medico: { title: 'MÓDULO 2 · PARAMÉDICO', levels: MEDIC_LEVELS, music: 3,
     start: 'Recoge tu maletín de abordaje',
     rule: '★ llegar  ·  ★★ curar la mitad  ·  ★★★ curar a todos' },
 };
@@ -1195,7 +1610,9 @@ function trainResult(won) {
   let stars = 0;
   const M = MODS[S.mod], done = S.extOut + S.inOut + S.vented + S.rescued + S.gasFixed;
   if (won && S.mod === 'medico') stars = S.cured >= S.injTotal ? 3 : S.cured * 2 >= S.injTotal ? 2 : 1;
+  else if (won && S.mod === 'gatos') stars = S.cats >= S.catTotal ? 3 : S.cats * 2 >= S.catTotal ? 2 : 1;
   else if (won && M.tasks) stars = done >= S.taskTotal ? 3 : done * 2 >= S.taskTotal ? 2 : 1;
+  else if (won && S.mod === 'forestal') stars = S.grassOut >= S.grassTotal ? 3 : S.grassOut * 2 >= S.grassTotal ? 2 : 1;
   else if (won && (M.race || M.livesStars)) stars = 3 - Math.min(2, 3 - S.lives);
   else if (won && M.time) { const secs = S.t / 60; stars = secs <= M.time[0] ? 3 : secs <= M.time[1] ? 2 : 1; }
   else if (won) stars = 3;
@@ -1307,7 +1724,7 @@ function startPhase2() {
   buildLevels(M ? M.levels : LEVELS, S.genY - 250);
   queueTools();
   updateControls();
-  SFX.play('tools'); SFX.music(2);
+  SFX.play('tools'); SFX.music((M && M.music) || 2);
   toast(M ? M.go : '¡EPP completo! Recibes pitón, halligan y linterna. ¡A la emergencia!', '#7f7');
 }
 
@@ -1429,7 +1846,15 @@ function updateControls() {
   }
   c.classList.toggle('notools', S.mod === 'saltos' || !!(MODS[S.mod] && MODS[S.mod].notools));
   c.classList.toggle('medmode', S.mod === 'medico');
+  c.classList.toggle('catmode', S.mod === 'gatos');
+  c.classList.toggle('forestmode', S.mod === 'forestal');
+  if (S.mod === 'forestal') {
+    c.classList.toggle('tools', !!S.have.batefuego);
+    c.querySelector('.forest img').src = S.have.mochilaf ? 'img/botones/mochila_forestal.png' : 'img/botones/batefuego.png';
+  }
+  if (S.mod === 'gatos') c.classList.toggle('tools', S.carrier);
   c.classList.toggle('tilt', Tilt.on);
+  c.classList.toggle('joymode', Joy.on && !Tilt.on);
   c.querySelector('.lamp').classList.toggle('on', S.lamp);
 }
 
@@ -1685,7 +2110,7 @@ cv.addEventListener('pointerdown', e => { if (S.state !== 'play') handleTap(e); 
 // Mientras el dedo siga apoyado el salto es más alto; un toque corto da un salto corto.
 const jumpPtrs = new Set();
 document.getElementById('wrap').addEventListener('pointerdown', e => {
-  if (S.state !== 'play' || e.target.closest('button, input')) return;
+  if (S.state !== 'play' || e.target.closest('button, input, .joy')) return;
   e.preventDefault();
   S.p.buf = 8; keys.jump = true; jumpPtrs.add(e.pointerId);
 }, true);   // en captura: el toque que inicia la partida desde el menú no cuenta como salto
@@ -1713,11 +2138,11 @@ function update() {
   // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
   if (!keys.hose) S.hoseLock = false;
   if (keys.hose && S.halT === 0 && toolOk('piton') && !S.hoseLock) S.hoseT++; else S.hoseT = 0;
-  const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0 || S.gasT > 0 || S.keyT > 0;
+  const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0 || S.gasT > 0 || S.keyT > 0 || S.catT > 0 || S.beatT > 0;
   // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
-  const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : 0), -1, 1);
+  const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : Joy.on ? Joy.x : 0), -1, 1);
   if (ix) p.dir = Math.sign(ix);
-  p.vx += (ix * 5 - p.vx) * (Tilt.on ? 0.5 : 0.25);   // con inclinación responde más directo
+  p.vx += (ix * 5 - p.vx) * (Tilt.on || Joy.on ? 0.5 : 0.25);   // con inclinación o joystick responde más directo
   p.x += p.vx;
   if (p.x < -15) p.x = W + 15;
   if (p.x > W + 15) p.x = -15;
@@ -1769,13 +2194,18 @@ function update() {
   // Sin la pieza del EPP, el bombero no puede salir por arriba de la pantalla
   if (S.eppLock && p.y - PH < S.camY + 36) {
     p.y = S.camY + 36 + PH; p.vy = Math.max(p.vy, 1); p.ground = null;
-    if (!S.msg || S.msg.t < 120) toast(S.mod === 'medico' ? 'Recoge tu maletín para seguir subiendo' : S.phase === 2 ? 'Recoge la herramienta para seguir subiendo' : 'Recoge tu EPP para seguir subiendo', '#ffd166');
+    if (!S.msg || S.msg.t < 120) toast(S.mod === 'medico' ? 'Recoge tu maletín para seguir subiendo' : S.mod === 'gatos' ? 'Recoge la mochila para seguir subiendo' : S.phase === 2 ? 'Recoge la herramienta para seguir subiendo' : 'Recoge tu EPP para seguir subiendo', '#ffd166');
   }
   gen();
 
   // EPP
   for (const it of S.items) {
-    if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30 && it.bag) {
+    if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30 && it.sack) {
+      it.got = true; S.carrier = true; S.eppLock = false;
+      SFX.play('tools'); updateControls();
+      burst(it.x, it.y, 24, ['#ff4d4d', '#fff', '#ffd166'], 3, 0, 30, 3);
+      toast('¡Mochila lista! Junto a un gatito, mantén presionada la mochila', '#7f7');
+    } else if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30 && it.bag) {
       it.got = true; S.medic = true; S.eppLock = false;
       SFX.play('tools'); updateControls();
       burst(it.x, it.y, 24, ['#ff4d4d', '#fff'], 3, 0, 30, 3);
@@ -1784,7 +2214,7 @@ function update() {
       it.got = true; S.have[it.tool] = true; S.eppLock = false;
       SFX.play('tools'); updateControls();
       burst(it.x, it.y, 22, ['#ffd166', '#fff'], 3, 0, 30, 3);
-      toast(it.tool === 'llave' ? '¡Llave lista! Frente a un ascensor, mantenla 1 segundo' : it.tool === 'halligan' ? '¡Halligan lista! Fuerza puertas y rompe ventanas' : it.tool === 'gasstop' ? '¡Gas Stop listo! Junto a un balón con fuga, mantenlo 1 segundo' : '¡Linterna lista! Úsala cuando oscurezca', '#7f7');
+      toast(it.tool === 'casco' ? '¡Casco puesto! Ahora busca la llave de ascensor' : it.tool === 'traje' ? '¡Traje forestal puesto! Ahora busca el batefuego' : it.tool === 'batefuego' ? '¡Batefuego listo! Junto al fuego del pastizal, mantenlo presionado' : it.tool === 'mochilaf' ? '¡Mochila forestal! Ahora apagas más rápido con el chorro' : it.tool === 'llave' ? '¡Llave lista! Frente a un ascensor, mantenla 1 segundo' : it.tool === 'halligan' ? '¡Halligan lista! Fuerza puertas y rompe ventanas' : it.tool === 'gasstop' ? '¡Gas Stop listo! Junto a un balón con fuga, mantenlo 1 segundo' : '¡Linterna lista! Úsala cuando oscurezca', '#7f7');
     } else if (Math.hypot(it.x - p.x, it.y - (p.y - 22)) < 30) {
       it.got = true;
       S.epp++;
@@ -1802,6 +2232,9 @@ function update() {
   }
   S.items = S.items.filter(i => !i.got);
   if (S.mod === 'medico') updateCure();
+  if (S.mod === 'gatos') updateCats();
+  if (S.mod === 'forestal') updateGrass();
+  if (inside()) updateFlicker();
   if (S.mod === 'gas') updateGas();
   if (S.mod === 'ascensor') updateElev();
   if (theme() === 'forest') updateRocks();
@@ -1832,7 +2265,7 @@ function update() {
       if (S.shock >= SHOCK_T) { electrocute(best); best = null; }
     } else S.shock = Math.max(0, S.shock - 2);
     if (best && S.jetLen >= 1) {
-      best.hp -= 1.2;
+      best.hp -= 1.2; best.hitT = S.t;
       if (best.hp <= 0) {
         SFX.play('steam');
         for (let k = 0; k < 7; k++) addSmoke(best.x + rand(-12, 12), best.y - rand(4, 20), 'steam', 1.2);
@@ -1856,6 +2289,8 @@ function update() {
   for (const f of S.flames) {
     f.age++;
     if (f.hp <= 0) { f.dead++; if (f.inner) f.pl.inner = 'out'; }
+    // Llama mojada a medias: si se deja de mojar, vuelve a crecer
+    else if (f.regrow && f.hp < f.max && S.t - (f.hitT || 0) > 45) f.hp = Math.min(f.max, f.hp + 0.12);
   }
   // Humo que sale de las ventanas/puertas con fuego: denso con el fuego a la vista, tenue al apagarlo
   for (const pl of S.plats) {
@@ -1918,7 +2353,7 @@ function update() {
           life: 50, max: 50, c: chips[k % 3], s: rand(1.8, 4) });
       }
       if (tree) for (let k = 0; k < 8; k++) S.parts.push({ x: pl.x + rand(0, pl.w), y: pl.y - rand(0, 20), vx: rand(-1, 1), vy: rand(-1, 0.5), g: 0.08,
-        life: 70, max: 70, c: ['#7a6a3a', '#9a8040', '#5c6b2e'][k % 3], s: rand(2, 3.5) });   // hojas secas que caen
+        life: 70, max: 70, c: ['#6e5a44', '#8a7560', '#3d342a'][k % 3], s: rand(2, 3.5) });   // astillas de la rama seca
       else addSmoke(pl.x + pl.w / 2, pl.y + 4, 'light', 0.9);
       if (p.ground === pl) p.ground = null;
     }
@@ -1974,7 +2409,8 @@ function update() {
     const tp = S.plats.find(pl => pl.trapped === 'inside' && seen(pl.y));
     const hp = S.plats.find(pl => pl.injured && pl.injured.state === 'hurt' && seen(pl.y));
     if (tp) { SFX.help(tp.who); S.helpT = rand(200, 320); }
-    else if (hp) { SFX.help(hp.injured.who, false, 0.45); S.helpT = rand(220, 340); }
+    else if (hp) { SFX.call(hp.injured.who); S.helpT = rand(220, 340); }
+    else if (S.plats.some(pl => pl.kitten && pl.kitten.state === 'cry' && seen(pl.y))) { SFX.meow(); S.helpT = rand(150, 260); }
     else if (S.victim && seen(S.victim.y)) { SFX.help(S.victim.who, false); S.helpT = rand(200, 320); }
     else S.helpT = 30;
   }
@@ -2021,6 +2457,146 @@ function update() {
   S.plats = S.plats.filter(pl => pl.y < bottom);
   S.bars = S.bars.filter(b => b.y < bottom);
   updateParts();
+}
+
+// Fuego en el pastizal de una saliente: tres llamitas juntas. Se apaga manteniendo presionado el batefuego
+// (1,5 s) o, con la mochila forestal, el chorro (0,75 s). Pisarlo quema.
+const gfX = pl => pl.x + pl.w * pl.grassFire.f;
+function updateGrass() {
+  const p = S.p, held = keys.beat || keys.cure, spray = !!S.have.mochilaf, T = spray ? SPRAY_T : BEAT_T;
+  for (const pl of S.plats) {
+    const g = pl.grassFire;
+    if (!g) continue;
+    g.t++;
+    if (g.state === 'burn' && p.ground === pl && Math.abs(p.x - gfX(pl)) < 18) hurt('¡Te quemaste en el pastizal! Apágalo primero');
+  }
+  const fp = held && S.have.batefuego && p.ground ? S.plats.find(pl => pl.grassFire && pl.grassFire.state === 'burn' && p.ground === pl && Math.abs(gfX(pl) - p.x) < 80) : null;
+  if (fp) {
+    S.beatT++; S.gfTarget = fp;
+    p.dir = gfX(fp) >= p.x ? 1 : -1;
+    if (spray) SFX.jet(0.7, true);
+    else if (S.beatT % 36 === 19) SFX.play('beat');   // golpe del batefuego contra el pasto
+    if (S.beatT % 8 === 0) addSmoke(gfX(fp) + rand(-12, 12), fp.y - rand(4, 14), 'light', 0.7);
+    if (S.beatT >= T) {
+      fp.grassFire.state = 'out'; fp.grassFire.t = 0; S.grassOut++; S.beatT = 0; S.gfTarget = null;
+      SFX.jet(0); SFX.play('steam');
+      for (let k = 0; k < 6; k++) addSmoke(gfX(fp) + rand(-16, 16), fp.y - rand(4, 18), 'steam', 1);
+      toast(`¡Fuego apagado! (${S.grassOut})`, '#7f7');
+    }
+    return;
+  }
+  if (S.beatT && spray) SFX.jet(0);
+  if (held && !S.beatT && (!S.msg || S.msg.t < 120))
+    toast(S.have.batefuego ? 'Párate junto al fuego del pastizal' : 'Primero recoge el batefuego', '#ccc');
+  S.beatT = 0; S.gfTarget = null;
+  if (!S.gfWarned && S.have.batefuego && S.plats.some(pl => pl.grassFire && pl.grassFire.state === 'burn' && pl.y > S.camY + 60 && pl.y < S.camY + H)) {
+    S.gfWarned = true;
+    toast('¡Fuego en el pastizal! Párate al lado y mantén presionado el batefuego', '#ffb347');
+  }
+}
+// Tres llamitas en el pasto (se achican mientras se apagan) o la mancha quemada humeante
+function drawGrassFires() {
+  for (const pl of S.plats) {
+    const g = pl.grassFire;
+    if (!g || pl.y < S.camY - 60 || pl.y > S.camY + H + 60) continue;
+    const x = gfX(pl), y = pl.y;
+    if (g.state === 'out') {
+      ctx.fillStyle = 'rgba(20,14,12,0.75)'; ctx.beginPath(); ctx.ellipse(x, y - 1, 24, 4, 0, 0, 7); ctx.fill();
+      if (g.t < 150 && g.t % 12 === 0) addSmoke(x + rand(-14, 14), y - 6, 'light', 0.5);
+      continue;
+    }
+    const k = pl === S.gfTarget ? S.beatT / (S.have.mochilaf ? SPRAY_T : BEAT_T) : 0, sc = 1 - k * 0.65;
+    const glow = ctx.createRadialGradient(x, y - 8, 2, x, y - 8, 34 * sc + 6);
+    glow.addColorStop(0, 'rgba(255,170,60,0.45)'); glow.addColorStop(1, 'rgba(255,120,30,0)');
+    ctx.fillStyle = glow; ctx.fillRect(x - 40, y - 48, 80, 52);
+    [-13, 0, 13].forEach((dx, i) => {
+      const im = IMG[`llama_${1 + ((Math.floor((S.t + g.ph * 10) / 9) + i) % 3)}`];
+      if (!im || !im.complete || !im.naturalWidth) return;
+      const h = (i === 1 ? 24 : 19) * sc * (1 + Math.sin(S.t / 5 + i * 2 + g.ph) * 0.08), w = im.naturalWidth * h / im.naturalHeight;
+      ctx.drawImage(im, x + dx * (0.6 + sc * 0.4) - w / 2, y + 2 - h, w, h);
+    });
+  }
+}
+// Barra de avance y chorro de agua de la mochila forestal
+function drawBeatBar() {
+  if (!S.beatT) return;
+  const p = S.p, spray = !!S.have.mochilaf, k = S.beatT / (spray ? SPRAY_T : BEAT_T), w = 52, x = p.x - w / 2, y = p.y - 84;
+  if (spray && S.gfTarget) {
+    const tx = gfX(S.gfTarget), ty = S.gfTarget.y - 8;
+    const sx = p.x + p.dir * Math.min(36, Math.max(10, Math.abs(tx - p.x) - 14)), sy = p.y - 34;   // boquilla, sin pasarse del fuego
+    ctx.lineCap = 'round';
+    for (const [lw, col] of [[6, 'rgba(120,190,255,0.35)'], [3, 'rgba(190,230,255,0.85)']]) {
+      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo((sx + tx) / 2, Math.min(sy, ty) - 18, tx, ty); ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+    S.parts.push({ x: tx + rand(-6, 6), y: ty, vx: rand(-1.5, 1.5), vy: rand(-2, 0), g: 0.18, life: 18, max: 18, c: '#bfe4ff', s: rand(1, 2) });
+  }
+  box(x - 2, y - 2, w + 4, 11, '#111');
+  ctx.fillStyle = '#333'; ctx.fillRect(x, y, w, 7);
+  ctx.fillStyle = '#ffb347'; ctx.fillRect(x, y, w * k, 7);
+  ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+  ctx.fillText('🔥 APAGANDO', p.x, y - 9);
+}
+
+// Gatito al alcance (en la misma rama), sentado cerca de la punta
+const kittenX = pl => pl.side < 0 ? pl.x + pl.w - 24 : pl.x + 24;
+function kittenNear() {
+  const p = S.p;
+  return S.plats.find(pl => pl.kitten && pl.kitten.state === 'cry' && p.ground === pl && Math.abs(kittenX(pl) - p.x) < 52);
+}
+// Mantener presionada la mochila junto al gatito: la barra se llena en 1,2 s; si suelta antes, vuelve a cero
+function updateCats() {
+  const p = S.p, held = keys.cat || keys.cure;
+  for (const pl of S.plats) if (pl.kitten) pl.kitten.t++;
+  const kp = held && S.carrier && p.ground ? kittenNear() : null;
+  if (kp) {
+    S.catT++; S.catTarget = kp;
+    p.dir = kittenX(kp) >= p.x ? 1 : -1;
+    if (S.catT % 18 === 1) SFX.play('click');
+    if (S.catT >= CAT_T) {
+      kp.kitten.state = 'saved'; S.cats++; S.catT = 0; S.catTarget = null;
+      SFX.play('rescue'); SFX.meow(true);
+      burst(p.x, p.y - 40, 22, ['#ff7aa8', '#fff', '#ffd166'], 3, 0.03, 40, 3);
+      toast(`¡Gatito a salvo! (${S.cats})`, '#7f7');
+    }
+    return;
+  }
+  if (held && !S.catT && (!S.msg || S.msg.t < 120))
+    toast(S.carrier ? 'Párate junto a un gatito para rescatarlo' : 'Primero recoge la mochila', '#ccc');
+  S.catT = 0; S.catTarget = null;
+  if (!S.catWarned && S.carrier && S.plats.some(pl => pl.kitten && pl.kitten.state === 'cry' && pl.y > S.camY + 60 && pl.y < S.camY + H)) {
+    S.catWarned = true;
+    toast('¡Un gatito llora! Párate a su lado y mantén presionada la mochila', '#7fd3ff');
+  }
+}
+// Gatitos llorando en las ramas, con lágrimas y un globo "¡MIAU!"
+function drawKittens() {
+  for (const pl of S.plats) {
+    const k = pl.kitten;
+    if (!k || k.state !== 'cry' || pl.y < S.camY - 60 || pl.y > S.camY + H + 60) continue;
+    if (pl === S.catTarget && S.catT > 0) continue;   // ya lo está tomando el rescatista
+    const x = kittenX(pl), bob = Math.abs(Math.sin(S.t / 9 + k.ph)) * 1.5;
+    drawWho('gatito', x, pl.y + 1 - bob, 25, pl.side);
+    if (S.t % 14 === 0) S.parts.push({ x: x + rand(-6, 6), y: pl.y - 18, vx: rand(-0.8, 0.8), vy: rand(-1.5, -0.5), g: 0.12,
+      life: 22, max: 22, c: '#8fd0ff', s: rand(1.2, 2) });   // lágrimas
+    if (Math.floor((S.t + pl.x) / 30) % 3 !== 2) {
+      ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText('¡MIAU!').width + 10;
+      box(x - tw / 2, pl.y - 46, tw, 14, '#ffffff');
+      ctx.fillStyle = '#d6336c'; ctx.fillText('¡MIAU!', x, pl.y - 38.5);
+    }
+  }
+}
+// Barra de avance sobre el rescatista mientras guarda al gatito
+function drawCatBar() {
+  if (!S.catT) return;
+  const p = S.p, k = S.catT / CAT_T, w = 52, x = p.x - w / 2, y = p.y - 78;
+  box(x - 2, y - 2, w + 4, 11, '#111');
+  ctx.fillStyle = '#333'; ctx.fillRect(x, y, w, 7);
+  ctx.fillStyle = '#ff7aa8'; ctx.fillRect(x, y, w * k, 7);
+  ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+  ctx.fillText('🐾 RESCATANDO', p.x, y - 9);
 }
 
 // Herido al alcance del paramédico (en el mismo alféizar)
@@ -2192,7 +2768,7 @@ function updateGas() {
     const g = pl.gas;
     if (!g) continue;
     if (g.state === 'ok' && pl.y > S.camY + 40 && pl.y < S.camY + H - 40 && Math.abs(pl.y - p.y) < 170) {
-      g.state = 'leak'; g.t = GAS_T; SFX.play('click');
+      g.state = 'leak'; g.t = g.max || GAS_T; SFX.play('click');
       if (!S.gasWarned) { S.gasWarned = true; toast('¡Fuga de gas! Ve al balón y mantén el Gas Stop 1 segundo', '#ffb347'); }
     }
     if (g.state === 'leak') {
@@ -2232,7 +2808,7 @@ function explodeGas(pl) {
   SFX.play('boom');
   if (Math.hypot(S.p.x - x, S.p.y - pl.y) < 150) {
     S.shake = 26; S.p.ground = null; S.p.vy = -6; S.p.vx = (S.p.x < x ? -1 : 1) * 6;
-    hurt('¡El balón explotó! Usa el Gas Stop antes de 4 segundos', true);
+    hurt('¡El balón explotó! Usa el Gas Stop antes de que llegue a cero', true);
   } else { S.shake = 10; toast('¡Un balón explotó!', '#ff8a8a'); }
 }
 
@@ -2242,7 +2818,7 @@ function drawGas() {
     const g = pl.gas;
     if (!g || g.state === 'boom') continue;
     const x = gasX(pl), leak = g.state === 'leak';
-    const jit = leak ? Math.sin(S.t * 1.7) * (1 + (GAS_T - g.t) / GAS_T * 2) : 0;
+    const M = g.max || GAS_T, jit = leak ? Math.sin(S.t * 1.7) * (1 + (M - g.t) / M * 2) : 0;
     const im = IMG[leak ? 'balon_fuga' : 'balon'];
     if (im && im.complete && im.naturalWidth) {
       const h = 44, w = im.naturalWidth * h / im.naturalHeight;
@@ -2525,18 +3101,18 @@ function updateRocks() {
   const p = S.p, L = levelAt(p.y) || S.levels[0];
   if (!L || !L.rocks || S.goalPlaced && p.y < S.roofY + 10) return;
   if (--S.rockT <= 0) {
-    S.rockT = Math.round(rand(L.rocks[0], L.rocks[1]));
+    S.rockT = Math.round(rand(L.rocks[0], L.rocks[1]) * 1.8);   // menos rocas que al principio
     const x = Math.random() < 0.5 ? clamp(p.x + rand(-40, 40), 24, W - 24) : rand(24, W - 24);
     S.rockWarns.push({ x, t: ROCK_WARN, r: rand(12, 18) });
   }
   for (const w of S.rockWarns) {
     w.t--;
     if (w.t % 8 === 0) S.parts.push({ x: w.x + rand(-8, 8), y: S.camY + 40, vx: rand(-0.3, 0.3), vy: rand(2, 4), g: 0.25, life: 30, max: 30, c: '#5a4c46', s: rand(1.5, 2.8) });
-    if (w.t <= 0) { S.rocks.push({ x: w.x, y: S.camY - 30, vy: 2, r: w.r, rot: 0, vr: rand(-0.12, 0.12), seed: Math.floor(rand(0, 90)) }); SFX.play('crumble'); }
+    if (w.t <= 0) { S.rocks.push({ x: w.x, y: S.camY - 30, vy: 1.2, r: w.r, kind: 1 + Math.floor(Math.random() * 3), rot: 0, vr: rand(-0.12, 0.12), seed: Math.floor(rand(0, 90)) }); SFX.play('crumble'); }
   }
   S.rockWarns = S.rockWarns.filter(w => w.t > 0);
   for (const r of S.rocks) {
-    r.vy = Math.min(10, r.vy + 0.28); r.y += r.vy; r.rot += r.vr;
+    r.vy = Math.min(5, r.vy + 0.12); r.y += r.vy; r.rot += r.vr * 0.6;   // cae lento (máx. 5)
     // choque con el bombero
     const dx = clamp(r.x, p.x - 10, p.x + 10) - r.x, dy = clamp(r.y, p.y - PH, p.y) - r.y;
     if (!r.hit && S.state === 'play' && dx * dx + dy * dy < r.r * r.r) {
@@ -2570,12 +3146,8 @@ function drawRocks() {
     for (const o of [-0.5, 0, 0.5]) { ctx.moveTo(r.x + o * r.r, r.y - r.r - 6); ctx.lineTo(r.x + o * r.r, r.y - r.r - 6 - r.vy * 3.5); }
     ctx.stroke();
     ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.rot);
-    const poly = k => { ctx.beginPath(); for (let q = 0; q < 7; q++) { const a = q / 7 * Math.PI * 2, rr = r.r * k * (0.78 + hash(r.seed, q) * 0.35); ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); };
-    ctx.fillStyle = '#fff3e0'; poly(1.3); ctx.fill();   // contorno claro: se distingue de las rocas del acantilado
-    ctx.fillStyle = '#0e0a0a'; poly(1.15); ctx.fill();
-    ctx.fillStyle = '#7a6e6a'; poly(1); ctx.fill();
-    ctx.fillStyle = '#a3958e'; ctx.save(); ctx.translate(-r.r * 0.2, -r.r * 0.25); poly(0.55); ctx.fill(); ctx.restore();
-    ctx.fillStyle = 'rgba(255,170,100,0.35)'; ctx.beginPath(); ctx.ellipse(-r.r * 0.3, -r.r * 0.4, r.r * 0.25, r.r * 0.12, -0.5, 0, 7); ctx.fill();
+    const im = IMG[`roca_${r.kind || 1}`];
+    if (im && im.complete && im.naturalWidth) { const h = r.r * 2.6, w = im.naturalWidth * h / im.naturalHeight; ctx.drawImage(im, -w / 2, -h / 2, w, h); }
     ctx.restore();
   }
 }
@@ -2622,8 +3194,6 @@ function drawCliffBody(pl) {
   ctx.strokeStyle = 'rgba(255,140,60,0.45)'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(xt - dir * 2, y + 6); ctx.quadraticCurveTo(xt + dir * 2, y + 16, xt - dir * 4, y + 26); ctx.stroke();
   ctx.restore();
-  // llamas que trepan por la cara de algunos acantilados
-  if (seed % 3 === 0) for (let k = 0; k < 3; k++) fireTongue(xt - dir * (len * 0.25 + k * 12), y + 92 - k * 6, 26 + k * 6, seed + k);
 }
 
 // Árbol quemado sobre el acantilado (tronco negro sin hojas)
@@ -2646,16 +3216,25 @@ function deadTree(x, y, h, dir, seed) {
   ctx.lineCap = 'butt';
 }
 
-// Parte de arriba del acantilado: pasto dorado, arbustos, piedras, árbol quemado y algo de fuego
+// Mechones de pasto dorado que se mecen con el viento: una ola recorre el pasto de izquierda a derecha
+function grassBlades(x0, x1, y, seed, h0, hv) {
+  for (let x = x0; x < x1; x += 4) {
+    const h = h0 + hash(x, seed) * hv;
+    const sway = Math.sin(S.t / 18 - x * 0.05 + seed) * 1.6 + Math.sin(S.t / 7 + x * 0.3) * 0.5;   // ráfaga + temblor
+    ctx.fillStyle = hash(x, seed + 3) > 0.5 ? '#e8b84a' : '#b8822a';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 2 + sway * h / 8, y - h); ctx.lineTo(x + 4, y); ctx.fill();
+  }
+}
+
+// Parte de arriba del acantilado: pasto dorado, arbustos, piedras y árbol quemado
 function drawLedge(pl) {
   const left = pl.side < 0, dir = left ? 1 : -1, y = pl.y;
   const xe = left ? -12 : W + 12, xt = left ? pl.x + pl.w : pl.x, len = Math.abs(xt - xe);
   const seed = Math.floor(Math.abs(pl.x * 11 + pl.y * 5)) % 89;
   const x0 = Math.min(xe, xt), x1 = Math.max(xe, xt);
   if (seed % 2 === 0) deadTree(xe + dir * (36 + hash(seed, 6) * 18), y, 80 + hash(seed, 7) * 50, dir, seed);
-  // arbusto verde junto al borde (algunos ardiendo)
+  // arbusto verde junto al borde
   drawLeaves(xe + dir * 44, y - 10, 58, seed);
-  if (seed % 4 === 1) fireTongue(xe + dir * 44, y - 6, 34, seed);
   // piedra suelta arriba
   if (seed % 3 === 2) {
     const rx = xe + dir * (len * 0.45);
@@ -2668,14 +3247,10 @@ function drawLedge(pl) {
   const gg = ctx.createLinearGradient(0, y - 4, 0, y + 6);
   gg.addColorStop(0, '#f0c050'); gg.addColorStop(0.5, '#c8902e'); gg.addColorStop(1, '#7a4e1a');
   ctx.fillStyle = gg; ctx.fillRect(x0, y - 3, x1 - x0, 8);
-  for (let x = x0; x < x1; x += 4) {
-    const h = 4 + hash(x, seed) * 7;
-    ctx.fillStyle = hash(x, 3) > 0.5 ? '#e8b84a' : '#b8822a';
-    ctx.beginPath(); ctx.moveTo(x, y - 2); ctx.lineTo(x + 2, y - 2 - h); ctx.lineTo(x + 4, y - 2); ctx.fill();
-  }
-  for (let k = 0; k < 3; k++) {   // mechones colgando en la punta
-    const hx = xt - dir * (2 + k * 5);
-    ctx.fillStyle = '#c8902e'; ctx.beginPath(); ctx.moveTo(hx - 2, y + 4); ctx.lineTo(hx, y + 12 + k * 2); ctx.lineTo(hx + 2, y + 4); ctx.fill();
+  grassBlades(x0, x1, y - 2, seed, 4, 7);
+  for (let k = 0; k < 3; k++) {   // mechones colgando en la punta, que también se mecen
+    const hx = xt - dir * (2 + k * 5), sw = Math.sin(S.t / 16 + k + seed) * 1.5;
+    ctx.fillStyle = '#c8902e'; ctx.beginPath(); ctx.moveTo(hx - 2, y + 4); ctx.lineTo(hx + sw, y + 12 + k * 2); ctx.lineTo(hx + 2, y + 4); ctx.fill();
   }
 }
 
@@ -2688,12 +3263,8 @@ function drawForestGround() {
   const gg = ctx.createLinearGradient(0, H - 23, 0, H - 14);
   gg.addColorStop(0, '#f0c050'); gg.addColorStop(1, '#7a4e1a');
   ctx.fillStyle = gg; ctx.fillRect(0, H - 23, W, 8);
-  for (let x = 0; x < W; x += 4) {
-    const h = 4 + hash(x, 5) * 8;
-    ctx.fillStyle = hash(x, 6) > 0.5 ? '#e8b84a' : '#b8822a';
-    ctx.beginPath(); ctx.moveTo(x, H - 22); ctx.lineTo(x + 2, H - 22 - h); ctx.lineTo(x + 4, H - 22); ctx.fill();
-  }
-  deadTree(30, H - 22, 120, 1, 3); drawLeaves(W - 50, H - 34, 64, 4); fireTongue(W - 50, H - 26, 30, 2);
+  grassBlades(0, W, H - 22, 5, 4, 8);
+  deadTree(30, H - 22, 120, 1, 3); drawLeaves(W - 50, H - 34, 64, 4);
 }
 
 // Cima: meseta de lado a lado con pasto, árbol quemado y banderín
@@ -2706,11 +3277,7 @@ function drawSummit(pl) {
   const gg = ctx.createLinearGradient(0, pl.y - 3, 0, pl.y + 6);
   gg.addColorStop(0, '#f0c050'); gg.addColorStop(1, '#7a4e1a');
   ctx.fillStyle = gg; ctx.fillRect(-20, pl.y - 3, W + 40, 8);
-  for (let x = 0; x < W; x += 4) {
-    const h = 4 + hash(x, 8) * 8;
-    ctx.fillStyle = hash(x, 9) > 0.5 ? '#e8b84a' : '#b8822a';
-    ctx.beginPath(); ctx.moveTo(x, pl.y - 2); ctx.lineTo(x + 2, pl.y - 2 - h); ctx.lineTo(x + 4, pl.y - 2); ctx.fill();
-  }
+  grassBlades(0, W, pl.y - 2, 8, 4, 8);
   const fx = 70;
   ctx.fillStyle = '#0e0a0a'; ctx.fillRect(fx - 2, pl.y - 64, 5, 64);
   ctx.fillStyle = '#d9d0c4'; ctx.fillRect(fx - 1, pl.y - 63, 3, 62);
@@ -2816,6 +3383,34 @@ function drawBrokenBranch(pl) {
   ctx.fillStyle = '#c9a77a'; ctx.fillRect(xb + dir * (L - 4) - (dir < 0 ? 3 : 0), y + 2, 3, 8);   // madera clara de la quebradura
 }
 
+// Ramitas secas y desnudas de una rama que se quiebra: dos en la punta (una bifurcada),
+// una que sube desde el medio y una pequeña que cuelga. Contorno oscuro y madera gris parda.
+function drawTwigs(xb, xt, y, dir, seed) {
+  const r = k => hash(seed, k);
+  const twigs = [
+    // [x0, y0, largo, ángulo (0 = hacia afuera, negativo = hacia arriba), grosor, ¿bifurca?]
+    [xt - dir * 4, y + 3, 18 + r(1) * 6, -0.35, 3, true],
+    [xt - dir * 6, y + 7, 13 + r(2) * 5, 0.45, 2.4, false],
+    [(xb + xt) / 2 + dir * 4, y, 14 + r(3) * 6, -1.2, 2.6, true],
+    [(xb + xt) / 2 - dir * 10, y + 14, 9 + r(4) * 4, 1.1, 2, false],
+  ];
+  const seg = (x0, y0, len, ang, w) => {
+    const x1 = x0 + dir * Math.cos(ang) * len, y1 = y0 + Math.sin(ang) * len;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#0d0703'; ctx.lineWidth = w + 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.strokeStyle = '#7a6a56'; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    return [x1, y1];
+  };
+  for (const [x0, y0, len, ang, w, fork] of twigs) {
+    const [x1, y1] = seg(x0, y0, len, ang, w);
+    if (fork) {   // horquilla al final
+      seg(x1, y1, len * 0.5, ang - 0.6, w * 0.6);
+      seg(x1, y1, len * 0.45, ang + 0.5, w * 0.55);
+    } else seg(x1, y1, len * 0.4, ang - 0.4, w * 0.55);
+  }
+  ctx.lineCap = 'butt';
+}
+
 function drawBranchBody(pl, left, dir) {
   const xb = left ? pl.x : pl.x + pl.w, xt = left ? pl.x + pl.w : pl.x, y = pl.y;
   const t0 = 21, t1 = 11, seed = Math.floor(Math.abs(pl.x * 13 + pl.y * 7)) % 97;
@@ -2854,12 +3449,7 @@ function drawBranchBody(pl, left, dir) {
   // nudito y ramita que sube con hojas cerca de la punta
   ctx.fillStyle = '#2a170a'; ctx.beginPath(); ctx.ellipse((xb + xt) / 2 + dir * 8, y + 9, 3, 2, 0, 0, 7); ctx.fill();
   const tx = xt - dir * 18;
-  if (pl.fragile) {   // hojas secas en la punta
-    ctx.globalAlpha = 0.95; ctx.filter = 'sepia(0.9) saturate(0.7) brightness(0.8)';
-    drawLeaves(xt + dir * 16, y - 4, 52, seed);
-    ctx.filter = 'none'; ctx.globalAlpha = 1;
-    return;
-  }
+  if (pl.fragile) { drawTwigs(xb, xt, y, dir, seed); return; }   // rama seca: solo ramitas, sin hojas
   ctx.strokeStyle = '#0d0703'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(tx, y + 2); ctx.lineTo(tx + dir * 10, y - 16); ctx.stroke();
   ctx.strokeStyle = '#7d4f2c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tx, y + 2); ctx.lineTo(tx + dir * 10, y - 16); ctx.stroke();
   // follaje: en la punta (por fuera de donde se pisa) y colgando bajo la rama
@@ -2913,6 +3503,9 @@ const treeRect = (x, w) => x + w / 2 < W / 2 ? { x: wallW() - 6, w: x + w - wall
 function drawBg() {
   if (theme() === 'tree') { drawNightBg(); return; }
   if (theme() === 'forest') { drawForestBg(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'mixed') { drawMixedFacade(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'cemento') { drawCementFacade(); return; }
+  if (inside()) { drawInteriorBg(); return; }
   const deep = clamp(-S.camY / 6000, 0, 1);
   ctx.fillStyle = '#1c1c20';
   ctx.fillRect(0, 0, W, H);
@@ -2936,6 +3529,263 @@ function drawBg() {
     ctx.fillStyle = `rgba(255,70,0,${0.05 + Math.sin(S.t / 20) * 0.025})`;
     ctx.fillRect(0, 0, W, H);
   }
+}
+
+// Fachada que cambia de material cada ~50 m (SECTION px), con una cornisa entre tramos.
+// Todo en coordenadas del mundo, para que el dibujo no "nade" al moverse la cámara.
+const SECTION = 1500;
+const FACADES = ['ladrillo', 'concreto', 'paneles', 'piedra', 'azulejo'];
+const facadeAt = sec => FACADES[sec % FACADES.length];   // ladrillo, concreto, paneles, piedra, azulejo y vuelve a empezar
+function drawMixedFacade() {
+  const top = S.camY, bot = S.camY + H;
+  ctx.fillStyle = '#1c1c20'; ctx.fillRect(0, 0, W, H);
+  const s0 = Math.floor((H - 20 - bot) / SECTION), s1 = Math.floor((H - 20 - top) / SECTION);
+  for (let sec = s0; sec <= s1; sec++) {
+    const yBot = H - 20 - sec * SECTION, yTop = yBot - SECTION;   // límites del tramo en el mundo
+    const a = Math.max(yTop, top), b = Math.min(yBot, bot);
+    if (b <= a) continue;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, a - top, W, b - a); ctx.clip();
+    drawFacadeTile(facadeAt(Math.max(0, sec)), a, b);
+    ctx.restore();
+    // Cornisa en la base del tramo
+    if (sec > 0 && yBot > top - 20 && yBot < bot + 20) {
+      const y = yBot - top;
+      ctx.fillStyle = '#0d0d10'; ctx.fillRect(0, y - 9, W, 18);
+      ctx.fillStyle = '#6d6a66'; ctx.fillRect(0, y - 8, W, 12);
+      ctx.fillStyle = '#8c8984'; ctx.fillRect(0, y - 8, W, 3);
+      ctx.fillStyle = '#4d4a47'; for (let x = 6; x < W; x += 22) ctx.fillRect(x, y + 4, 10, 4);   // dentículos
+    }
+  }
+  if (S.phase === 2) {
+    ctx.fillStyle = `rgba(255,70,0,${0.05 + Math.sin(S.t / 20) * 0.025})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+// Cemento pulido y desgastado: paneles grandes con brillo, juntas, agujeros del encofrado,
+// manchas, chorreados de agua, grietas y esquinas descascaradas (todo fijo en el mundo)
+function drawCementFacade() {
+  const PW = 100, PH = 80, top = S.camY;
+  ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, 0, W, H);
+  for (let r = Math.floor(top / PH) - 1; r * PH < top + H; r++) {
+    for (let c = 0; c < W / PW; c++) {
+      const x = c * PW, y = r * PH - top, h = hash(c, r);
+      const v = 92 + Math.floor(h * 14);
+      // Panel con brillo de pulido (más claro arriba a la izquierda)
+      const g = ctx.createLinearGradient(x, y, x + PW, y + PH);
+      g.addColorStop(0, `rgb(${v + 10},${v + 10},${v + 8})`); g.addColorStop(1, `rgb(${v - 12},${v - 12},${v - 13})`);
+      ctx.fillStyle = g; ctx.fillRect(x + 1, y + 1, PW - 2, PH - 2);
+      // Agujeros del encofrado
+      ctx.fillStyle = 'rgba(30,30,30,0.55)';
+      for (const [dx, dy] of [[18, 16], [PW - 18, 16], [18, PH - 16], [PW - 18, PH - 16]]) {
+        ctx.beginPath(); ctx.arc(x + dx, y + dy, 2.3, 0, 7); ctx.fill();
+      }
+      // Mancha de humedad
+      if (hash(c + 11, r) > 0.55) {
+        const mx = x + 20 + hash(c, r + 3) * 60, my = y + 15 + hash(c + 5, r) * 50, mr = 10 + hash(r, c + 7) * 18;
+        const mg = ctx.createRadialGradient(mx, my, 0, mx, my, mr);
+        mg.addColorStop(0, 'rgba(60,55,45,0.28)'); mg.addColorStop(1, 'rgba(60,55,45,0)');
+        ctx.fillStyle = mg; ctx.fillRect(mx - mr, my - mr, mr * 2, mr * 2);
+      }
+      // Chorreado oscuro desde la junta de arriba
+      if (hash(c + 21, r) > 0.6) {
+        const sx = x + 10 + hash(c, r + 9) * 80, sw = 3 + hash(r, c + 2) * 6, sl = 25 + hash(c + 4, r + 4) * 55;
+        const sg = ctx.createLinearGradient(0, y, 0, y + sl);
+        sg.addColorStop(0, 'rgba(25,25,25,0.4)'); sg.addColorStop(1, 'rgba(25,25,25,0)');
+        ctx.fillStyle = sg; ctx.fillRect(sx, y + 1, sw, sl);
+      }
+      // Grieta
+      if (hash(c + 31, r) > 0.82) {
+        ctx.strokeStyle = 'rgba(25,25,25,0.6)'; ctx.lineWidth = 1;
+        let gx = x + 15 + hash(c, r + 13) * 70, gy = y + 8;
+        ctx.beginPath(); ctx.moveTo(gx, gy);
+        for (let k = 0; k < 5; k++) { gx += (hash(c + k, r) - 0.5) * 16; gy += 7 + hash(r + k, c) * 6; ctx.lineTo(gx, gy); }
+        ctx.stroke();
+      }
+      // Esquina descascarada
+      if (hash(c + 41, r) > 0.8) {
+        ctx.fillStyle = 'rgba(55,52,48,0.8)';
+        ctx.beginPath(); ctx.moveTo(x + PW - 1, y + PH - 1); ctx.lineTo(x + PW - 14, y + PH - 1); ctx.lineTo(x + PW - 1, y + PH - 11); ctx.fill();
+      }
+    }
+  }
+  if (S.phase === 2) { ctx.fillStyle = 'rgba(255,140,0,0.03)'; ctx.fillRect(0, 0, W, H); }
+}
+
+// Rellena la franja visible [a, b) (mundo) con un material
+function drawFacadeTile(kind, a, b) {
+  const top = S.camY;
+  if (kind === 'ladrillo') {   // ladrillo rojizo
+    const BH = 16, BW = 40;
+    for (let r = Math.floor(a / BH) - 1; r * BH < b; r++) {
+      const y = r * BH - top, sh = (r & 1) ? BW / 2 : 0;
+      for (let c = -1; c < W / BW + 1; c++) {
+        const h = hash(c, r), v = Math.floor(h * 14);
+        ctx.fillStyle = `rgb(${78 + v},${36 + v / 2},${30 + v / 3})`;
+        ctx.fillRect(c * BW - sh + 1, y + 1, BW - 2, BH - 2);
+      }
+    }
+  } else if (kind === 'concreto') {   // concreto liso con losas de piso y juntas
+    ctx.fillStyle = '#4f4b45'; ctx.fillRect(0, a - top, W, b - a);
+    for (let r = Math.floor(a / 24) - 1; r * 24 < b; r++)
+      for (let c = 0; c < W / 24; c++) if (hash(c, r) > 0.7) { ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fillRect(c * 24 + hash(r, c) * 12, r * 24 - top + hash(c + 3, r) * 12, 6, 3); }
+    for (let r = Math.floor(a / 96) - 1; r * 96 < b; r++) {
+      const y = r * 96 - top;
+      ctx.fillStyle = '#3b3833'; ctx.fillRect(0, y, W, 8);   // losa
+      ctx.fillStyle = '#5c5851'; ctx.fillRect(0, y, W, 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = 100; x < W; x += 100) ctx.fillRect(x, y + 8, 2, 88);   // juntas
+    }
+  } else if (kind === 'paneles') {   // paneles modernos azul grisáceo
+    ctx.fillStyle = '#15181d'; ctx.fillRect(0, a - top, W, b - a);
+    for (let r = Math.floor(a / 64) - 1; r * 64 < b; r++)
+      for (let c = 0; c < W / 80 + 1; c++) {
+        const v = Math.floor(hash(c, r) * 10);
+        ctx.fillStyle = `rgb(${46 + v},${54 + v},${66 + v})`;
+        ctx.fillRect(c * 80 + 2, r * 64 - top + 2, 76, 60);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(c * 80 + 2, r * 64 - top + 2, 76, 6);
+      }
+  } else if (kind === 'piedra') {   // bloques de piedra de distintos largos
+    ctx.fillStyle = '#1e1d1b'; ctx.fillRect(0, a - top, W, b - a);
+    for (let r = Math.floor(a / 30) - 1; r * 30 < b; r++) {
+      let x = -hash(r, 5) * 40;
+      for (let k = 0; x < W; k++) {
+        const w = 34 + hash(r, k) * 40, v = Math.floor(hash(k, r + 9) * 18);
+        ctx.fillStyle = `rgb(${70 + v},${66 + v},${60 + v})`;
+        ctx.fillRect(x + 2, r * 30 - top + 2, w - 4, 26);
+        x += w;
+      }
+    }
+  } else {   // azulejo: cerámica pequeña verde azulada
+    ctx.fillStyle = '#1a2224'; ctx.fillRect(0, a - top, W, b - a);
+    for (let r = Math.floor(a / 14) - 1; r * 14 < b; r++)
+      for (let c = 0; c < W / 14 + 1; c++) {
+        const v = Math.floor(hash(c, r) * 12);
+        ctx.fillStyle = `rgb(${40 + v},${70 + v},${72 + v})`;
+        ctx.fillRect(c * 14 + 1, r * 14 - top + 1, 12, 12);
+      }
+  }
+}
+
+// ---------- Dentro del edificio (Ascensor) ----------
+const inside = () => !!(MODS[S.mod] && MODS[S.mod].facade === 'interior');
+const FLOOR_H = 160;   // alto de cada piso del fondo (px del mundo)
+const floorAt = y => Math.floor((H - 20 - y) / FLOOR_H);
+const WALLS = [['#c9bc9a', '#b8aa86'], ['#a9b8c2', '#97a7b2'], ['#b9c4a2', '#a6b28f'], ['#c7a99b', '#b5958a']];
+// Pasillos: pared con franjas, zócalo, losa, puertas de departamentos, apliques, letrero del piso,
+// extintores y letreros de salida. El color de la pared cambia cada 8 pisos.
+function drawInteriorBg() {
+  ctx.fillStyle = '#1a1a1c'; ctx.fillRect(0, 0, W, H);
+  const top = S.camY;
+  // Huecos de los ascensores (en pantalla): lo que está detrás no se dibuja
+  const holes = S.plats.filter(o => o.kind === 'elev').map(o => ({ x: o.x + o.w / 2 - 40, y: o.y - 90 - top, w: 80, h: 92 }));
+  const free = (x, y, w, h) => holes.every(o => x + w < o.x || o.x + o.w < x || y + h < o.y || o.y + o.h < y);
+  for (let f = floorAt(top + H) - 1; f <= floorAt(top) + 1; f++) {
+    const yb = H - 20 - f * FLOOR_H - top, yt = yb - FLOOR_H;   // en pantalla
+    const [c1, c2] = WALLS[Math.floor(Math.max(0, f) / 8) % WALLS.length];
+    ctx.fillStyle = c1; ctx.fillRect(0, yt, W, FLOOR_H);
+    ctx.fillStyle = c2; for (let x = 0; x < W; x += 24) ctx.fillRect(x, yt, 10, FLOOR_H - 22);   // franjas del empapelado
+    ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(0, yt, W, 10);                              // sombra del techo
+    // Puertas de departamentos
+    for (let k = 0; k < 2; k++) {
+      if (hash(f, k + 50) < 0.35) continue;
+      const dx = 30 + k * 190 + hash(f, k + 60) * 110, dw = 40, dh = 74, dy = yb - 22 - dh;
+      if (!free(dx - 3, dy - 18, dw + 6, dh + 18)) continue;
+      box(dx - 3, dy - 3, dw + 6, dh + 3, '#3a2a1c');
+      ctx.fillStyle = ['#7a4a2a', '#5e3b24', '#8a5a34'][Math.floor(hash(f, k) * 3)]; ctx.fillRect(dx, dy, dw, dh);
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(dx + 5, dy + 6, dw - 10, 26); ctx.fillRect(dx + 5, dy + 38, dw - 10, 30);
+      ctx.fillStyle = '#d8b84a'; ctx.beginPath(); ctx.arc(dx + dw - 8, dy + dh / 2, 2.5, 0, 7); ctx.fill();   // manija
+      box(dx + dw / 2 - 9, dy - 16, 18, 10, '#d8d2c0');
+      ctx.fillStyle = '#222'; ctx.font = font(8); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`${Math.max(1, f + 1)}0${k + 1}`, dx + dw / 2, dy - 11);
+    }
+    // Aplique de luz en la pared (sigue al parpadeo)
+    const lx = 200 + (hash(f, 70) - 0.5) * 60, ly = yt + 24, on = S.lightK === undefined ? 1 : S.lightK;
+    if (free(lx - 12, ly - 2, 24, 13)) {
+      const lg = ctx.createRadialGradient(lx, ly + 6, 2, lx, ly + 6, 60);
+      lg.addColorStop(0, `rgba(255,236,180,${0.45 * on})`); lg.addColorStop(1, 'rgba(255,236,180,0)');
+      ctx.fillStyle = lg; ctx.fillRect(lx - 60, ly - 54, 120, 120);
+      box(lx - 10, ly, 20, 9, on > 0.5 ? '#fff4cf' : '#7a756a');
+    }
+    // Letrero del piso
+    if (free(8, yt + 16, 46, 18)) {
+      box(8, yt + 16, 46, 18, '#2b3a4a');
+      ctx.fillStyle = '#e8eef4'; ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`PISO ${Math.max(1, f + 1)}`, 31, yt + 25.5);
+    }
+    // Extintor o letrero de salida
+    if (!free(W - 72, yt + 10, 66, FLOOR_H - 20)) { /* detrás de un ascensor: nada */ }
+    else if (hash(f, 80) < 0.4) {
+      const ex = W - 40; box(ex - 7, yb - 70, 14, 30, '#c1121f'); ctx.fillStyle = '#222'; ctx.fillRect(ex - 3, yb - 76, 6, 6);
+    } else if (hash(f, 81) < 0.35) {
+      box(W - 70, yt + 14, 50, 16, '#0f7a3a'); ctx.fillStyle = '#e8ffe8'; ctx.font = font(9); ctx.fillText('SALIDA ➜', W - 45, yt + 22.5);
+    }
+    // Zócalo y losa (delgados, para no confundirlos con los descansos donde se pisa)
+    ctx.fillStyle = 'rgba(74,48,32,0.85)'; ctx.fillRect(0, yb - 8, W, 3);
+    ctx.fillStyle = 'rgba(60,58,54,0.9)'; ctx.fillRect(0, yb - 5, W, 5);
+  }
+}
+// Vestíbulo de la planta baja: piso de baldosas y un mostrador de recepción
+function drawLobby() {
+  ctx.fillStyle = '#2a2622'; ctx.fillRect(0, H - 20, W, 220);
+  for (let x = 0; x < W; x += 40) for (let r = 0; r < 4; r++) {
+    ctx.fillStyle = (x / 40 + r) % 2 ? '#d9d2c4' : '#bdb5a5'; ctx.fillRect(x, H - 20 + r * 20, 40, 20);
+  }
+  box(W - 150, H - 62, 120, 42, '#6b4a30'); ctx.fillStyle = '#8a6440'; ctx.fillRect(W - 150, H - 62, 120, 6);
+  ctx.fillStyle = '#fff'; ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('RECEPCIÓN', W - 90, H - 40);
+}
+// Descanso / piso de concreto con baldosa arriba, baranda en algunos y macetas o basureros de adorno.
+// Los agrietados tiemblan al pisarlos y se rompen como los alféizares.
+function drawFloorLedge(pl) {
+  if (pl.broken) {
+    ctx.fillStyle = '#4a4844'; ctx.fillRect(pl.x, pl.y, 8, 12); ctx.fillRect(pl.x + pl.w - 8, pl.y, 8, 12);
+    return;
+  }
+  const seed = Math.floor(Math.abs(pl.x * 7 + pl.y * 3)) % 97;
+  const j = pl.crackT ? rand(-1, 1) * Math.min(2, pl.crackT / 8) : 0, dy = pl.crackT ? Math.min(3, pl.crackT / 8) : 0;
+  ctx.save(); ctx.translate(j, dy);
+  if (!pl.fragile && seed % 3 === 0) {   // baranda de metal
+    ctx.fillStyle = '#2a2a2e';
+    for (let x = pl.x + 4; x < pl.x + pl.w - 2; x += 12) ctx.fillRect(x, pl.y - 22, 2, 22);
+    ctx.fillRect(pl.x + 2, pl.y - 24, pl.w - 4, 3);
+  }
+  if (!pl.fragile && seed % 5 === 1) {   // maceta con planta
+    const mx = pl.x + 10; box(mx - 6, pl.y - 12, 12, 12, '#8a4a2a'); drawLeaves(mx, pl.y - 14, 26, seed);
+  }
+  box(pl.x, pl.y, pl.w, 12, '#6c6964');
+  ctx.fillStyle = '#c9c3b8'; ctx.fillRect(pl.x, pl.y, pl.w, 4);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; for (let x = pl.x + 16; x < pl.x + pl.w; x += 16) ctx.fillRect(x, pl.y, 1, 4);   // juntas de baldosa
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(pl.x + 3, pl.y + 12, pl.w - 6, 4);   // sombra
+  if (pl.fragile) {   // grietas
+    ctx.strokeStyle = '#1e1e22'; ctx.lineWidth = 1.6; ctx.beginPath();
+    for (const cx of [pl.x + pl.w * 0.3, pl.x + pl.w * 0.68]) { ctx.moveTo(cx, pl.y); ctx.lineTo(cx + 3, pl.y + 4); ctx.lineTo(cx - 2, pl.y + 8); ctx.lineTo(cx + 2, pl.y + 12); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+// Luz que se va: el ambiente queda algo tenue y cada pocos segundos parpadea o se corta un instante
+function updateFlicker() {
+  if (S.flickT === undefined) { S.flickT = 120; S.flickSeq = []; }
+  if (S.flickSeq.length) {
+    const [len, k] = S.flickSeq[0];
+    S.lightK = k;
+    if (++S.flickN >= len) { S.flickSeq.shift(); S.flickN = 0; }
+    return;
+  }
+  S.lightK = 1;
+  if (--S.flickT > 0) return;
+  // Patrón de parpadeo: varios cortes muy cortos, a veces un corte más largo o una baja de tensión
+  const r = Math.random(), seq = [];
+  if (r < 0.5) for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) seq.push([3 + Math.floor(Math.random() * 4), 0.1], [3 + Math.floor(Math.random() * 6), 1]);
+  else if (r < 0.8) seq.push([4, 0.1], [4, 1], [18 + Math.floor(Math.random() * 14), 0.05], [5, 0.6], [4, 0.1], [6, 1]);
+  else seq.push([40 + Math.floor(Math.random() * 30), 0.55]);   // baja de tensión: luz débil
+  S.flickSeq = seq; S.flickN = 0;
+  const up = clamp((H - 20 - S.p.y) / (ROOF_M * 30), 0, 1);   // 0 en la planta baja, 1 en la azotea
+  S.flickT = Math.round(rand(150, 320) * (1 - 0.65 * up));
+  SFX.play('buzz');
+}
+function drawFlicker() {
+  const k = S.lightK === undefined ? 1 : S.lightK;
+  ctx.fillStyle = `rgba(5,5,12,${0.14 + (1 - k) * 0.84})`;   // con la luz cortada queda casi a oscuras
+  ctx.fillRect(-20, -20, W + 40, H + 40);
 }
 
 // Adornos de la fachada: cañerías, rejillas y cajas eléctricas (en coordenadas del mundo)
@@ -2994,8 +3844,10 @@ function drawWorld() {
     for (let i = 0; i < 30; i++) ctx.fillRect((i * 137) % W, S.roofY - 40 - ((i * 89) % 600), 2, 2);
   }
 
+  // Vestíbulo al inicio (módulo dentro del edificio)
+  if (inside() && S.camY > -100) drawLobby();
   // Calle y carro bomba al inicio
-  if (!theme() && S.camY > -100) {
+  if (!theme() && !inside() && S.camY > -100) {
     ctx.fillStyle = '#333'; ctx.fillRect(0, H - 20, W, 200);
     ctx.fillStyle = '#555'; ctx.fillRect(0, H - 20, W, 3);   // borde de la vereda
     // Carro bomba estacionado
@@ -3008,13 +3860,14 @@ function drawWorld() {
     }
   }
 
-  if (!theme()) drawDecor();
+  if (!theme() && !inside()) drawDecor();
   drawPoles();
   for (const pl of S.plats) {
     if (pl.ground) continue;
     if (pl.kind === 'slab' || pl.kind === 'stairstep') continue;   // los dibuja el techo de la escalera
     if (pl.kind === 'landing') { drawSill(pl.x, pl.y, pl.w); continue; }
     if (pl.kind === 'elev') { drawElevator(pl); continue; }
+    if (inside() && !pl.roof && pl.kind !== 'ventroof') { drawFloorLedge(pl); continue; }
     if (pl.kind === 'ventroof') { drawVentRoof(pl); continue; }
     if (theme() === 'tree') { if (pl.roof) drawCanopy(pl); else drawBranch(pl); continue; }
     if (theme() === 'forest') { if (pl.roof) drawSummit(pl); else drawLedge(pl); continue; }
@@ -3028,7 +3881,7 @@ function drawWorld() {
     const y = it.y + Math.sin(S.t / 12) * 4;
     ctx.fillStyle = '#ffffff33';
     ctx.beginPath(); ctx.arc(it.x, y, 22, 0, 7); ctx.fill();
-    drawImgH(IMG[it.f || EPP[it.i].f], it.x, y + 17, it.bag ? 30 : 34);
+    drawImgH(IMG[it.f || EPP[it.i].f], it.x, y + 17, it.bag || it.sack ? 30 : 34);
   }
 
   for (const f of S.flames) if (!f.inner) drawFlame(f);
@@ -3040,9 +3893,13 @@ function drawWorld() {
 
   drawPeople();
   drawInjured();
+  drawKittens();
+  drawGrassFires();
   drawGas();
   drawPlayer();
   drawCureBar();
+  drawCatBar();
+  drawBeatBar();
   drawGasBar();
   drawShockBar();
   drawKeyBar();
@@ -3522,8 +4379,9 @@ function drawCelebration(v) {
 
 function drawPlayer() {
   const p = S.p, x = p.x, y = p.y, d = p.dir;
-  const stage = S.medic ? 'p' : Math.min(STAGES, 1 + S.epp);
-  let key = `idle_${stage}`, h = 70;
+  const stage = S.medic ? 'p' : S.carrier ? 'g' : S.have.mochilaf ? 'm' : S.have.traje ? 'f'
+    : S.mod === 'ascensor' ? (S.have.casco ? 'c' : 3) : Math.min(STAGES, 1 + S.epp);
+  let key = `idle_${stage}`, h = 70, rot = 0;
   if (S.state === 'dying' || S.state === 'over') {
     key = `derrota_${S.dieT < 25 ? 1 : S.dieT < 55 ? 2 : 3}`; h = 0;
   } else if (S.hurtT > 0) {
@@ -3535,18 +4393,26 @@ function drawPlayer() {
   } else if (S.hoseT > 0) {
     key = S.hoseT < 6 ? 'piton_1' : S.hoseT < 12 ? 'piton_2' : `apunta_${S.aim || 'frente'}`; h = -1;
   } else if (S.keyT > 0) {
-    key = 'palanca_3'; h = -1;   // mete y gira la llave
+    const step = KEY_SEQ[Math.min(KEY_SEQ.length - 1, Math.floor(S.keyT / KEY_T * KEY_SEQ.length))];
+    key = `llavear_${step}`; h = -1;
+    if (step === 3) rot = Math.sin(S.keyT / 2.5) * 0.04;   // balanceo mientras gira la llave
   } else if (S.gasT > 0) {
     key = `gasstop_${1 + Math.min(5, Math.floor(S.gasT / (GASFIX_T / 6)))}`; h = 54;   // arrodillado: 6 cuadros en 1 s
+  } else if (S.beatT > 0) {
+    // Batefuego: sube y golpea en bucle (cuadros 2 a 7); chorro: apunta (1 a 3) y sostiene el disparo (4)
+    key = S.have.mochilaf ? `chorro_${Math.min(4, 1 + Math.floor(S.beatT / 5))}` : `bate_${2 + Math.floor(S.beatT / 6) % 6}`; h = -1;
+  } else if (S.catT > 0) {
+    key = `rescate_${1 + Math.min(5, Math.floor(S.catT / (CAT_T / 6)))}`; h = 0;   // agacharse, tomarlo, guardarlo, ponerse la mochila
   } else if (S.cureT > 0) {
     key = `curar_${1 + Math.min(2, Math.floor(S.cureT / (CURE_T / 3)))}`; h = 0;   // venda: 3 cuadros en 1 s
   } else if (S.inv > 0 && Math.floor(S.t / 4) % 2) return;
   else if (!p.ground) [key, h] = p.vy < -3 ? [`salto_${stage}`, 60] : [`aire_${stage}`, 58];
   else if (S.landT > 0) [key, h] = [`aterriza_${stage}`, 46];
-  else if (Math.abs(p.vx) > 0.8) key = `camina_${stage}_${1 + Math.floor(S.t / 6) % 6}`;
+  else if (Math.abs(p.vx) > 0.8) key = `camina_${stage}_${1 + Math.floor(S.t / (WALKN[stage] ? 5 : 6)) % (WALKN[stage] || 6)}`;
   ctx.save();
   ctx.translate(x, y + 2);
   ctx.scale(d, 1);
+  if (rot) ctx.rotate(rot);
   const im = IMG[key];
   if (im && im.complete && im.naturalWidth) {
     if (!h) h = im.naturalHeight / 2; // daño y derrota: misma escala que el resto (exportados al doble)
@@ -3734,7 +4600,7 @@ function drawMenu() {
   ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 614);
   if (Tilt.btn.style.display !== 'none') {
     ctx.font = font(12); ctx.textAlign = 'left'; ctx.fillStyle = '#aaa';
-    ctx.fillText(Tilt.on ? `Control: inclinación ${TILT_LEVELS[Tilt.level].name} 📱` : 'Control: flechas ⬅➡', 10, 18);
+    ctx.fillText(Tilt.on ? `Control: inclinación ${TILT_LEVELS[Tilt.level].name} 📱` : Joy.on ? 'Control: joystick 🕹️' : 'Control: flechas ⬅➡', 10, 18);
   }
 }
 
@@ -3782,6 +4648,8 @@ function drawTrainScreen(title, color) {
   ctx.font = font(16); ctx.fillStyle = '#ddd';
   ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315);
   if (S.mod === 'medico') { ctx.fillStyle = '#7f7'; ctx.fillText(`Heridos curados: ${F.cured} de ${F.injTotal}`, W / 2, 340); }
+  if (S.mod === 'gatos') { ctx.fillStyle = '#7f7'; ctx.fillText(`Gatitos rescatados: ${S.cats} de ${S.catTotal}`, W / 2, 340); }
+  if (S.mod === 'forestal') { ctx.fillStyle = '#7f7'; ctx.fillText(`Fuegos apagados: ${S.grassOut} de ${S.grassTotal}`, W / 2, 340); }
   if (MODS[S.mod].tasks) { ctx.fillStyle = '#7f7'; ctx.fillText(`Tareas resueltas: ${F.done} de ${F.taskTotal}`, W / 2, 340); }
   ctx.font = font(14); ctx.fillStyle = '#aaa';
   ctx.fillText(MODS[S.mod].rule, W / 2, 368);
@@ -3844,6 +4712,7 @@ function draw() {
   drawBg();
   ctx.save(); ctx.translate(0, -S.camY); drawWorld(); ctx.restore();
   drawDarkness();
+  if (inside()) drawFlicker();
   ctx.restore();
   if (S.state === 'menu') {
     if (S.view === 'rank') drawRankScreen(true); else if (S.view === 'mods') drawModsScreen(); else drawMenu();
