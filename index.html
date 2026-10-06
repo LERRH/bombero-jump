@@ -56,6 +56,10 @@
   #controls.tilt .grp{visibility:hidden}
   #mute,#full,#tilt{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
     font-size:18px;line-height:34px;touch-action:none;-webkit-tap-highlight-color:transparent}
+  /* Volver al menú: en la barra superior, a la izquierda de los corazones */
+  #back{position:fixed;z-index:4;display:none;width:30px;height:30px;padding:0;border:0;border-radius:8px;
+    background:#ffffff22;color:#fff;font:bold 22px/28px system-ui,sans-serif;touch-action:none;-webkit-tap-highlight-color:transparent}
+  #back.on{display:block}
   #nameBox{position:fixed;display:none;gap:8px;align-items:center;z-index:5}
   #nameBox.on{display:flex}
   #nameBox input{width:150px;font:24px Bangers,Impact,sans-serif;letter-spacing:2px;text-transform:uppercase;
@@ -71,6 +75,7 @@
   <button id="mute" aria-label="Sonido">🔊</button>
   <button id="full" aria-label="Pantalla completa">⛶</button>
   <button id="tilt" aria-label="Control: flechas o inclinación">⬅➡</button>
+  <button id="back" aria-label="Volver al menú">‹</button>
   <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
   <div id="controls">
     <div class="row">
@@ -112,6 +117,8 @@ function resize() {
   fb.style.left = (r.right - 42) + 'px'; fb.style.top = (r.top + 40 * s + 40) + 'px';
   const tb = document.getElementById('tilt');
   tb.style.left = (r.right - 42) + 'px'; tb.style.top = (r.top + 40 * s + 80) + 'px';
+  const bb = document.getElementById('back');
+  bb.style.left = (r.left + 4 * s) + 'px'; bb.style.top = (r.top + 17 * s - 15) + 'px';
 }
 addEventListener('resize', resize); resize();
 
@@ -578,17 +585,34 @@ fullBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropaga
 // Al entrar o salir de pantalla completa cambia el tamaño disponible
 for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => setTimeout(resize, 50));
 
-// Control por inclinación del celular (opcional, en lugar de las flechas). Se elige con el botón ⬅➡ / 📱
-// y queda guardado. Al empezar cada partida, la posición en que se tiene el celular cuenta como "derecho".
+// Volver al menú desde la partida: hay que tocar dos veces (en menos de 2 s) para no salir por accidente
+const backBtn = document.getElementById('back');
+backBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  if (S.state !== 'play') return;
+  if (S.backT && S.t - S.backT < 120) { newGame('menu'); return; }
+  S.backT = S.t;
+  toast('Toca ‹ otra vez para volver al menú', '#ffd166');
+});
+
+// Control por inclinación del celular (opcional, en lugar de las flechas). El botón cambia entre
+// flechas ⬅➡ y tres sensibilidades (suave, normal, rápida), y queda guardado.
+// Se lee el acelerómetro con gravedad: a diferencia del ángulo "gamma", no se vuelve inestable con el
+// celular vertical. La velocidad es proporcional a la inclinación (como en Doodle Jump), sin retrasos.
+// Al empezar cada partida, la posición en que se tiene el celular cuenta como "derecho".
+const TILT_LEVELS = [null, { name: 'suave', full: 24 }, { name: 'normal', full: 17 }, { name: 'rápida', full: 11 }];
 const Tilt = {
-  on: false, x: 0, raw: 0, zero: 0, got: false, listening: false,
+  level: 0, x: 0, ang: 0, zero: 0, got: false, listening: false,
+  // iPhone entrega el acelerómetro con el signo al revés; se corrige y además se verifica con la orientación
+  flip: /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
   btn: document.getElementById('tilt'),
+  get on() { return this.level > 0; },
   init() {
     // Solo en celulares/tabletas con sensor
-    if (!matchMedia('(pointer: coarse)').matches || !window.DeviceOrientationEvent) { this.btn.style.display = 'none'; return; }
-    try { this.on = localStorage.getItem('firejump_tilt') === '1'; } catch (e) {}
+    if (!matchMedia('(pointer: coarse)').matches || !window.DeviceMotionEvent) { this.btn.style.display = 'none'; return; }
+    try { this.level = clamp(+localStorage.getItem('firejump_tilt2') || 0, 0, 3); } catch (e) {}
     // En iPhone el permiso se pide con un toque: si está guardado, se vuelve a pedir al tocar el botón
-    if (this.on && typeof DeviceOrientationEvent.requestPermission === 'function') this.on = false;
+    if (this.on && typeof DeviceMotionEvent.requestPermission === 'function') this.level = 0;
     if (this.on) this.listen();
     this.btn.addEventListener('pointerdown', e => e.stopPropagation());
     this.btn.addEventListener('click', e => { e.stopPropagation(); this.toggle(); });
@@ -597,40 +621,57 @@ const Tilt = {
   listen() {
     if (this.listening) return;
     this.listening = true;
-    addEventListener('deviceorientation', e => this.read(e));
+    addEventListener('devicemotion', e => this.read(e));
+    addEventListener('deviceorientation', e => this.checkSign(e));
   },
-  // Inclinación lateral según cómo esté girada la pantalla; x va de -1 (izquierda) a 1 (derecha)
+  // Gravedad en el eje horizontal de la pantalla (según cómo esté girada) → ángulo lateral en grados
   read(e) {
-    if (e.gamma == null) return;
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null) return;
     const a = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
-    const v = a === 90 ? e.beta : a === 270 || a === -90 ? -e.beta : a === 180 ? -e.gamma : e.gamma;
-    this.raw = v; this.got = true;
-    // Margen muerto de 2,5° y velocidad máxima a los 15°; la curva da algo más de velocidad con poca inclinación
-    const d = v - this.zero, dead = 2.5, full = 15;
-    const k = Math.abs(d) < dead ? 0 : Math.min(1, Math.pow((Math.abs(d) - dead) / (full - dead), 0.8));
-    this.x = this.x * 0.4 + Math.sign(d) * k * 0.6;   // suaviza el temblor del sensor
-    if (Math.abs(this.x) < 0.02) this.x = 0;
+    let side = a === 90 ? -g.y : a === 270 || a === -90 ? g.y : a === 180 ? -g.x : g.x;
+    const other = a === 90 || a === 270 || a === -90 ? g.x : g.y;
+    if (!this.flip) side = -side;   // Android: inclinar a la derecha da x negativo
+    const ang = Math.atan2(side, Math.hypot(other, g.z || 0)) * 180 / Math.PI;
+    this.ang = this.got ? this.ang * 0.35 + ang * 0.65 : ang;   // filtro leve contra el pulso de la mano
+    this.got = true;
+    const L = TILT_LEVELS[this.level];
+    if (!L) { this.x = 0; return; }
+    const d = this.ang - this.zero, dead = 2;
+    this.x = Math.abs(d) < dead ? 0 : Math.sign(d) * Math.min(1, (Math.abs(d) - dead) / (L.full - dead));
   },
-  calibrate() { this.zero = this.got ? clamp(this.raw, -25, 25) : 0; },
+  // Con el celular no muy vertical, gamma es confiable: si contradice al acelerómetro, se invierte el signo
+  checkSign(e) {
+    if (e.gamma == null || e.beta == null || Math.abs(e.beta) > 55 || Math.abs(e.gamma) < 12 || Math.abs(this.ang) < 8) return;
+    if (Math.sign(e.gamma) !== Math.sign(this.ang)) { this.flip = !this.flip; this.ang = -this.ang; this.zero = -this.zero; }
+  },
+  calibrate() { this.zero = this.got ? clamp(this.ang, -25, 25) : 0; },
+  // ⬅➡ → suave → normal → rápida → ⬅➡
   toggle() {
-    if (this.on) { this.set(false); return; }
-    const DOE = window.DeviceOrientationEvent;
+    const next = (this.level + 1) % TILT_LEVELS.length;
+    if (!next) { this.set(0); toast('Control con flechas', '#ccc'); return; }
+    if (this.on) { this.set(next); toast(`Inclinación ${TILT_LEVELS[next].name}`, '#7f7'); return; }
+    const DME = window.DeviceMotionEvent, DOE = window.DeviceOrientationEvent;
     const go = () => {
-      this.listen(); this.set(true); this.calibrate();
-      toast('Inclina el celular para moverte', '#7f7');
+      this.listen(); this.set(next); this.calibrate();
+      toast(`Inclinación ${TILT_LEVELS[next].name}: inclina el celular para moverte`, '#7f7');
       // Sin datos del sensor (por ejemplo, la página no está en https): se vuelve a las flechas
-      setTimeout(() => { if (this.on && !this.got) { this.set(false); toast('Este navegador no deja usar la inclinación', '#ff8a8a'); } }, 1500);
+      setTimeout(() => { if (this.on && !this.got) { this.set(0); toast('Este navegador no deja usar la inclinación', '#ff8a8a'); } }, 1500);
     };
-    if (typeof DOE.requestPermission === 'function') {
-      DOE.requestPermission().then(r => r === 'granted' ? go() : toast('Sin permiso para usar la inclinación', '#ff8a8a')).catch(() => {});
+    if (typeof DME.requestPermission === 'function') {
+      DME.requestPermission().then(r => {
+        if (r !== 'granted') { toast('Sin permiso para usar la inclinación', '#ff8a8a'); return; }
+        if (DOE && typeof DOE.requestPermission === 'function') DOE.requestPermission().catch(() => {});
+        go();
+      }).catch(() => {});
     } else go();
   },
-  set(on) {
-    this.on = on; this.x = 0;
-    try { localStorage.setItem('firejump_tilt', on ? '1' : '0'); } catch (e) {}
+  set(level) {
+    this.level = level; this.x = 0;
+    try { localStorage.setItem('firejump_tilt2', String(level)); } catch (e) {}
     this.show(); updateControls();
   },
-  show() { this.btn.textContent = this.on ? '📱' : '⬅➡'; },
+  show() { this.btn.textContent = this.on ? '📱' + this.level : '⬅➡'; },
 };
 Tilt.init();
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && document.activeElement !== nameIn) { SFX.toggleMute(); showMute(); } });
@@ -1120,7 +1161,8 @@ const MODS = {
   fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
   gatos: { title: 'MÓDULO 5 · GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS,
-    start: 'Rescate nocturno: sube por las ramas del árbol', rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
+    start: 'Rescate nocturno: sube por las ramas del árbol', time: [150, 210],
+    rule: '★★★ menos de 2:30  ·  ★★ menos de 3:30  ·  ★ llegar' },
   forestal: { title: 'MÓDULO 6 · FORESTAL', theme: 'forest', notools: true, livesStars: true, levels: FOREST_LEVELS,
     start: 'Incendio forestal: trepa y esquiva las rocas que caen', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
   ascensor: { title: 'MÓDULO 7 · ASCENSOR', epp: true, tools: ['llave'], pickups: ['llave'], tasks: true, levels: ELEV_LEVELS,
@@ -1142,20 +1184,21 @@ const MODS = {
   reloj: { title: 'MÓDULO 13 · CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], levels: RACE_LEVELS,
     start: '¡El fuego sube desde abajo! No te detengas', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
   saltos: { title: 'MÓDULO 1 · SALTOS', levels: TRAIN_LEVELS,
-    start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto',
-    rule: '★★★ sin caídas  ·  ★★ una caída  ·  ★ dos caídas' },
+    start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto', time: [150, 210],
+    rule: '★★★ menos de 2:30  ·  ★★ menos de 3:30  ·  ★ llegar' },
   medico: { title: 'MÓDULO 2 · PARAMÉDICO', levels: MEDIC_LEVELS,
     start: 'Recoge tu maletín de abordaje',
     rule: '★ llegar  ·  ★★ curar la mitad  ·  ★★★ curar a todos' },
 };
-// Estrellas: en Saltos cuentan las caídas; en Paramédico, cuántos heridos se curaron
+// Estrellas: en Saltos y Gatitos cuenta el tiempo; en Paramédico, cuántos heridos se curaron
 function trainResult(won) {
   let stars = 0;
   const M = MODS[S.mod], done = S.extOut + S.inOut + S.vented + S.rescued + S.gasFixed;
   if (won && S.mod === 'medico') stars = S.cured >= S.injTotal ? 3 : S.cured * 2 >= S.injTotal ? 2 : 1;
   else if (won && M.tasks) stars = done >= S.taskTotal ? 3 : done * 2 >= S.taskTotal ? 2 : 1;
   else if (won && (M.race || M.livesStars)) stars = 3 - Math.min(2, 3 - S.lives);
-  else if (won) stars = 3 - Math.min(2, S.falls);
+  else if (won && M.time) { const secs = S.t / 60; stars = secs <= M.time[0] ? 3 : secs <= M.time[1] ? 2 : 1; }
+  else if (won) stars = 3;
   const best = Progress.get()[S.mod] || 0, record = Progress.set(S.mod, stars);
   return { stars, secs: S.t / 60, falls: S.falls, cured: S.cured, injTotal: S.injTotal, done: Math.min(done, S.taskTotal), taskTotal: S.taskTotal,
     best: Math.max(best, stars), record, total: 0 };
@@ -1213,7 +1256,39 @@ function computeScore(won) {
 }
 
 // Reparte los niveles hacia arriba desde y; la azotea queda sobre el último
+// Todos los módulos terminan en la azotea a 300 m. Después de los niveles del módulo se agregan
+// niveles extra, cada uno más difícil que el anterior, y los largos se ajustan para llegar justo a 300 m.
+const ROOF_M = 300, ROOF_Y = H - 20 - ROOF_M * 30;
+const EXTRA_NAMES = ['Más alto', 'Al límite', 'Sin descanso', 'Experto', 'Último tramo', 'Leyenda'];
+function harderLevel(L, k) {
+  const N = Object.assign({}, L, { name: EXTRA_NAMES[(k - 1) % EXTRA_NAMES.length],
+    hint: '¡Más difícil! Sigue subiendo hasta los 300 m', len: Math.max(1200, L.len), p: {} });
+  // Peligros un 15 % más seguidos (con tope, para que siempre haya dónde pisar)
+  for (const key in L.p) N.p[key] = Math.min(key === 'fragile' ? 0.9 : 0.5, L.p[key] * 1.15);
+  const sum = Object.values(N.p).reduce((a, b) => a + b, 0);
+  if (sum > 0.85) for (const key in N.p) N.p[key] *= 0.85 / sum;
+  // Saltos: alféizares más separados, angostos y lejanos (el salto máximo llega a ~165 px)
+  if (L.gap) {
+    N.gap = [Math.min(L.gap[0] + 5, 125), Math.min(L.gap[1] + 4, 140)];
+    N.w = [Math.max(L.w[0] - 3, 46), Math.max(L.w[1] - 3, 56)];
+    N.dx = [Math.min(L.dx[0] + 5, 120), Math.min(L.dx[1] + 5, 210)];
+  }
+  if (L.chain) N.chain = Math.min(5, L.chain + 1);
+  if (L.crack) N.crack = Math.max(15, L.crack - 1);
+  if (L.rocks) N.rocks = [Math.max(60, Math.round(L.rocks[0] * 0.85)), Math.max(90, Math.round(L.rocks[1] * 0.85))];
+  return N;
+}
+function extendLevels(list, y) {
+  const out = list.map(L => Object.assign({}, L)), avail = y - ROOF_Y;
+  let total = out.reduce((a, L) => a + L.len, 0);
+  for (let k = 1; total < avail - 700; k++) { const N = harderLevel(out[out.length - 1], k); out.push(N); total += N.len; }
+  const f = avail / total;
+  out.forEach(L => { L.len *= f; });
+  return out;
+}
+
 function buildLevels(list, y) {
+  if (MODS[S.mod]) list = extendLevels(list, y);
   S.levels = []; S.events = []; S.darkZones = [];
   list.forEach((L, i) => {
     const bottom = y, top = y - L.len;
@@ -1642,7 +1717,7 @@ function update() {
   // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
   const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : 0), -1, 1);
   if (ix) p.dir = Math.sign(ix);
-  p.vx += (ix * 5 - p.vx) * 0.25;
+  p.vx += (ix * 5 - p.vx) * (Tilt.on ? 0.5 : 0.25);   // con inclinación responde más directo
   p.x += p.vx;
   if (p.x < -15) p.x = W + 15;
   if (p.x > W + 15) p.x = -15;
@@ -1919,14 +1994,11 @@ function update() {
   }
 
   // Caída
+  // Caerse es perder todas las vidas; el fuego, las explosiones, la electricidad y las rocas quitan un corazón
   if (p.y > S.camY + H + 40) {
     S.falls++;
-    hurt('¡Caíste! -1 vida', true);
-    if (S.state === 'play') {
-      const pl = S.lastSafe;
-      if (pl && pl.y < S.camY + H) { p.x = pl.x + pl.w / 2; p.y = pl.y; p.vy = 0; p.ground = pl; }
-      else { p.y = S.camY + H + 10; p.vy = -17; }
-    }
+    S.lives = 1;
+    hurt('¡Caíste! Una caída te deja fuera', true);
   }
 
   if (S.inv > 0) S.inv--;
@@ -3532,30 +3604,13 @@ function drawHUD() {
   ctx.fillStyle = '#000a'; ctx.fillRect(0, 0, W, 34);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
   ctx.font = font(16);
-  ctx.fillText('❤️'.repeat(Math.max(0, S.lives)), 8, 17);
-  ctx.textAlign = 'center';
-  if (MODS[S.mod] && !(MODS[S.mod].epp && S.phase === 1)) {
-    ctx.font = font(13); ctx.fillStyle = '#ffd166'; ctx.fillText(MODS[S.mod].title, 190, 17);
-    if (S.mod === 'medico') {
-      ctx.textAlign = 'left'; ctx.font = font(13); ctx.fillStyle = '#7f7';
-      ctx.fillText(`✚${S.cured}`, 86, 17);
-      ctx.textAlign = 'center';
-    }
-    if (MODS[S.mod].race) {   // distancia al fuego
-      ctx.font = font(13); ctx.fillStyle = '#ff8a4d';
-      ctx.fillText(`🔥 ${Math.max(0, Math.round((S.fireY - S.p.y) / 30))} m`, 190, 46);
-    }
-  } else for (let i = 0; i < EPP.length; i++) {
-    ctx.globalAlpha = i < S.epp ? 1 : 0.25;
-    drawImgH(IMG[EPP[i].f], 120 + i * 28, 30, 26);
-  }
-  ctx.globalAlpha = 1;
-  ctx.textAlign = 'right'; ctx.font = font(14); ctx.fillStyle = '#fff';
+  ctx.fillText('❤️'.repeat(Math.max(0, S.lives)), 44, 17);   // a la izquierda queda el botón ‹ (volver al menú)
+  // Barra superior: solo corazones, tiempo y metros
+  const secs = Math.floor(S.t / 60);
+  ctx.textAlign = 'center'; ctx.font = font(16); ctx.fillStyle = '#fff';
+  ctx.fillText(`⏱ ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, W / 2, 17);
+  ctx.textAlign = 'right';
   ctx.fillText(Math.max(0, Math.round((H - 20 - S.p.y) / 30)) + ' m', W - 8, 17);
-  if (S.levelIdx >= 0) {
-    ctx.font = font(11); ctx.textAlign = 'center'; ctx.fillStyle = '#ffd166';
-    ctx.fillText(`NV ${S.levelIdx + 1}`, 332, 17);
-  }
   if (S.banner) {
     const b = S.banner, a = clamp(Math.min(b.t, 200 - b.t) / 25, 0, 1);
     ctx.globalAlpha = a;
@@ -3679,7 +3734,7 @@ function drawMenu() {
   ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 614);
   if (Tilt.btn.style.display !== 'none') {
     ctx.font = font(12); ctx.textAlign = 'left'; ctx.fillStyle = '#aaa';
-    ctx.fillText(Tilt.on ? 'Control: inclinación 📱' : 'Control: flechas ⬅➡', 10, 18);
+    ctx.fillText(Tilt.on ? `Control: inclinación ${TILT_LEVELS[Tilt.level].name} 📱` : 'Control: flechas ⬅➡', 10, 18);
   }
 }
 
@@ -3725,7 +3780,7 @@ function drawTrainScreen(title, color) {
   }
   const m = Math.floor(F.secs / 60), sec = String(Math.floor(F.secs % 60)).padStart(2, '0');
   ctx.font = font(16); ctx.fillStyle = '#ddd';
-  ctx.fillText(`Tiempo ${m}:${sec}  ·  Caídas ${F.falls}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315);
+  ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315);
   if (S.mod === 'medico') { ctx.fillStyle = '#7f7'; ctx.fillText(`Heridos curados: ${F.cured} de ${F.injTotal}`, W / 2, 340); }
   if (MODS[S.mod].tasks) { ctx.fillStyle = '#7f7'; ctx.fillText(`Tareas resueltas: ${F.done} de ${F.taskTotal}`, W / 2, 340); }
   ctx.font = font(14); ctx.fillStyle = '#aaa';
@@ -3832,6 +3887,7 @@ function loop(now) {
   }
   draw();
   document.getElementById('controls').classList.toggle('on', S.state === 'play');
+  backBtn.classList.toggle('on', S.state === 'play');
   requestAnimationFrame(loop);
 }
 newGame('menu');
