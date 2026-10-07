@@ -549,10 +549,61 @@ const SFX = (() => {
   const DRUM1 = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
   const DRUM2 = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1];
   const st = (f, n) => f * Math.pow(2, n / 12);
-  const spb = () => mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
+  const spb = () => mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : mood === 9 ? 60 / 120 / 4 : mood === 10 ? 60 / 126 / 3 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
 
   // mood 7 = sabana (Forestal): ritmo africano en 12/8 con djembé y shaker, kalimba en pentatónica de La menor,
   // drone grave y terroso, una flauta lejana de vez en cuando, y el cerro ardiendo: fuego, chasquidos y viento.
+  // mood 10 = jazz noir de los años 20-30 (Fuego interno, edificio art déco): Re menor con swing en tresillos.
+  // Contrabajo que camina, platillo "ride" con swing, escobillas, piano y trompeta con sordina.
+  const N_ROOT = [73.42, 98, 110, 73.42];
+  const N_WALK = [[0, 3, 7, 10], [0, 3, 7, 10], [0, 4, 7, 10], [12, 10, 7, 3]];
+  const N_CHORD = [[3, 7, 10, 14], [3, 7, 10, 14], [4, 7, 10, 13], [3, 7, 10, 14]];
+  const N_MEL = [[10, , , 7, , 5, 7, , , , , ], [5, , , 3, , 1, 0, , , , , ], [11, , , 7, , 5, 4, , , , , ], [2, , , 0, , , , , , , , ]];
+  function trumpet(f, at, dur) {   // trompeta con sordina: diente de sierra nasal con vibrato
+    const t = ac.currentTime + at, o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain(), vib = ac.createOscillator(), vg = ac.createGain();
+    o.type = 'sawtooth'; o.frequency.value = f;
+    vib.frequency.value = 5.5; vg.gain.value = f * 0.012; vib.connect(vg); vg.connect(o.frequency);
+    bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 2.5;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.06); g.gain.setValueAtTime(0.1, t + dur * 0.7);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(bp); bp.connect(g); g.connect(musicBus); send(g, 0.35);
+    o.start(t); vib.start(t); o.stop(t + dur + 0.02); vib.stop(t + dur + 0.02);
+  }
+  function playNoir(at, d) {
+    const s = step % 12, bar = Math.floor(step / 12) % 4, loopN = Math.floor(step / 48), f = N_ROOT[bar];
+    if (s % 3 === 0) pluck(st(f, N_WALK[bar][s / 3]), at, d * 2.6, 0.32);                          // contrabajo caminando
+    if ([0, 3, 5, 6, 9, 11].includes(s)) { noise(0.12, s % 3 === 2 ? 0.035 : 0.06, 'highpass', 6500, 5000, at, 1, musicBus); tone('square', 5200, 5100, 0.08, 0.008, at, musicBus); }   // ride con swing
+    if (s === 3 || s === 9) { noise(0.03, 0.05, 'highpass', 8000, 8000, at, 1, musicBus); noise(0.22, 0.06, 'bandpass', 3000, 1500, at, 0.8, musicBus); }   // hi-hat + escobillas
+    if (s === 5 || (s === 11 && bar % 2)) for (const n of N_CHORD[bar]) pluck(st(f * 2, n), at, d * 2, 0.04, 'sine');   // piano
+    const m = N_MEL[bar][s];
+    if (loopN % 2 === 1 && m !== undefined) trumpet(st(293.66, m), at, d * (s === 0 ? 3 : 2.2));    // trompeta con sordina
+  }
+  // mood 9 = flamenco dramático (Fuego expuesto, edificio viejo): cadencia andaluza La m – Sol – Fa – Mi,
+  // guitarra con rasgueos de rumba, cajón, palmas y una melodía "picada" en escala frigia.
+  const F_ROOT = [110, 98, 87.31, 82.41];
+  const F_CHORD = [[0, 7, 12, 15, 19], [0, 4, 7, 12, 16], [0, 4, 7, 12, 16], [0, 7, 12, 16, 19]];
+  const F_MEL = [[12, 10, 8, 7, 8, 10, 12, ], [10, 8, 7, 5, 7, 8, 10, ], [8, 7, 5, 3, 5, 7, 8, ], [7, 8, 7, 5, 4, , 7, ]];
+  function guitar(f, at, dur, vol) {   // cuerda de nylon pulsada: diente de sierra con filtro que se cierra rápido
+    const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.value = f;
+    lp.type = 'lowpass'; lp.Q.value = 1.5; lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(500, t + dur * 0.6);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(lp); lp.connect(g); g.connect(musicBus); send(g, 0.2); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function strum(f, ch, at, dur, up) {   // rasgueo: las cuerdas suenan una tras otra
+    const order = up ? ch.slice().reverse() : ch;
+    order.forEach((n, i) => guitar(st(f, n), at + i * 0.012, dur, 0.05));
+  }
+  function playFlamenco(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = F_ROOT[bar];
+    if ([0, 3, 6, 8, 10, 12, 14].includes(s)) strum(f * 2, F_CHORD[bar], at, d * (s === 0 ? 4 : 2), s === 3 || s === 10 || s === 14);
+    if (s === 0 || s === 8) guitar(f, at, d * 4, 0.12);                                                     // bordón grave
+    if (s === 0 || s === 7 || s === 8) tone('sine', 110, 50, 0.16, 0.45, at, musicBus);                     // cajón: grave
+    if (s === 4 || s === 12) { noise(0.07, 0.3, 'bandpass', 1500, 1100, at, 1.2, musicBus); }               // cajón: golpe agudo
+    if (s === 4 || s === 12 || (s === 14 && bar % 2)) noise(0.06, 0.18, 'bandpass', 2300, 1800, at + 0.01, 2, musicBus, 0.2);   // palmas
+    const m = F_MEL[bar][s / 2];
+    if (loopN % 2 === 1 && s % 2 === 0 && m !== undefined) guitar(st(220, m), at, d * 2.2, 0.09);        // melodía picada
+  }
   // mood 8 = música de ascensor (Ascensor): bossa nova suave. Fa maj7 – Mi m7 – Re m7 – Sol 7 con piano
   // eléctrico (trémolo), bajo de bossa, aro de caja en clave, shaker suave y una melodía de vibráfono.
   const E_ROOT = [174.61, 164.81, 146.83, 196];
@@ -770,6 +821,8 @@ const SFX = (() => {
     if (mood === 6) { playHappy(at, d); return; }
     if (mood === 7) { playSavanna(at, d); return; }
     if (mood === 8) { playLounge(at, d); return; }
+    if (mood === 9) { playFlamenco(at, d); return; }
+    if (mood === 10) { playNoir(at, d); return; }
     const s = step % 16, bar = Math.floor(step / 16) % 4, f = ROOT[bar];
     if (s === 0) for (const o of droneOsc) o.frequency.setTargetAtTime(f / 2, t, 0.3);
     // Cuerdas: en tensión solo corcheas y más suaves; en la emergencia, todas las semicorcheas
@@ -1471,7 +1524,7 @@ const FIRE_LEVELS = [
     gap: [105, 128], w: [56, 70], dx: [85, 190], p: { flame: 0.45, fragile: 0.4 }, chain: 2, win: 0.85, flameHp: 75, regrow: true, crack: 20 },
 ];
 const INNER_LEVELS = [
-  { name: 'Fuego interno', hint: 'Rompe con la halligan y apaga con el pitón', len: 1100, doors: 0, p: { inner: 0.30, flame: 0.12 } },
+  { name: 'Fuego interno', hint: 'Rompe con la halligan antes de que el contador llegue a cero', len: 1100, doors: 0, p: { inner: 0.30, flame: 0.12 } },
   { name: 'Puertas y ventanas', hint: 'Las puertas se abren haciendo palanca', len: 1200, doors: 0, p: { inner: 0.38, flame: 0.15 } },
   { name: 'Piso en llamas', hint: 'Fuego detrás de cada ventana', len: 1300, doors: 0, p: { inner: 0.45, flame: 0.18 } },
 ];
@@ -1572,7 +1625,7 @@ const MOD_LIST = [
 // epp: se recoge el EPP antes; gear: empieza ya equipado; tools: herramientas del módulo;
 // pickups: herramientas que hay que recoger en el camino; tasks: estrellas por tareas; race: el fuego sube
 const MODS = {
-  fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS, music: 4, facade: 'mixed',
+  fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS, music: 9, facade: 'viejo',
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
   gatos: { title: 'MÓDULO 5 · GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS, music: 6,
     start: 'Rescate nocturno: recoge la mochila para gatitos',
@@ -1585,6 +1638,7 @@ const MODS = {
   gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS, music: 5, facade: 'cemento',
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge el Gas Stop', rule: TASK_RULE },
   interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+    innerTimer: true, music: 10, facade: 'deco',
     levels: INNER_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
   backdraft: { title: 'MÓDULO 9 · BACKDRAFT', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
     levels: BACKDRAFT_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
@@ -1937,6 +1991,53 @@ function breakOpen(pl) {
   toast(`¡${door ? 'Puerta' : 'Ventana'} rota! Ahora apaga el fuego con el pitón`, '#ffb347');
 }
 
+// Fuego interno con temporizador: al acercarse empieza una cuenta regresiva (8 s en el primer nivel,
+// baja parejo hasta 5 s en el último). Si no se rompe con la halligan a tiempo, la abertura explota.
+function innerTimeAt(y) {
+  const L = levelAt(y), n = S.levels.length;
+  return Math.round((L && n > 1 ? 8 - 3 * L.i / (n - 1) : 8) * 60);
+}
+function updateInnerTimers() {
+  const p = S.p;
+  for (const pl of S.plats) {
+    if (pl.inner !== 'closed') { pl.ibT = null; continue; }
+    if (pl.ibT == null) {
+      if (S.phase === 2 && pl.y > S.camY + 40 && pl.y < S.camY + H - 40 && Math.abs(pl.y - p.y) < 190) { pl.ibMax = pl.ibT = innerTimeAt(pl.y); SFX.play('click'); }
+      continue;
+    }
+    if (--pl.ibT <= 0) explodeInner(pl);
+  }
+}
+// La ventana o puerta revienta: llamarada hacia afuera y, si el bombero está cerca, pierde un corazón
+function explodeInner(pl) {
+  const r = opening(pl), cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  pl.ibT = null;
+  breakOpen(pl);
+  for (let i = 0; i < 80; i++) {
+    const a = rand(0, Math.PI * 2), v = rand(1, 7);
+    S.parts.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, g: 0.05, life: rand(25, 50), max: 50,
+      c: ['#ff3d00', '#ff8c00', '#ffd23f', '#fff1a8'][i % 4], s: rand(4, 11) });
+  }
+  for (let k = 0; k < 6; k++) addSmoke(cx + rand(-25, 25), cy + rand(-15, 10), 'dark', 1.4);
+  SFX.play('boom');
+  if (Math.hypot(S.p.x - cx, S.p.y - 20 - cy) < 130) {
+    S.shake = 22; S.p.ground = null; S.p.vy = -5; S.p.vx = (S.p.x < cx ? -1 : 1) * 5;
+    hurt('¡La ventana explotó! Rómpela con la halligan antes de que llegue a cero', true);
+  } else { S.shake = 10; toast(`¡Una ${pl.kind === 'door' ? 'puerta' : 'ventana'} explotó!`, '#ff8a8a'); }
+}
+// Cuenta regresiva sobre cada abertura con fuego adentro
+function drawInnerTimers() {
+  for (const pl of S.plats) {
+    if (pl.ibT == null || pl.inner !== 'closed') continue;
+    const r = opening(pl), sec = Math.ceil(pl.ibT / 60), k = 1 + (pl.ibT % 60) / 60 * 0.35;
+    ctx.save(); ctx.translate(r.x + r.w / 2, r.y + r.h / 2 + 2); ctx.scale(k, k);   // en el centro de la abertura (arriba va el cartel de la herramienta)
+    ctx.font = font(26); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#111'; ctx.fillText(sec, 2, 2);
+    ctx.fillStyle = sec <= 2 ? '#ff3b3b' : sec <= 4 ? '#ff9a3c' : '#ffd23f'; ctx.fillText(sec, 0, 0);
+    ctx.restore();
+  }
+}
+
 // Ventana con una persona atrapada al alcance del bombero
 function trappedNear() {
   const p = S.p;
@@ -2236,6 +2337,7 @@ function update() {
   if (S.mod === 'forestal') updateGrass();
   if (inside()) updateFlicker();
   if (S.mod === 'gas') updateGas();
+  if (MODS[S.mod] && MODS[S.mod].innerTimer) updateInnerTimers();
   if (S.mod === 'ascensor') updateElev();
   if (theme() === 'forest') updateRocks();
 
@@ -3505,6 +3607,8 @@ function drawBg() {
   if (theme() === 'forest') { drawForestBg(); return; }
   if (MODS[S.mod] && MODS[S.mod].facade === 'mixed') { drawMixedFacade(); return; }
   if (MODS[S.mod] && MODS[S.mod].facade === 'cemento') { drawCementFacade(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'viejo') { drawOldFacade(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'deco') { drawDecoFacade(); return; }
   if (inside()) { drawInteriorBg(); return; }
   const deep = clamp(-S.camY / 6000, 0, 1);
   ctx.fillStyle = '#1c1c20';
@@ -3609,6 +3713,117 @@ function drawCementFacade() {
     }
   }
   if (S.phase === 2) { ctx.fillStyle = 'rgba(255,140,0,0.03)'; ctx.fillRect(0, 0, W, H); }
+}
+
+// Edificio viejo: revoque blanco grisáceo descascarado con parches de ladrillo, manchas de humedad,
+// chorreados de suciedad, grietas, molduras entre pisos y cables eléctricos que cuelgan (fijo en el mundo)
+function drawOldFacade() {
+  const top = S.camY, FH = 160;
+  ctx.fillStyle = '#a49c8c'; ctx.fillRect(0, 0, W, H);
+  // Textura del revoque en bloques irregulares
+  for (let r = Math.floor(top / 40) - 1; r * 40 < top + H; r++)
+    for (let c = 0; c < W / 50 + 1; c++) {
+      const v = Math.floor(hash(c, r) * 16);
+      ctx.fillStyle = `rgba(${172 + v},${166 + v},${152 + v},0.6)`;
+      ctx.fillRect(c * 50 + hash(r, c) * 10, r * 40 - top, 46, 38);
+    }
+  for (let f = Math.floor((H - 20 - top - H) / FH) - 1; f <= Math.floor((H - 20 - top) / FH) + 1; f++) {
+    const yb = H - 20 - f * FH - top, yt = yb - FH;
+    // Chorreados de suciedad que bajan desde la moldura
+    for (let k = 0; k < 5; k++) {
+      const x = hash(f, k) * W, w = 6 + hash(k, f) * 22, l = 40 + hash(f + 3, k) * 110;
+      const g = ctx.createLinearGradient(0, yt + 8, 0, yt + 8 + l);
+      g.addColorStop(0, 'rgba(60,56,48,0.45)'); g.addColorStop(1, 'rgba(60,56,48,0)');
+      ctx.fillStyle = g; ctx.fillRect(x, yt + 8, w, l);
+    }
+    // Mancha de humedad
+    if (hash(f, 20) > 0.4) {
+      const mx = hash(f, 21) * W, my = yt + 40 + hash(f, 22) * 80, mr = 25 + hash(f, 23) * 35;
+      const mg = ctx.createRadialGradient(mx, my, 0, mx, my, mr);
+      mg.addColorStop(0, 'rgba(70,66,52,0.35)'); mg.addColorStop(1, 'rgba(70,66,52,0)');
+      ctx.fillStyle = mg; ctx.fillRect(mx - mr, my - mr, mr * 2, mr * 2);
+    }
+    // Revoque caído: parche de ladrillo a la vista con borde irregular
+    if (hash(f, 30) > 0.35) {
+      const px = hash(f, 31) * (W - 90), py = yt + 20 + hash(f, 32) * 80, pw = 40 + hash(f, 33) * 55, ph = 28 + hash(f, 34) * 40;
+      const edge = () => { ctx.beginPath(); for (let q = 0; q < 12; q++) { const a = q / 12 * Math.PI * 2; ctx.lineTo(px + pw / 2 + Math.cos(a) * pw / 2 * (0.6 + hash(f + q, 35) * 0.45), py + ph / 2 + Math.sin(a) * ph / 2 * (0.6 + hash(q, f + 36) * 0.45)); } ctx.closePath(); };
+      ctx.save(); edge(); ctx.fillStyle = '#5a3a2a'; ctx.fill(); ctx.clip();
+      for (let by = py - 2; by < py + ph + 4; by += 8)
+        for (let bx = px - 12 + ((by / 8) % 2) * 8; bx < px + pw + 12; bx += 16) {
+          ctx.fillStyle = ['#a65a3a', '#b8683f', '#8e4a30'][Math.floor(hash(bx, by) * 3)]; ctx.fillRect(bx, by, 14, 6);
+        }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(235,230,218,0.8)'; ctx.lineWidth = 2; edge(); ctx.stroke();   // canto irregular del revoque roto
+    }
+    // Grietas
+    if (hash(f, 40) > 0.45) {
+      ctx.strokeStyle = 'rgba(40,36,30,0.7)'; ctx.lineWidth = 1.2;
+      let gx = hash(f, 41) * W, gy = yt + 6; ctx.beginPath(); ctx.moveTo(gx, gy);
+      for (let k = 0; k < 7; k++) { gx += (hash(f + k, 42) - 0.5) * 18; gy += 9 + hash(k, f + 43) * 8; ctx.lineTo(gx, gy); }
+      ctx.stroke();
+    }
+    // Moldura entre pisos
+    ctx.fillStyle = 'rgba(40,36,30,0.35)'; ctx.fillRect(0, yt + 6, W, 3);
+    ctx.fillStyle = '#b9b2a2'; ctx.fillRect(0, yt, W, 6);
+    // Cables eléctricos que cuelgan entre ganchos (cada dos pisos)
+    if (f % 2 === 0) {
+      ctx.strokeStyle = '#1c1a18'; ctx.lineWidth = 1.6;
+      for (const off of [0, 7]) {
+        const y0 = yt + 40 + off + hash(f, 50) * 20, sag = 12 + hash(f, 51) * 14;
+        ctx.beginPath(); ctx.moveTo(-10, y0); ctx.quadraticCurveTo(W * 0.3, y0 + sag, W * 0.55, y0 + 3);
+        ctx.quadraticCurveTo(W * 0.8, y0 + sag * 0.8, W + 10, y0 - 2); ctx.stroke();
+      }
+    }
+  }
+  if (S.phase === 2) { ctx.fillStyle = `rgba(255,90,0,${0.07 + Math.sin(S.t / 20) * 0.03})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// Edificio art déco de piedra color crema: sillares grandes, pilastras con remates en punta,
+// cornisas con zigzag entre pisos y medallones con relieve geométrico (fijo en el mundo)
+function drawDecoFacade() {
+  const top = S.camY, FH = 160, PX = [0, 133, 266, 399];
+  ctx.fillStyle = '#c9bb9b'; ctx.fillRect(0, 0, W, H);
+  // Sillares
+  for (let r = Math.floor(top / 32) - 1; r * 32 < top + H; r++) {
+    const y = r * 32 - top, off = (r & 1) * 45;
+    for (let x = -off; x < W; x += 90) {
+      const v = Math.floor(hash(x, r) * 10);
+      ctx.fillStyle = `rgb(${208 + v},${196 + v},${170 + v})`; ctx.fillRect(x + 1, y + 1, 88, 30);
+    }
+  }
+  for (let f = Math.floor((H - 20 - top - H) / FH) - 1; f <= Math.floor((H - 20 - top) / FH) + 1; f++) {
+    const yb = H - 20 - f * FH - top, yt = yb - FH;
+    // Medallón con abanico entre pilastras
+    for (let k = 0; k < 3; k++) {
+      if (hash(f, k + 90) < 0.55) continue;
+      const mx = PX[k] + 66, my = yt + 30;
+      ctx.fillStyle = '#b5a582'; ctx.beginPath(); ctx.arc(mx, my, 15, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#8f7f5e'; ctx.lineWidth = 1.2;
+      for (let q = 0; q < 9; q++) { const a = Math.PI + q / 8 * Math.PI; ctx.beginPath(); ctx.moveTo(mx, my + 6); ctx.lineTo(mx + Math.cos(a) * 14, my + 6 + Math.sin(a) * 14); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(mx, my, 15, 0, 7); ctx.stroke();
+    }
+    // Cornisa con zigzag (chevrones) y sombra
+    ctx.fillStyle = 'rgba(70,58,36,0.3)'; ctx.fillRect(0, yt + 12, W, 4);
+    ctx.fillStyle = '#ddd1b4'; ctx.fillRect(0, yt, W, 12);
+    ctx.strokeStyle = '#9c8b66'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, yt + 9);
+    for (let x = 0; x <= W; x += 10) ctx.lineTo(x, x % 20 ? yt + 3 : yt + 9);
+    ctx.stroke();
+  }
+  // Pilastras verticales con estrías y remate en punta en cada piso
+  for (const px of PX) {
+    const g = ctx.createLinearGradient(px - 13, 0, px + 13, 0);
+    g.addColorStop(0, '#e6dbc0'); g.addColorStop(0.7, '#d2c4a2'); g.addColorStop(1, '#a8976f');
+    ctx.fillStyle = g; ctx.fillRect(px - 13, 0, 26, H);
+    ctx.strokeStyle = 'rgba(120,104,72,0.45)'; ctx.lineWidth = 1;
+    for (const dx of [-6, 0, 6]) { ctx.beginPath(); ctx.moveTo(px + dx, 0); ctx.lineTo(px + dx, H); ctx.stroke(); }
+    for (let f = Math.floor((H - 20 - top - H) / FH) - 1; f <= Math.floor((H - 20 - top) / FH) + 1; f++) {
+      const yt = H - 20 - f * FH - top - FH;
+      ctx.fillStyle = '#e9dfc6'; ctx.fillRect(px - 16, yt - 10, 32, 10); ctx.fillRect(px - 11, yt - 18, 22, 8);
+      ctx.fillStyle = '#d8cbab'; ctx.beginPath(); ctx.moveTo(px - 8, yt - 18); ctx.lineTo(px, yt - 34); ctx.lineTo(px + 8, yt - 18); ctx.fill();
+      ctx.fillStyle = 'rgba(90,76,50,0.35)'; ctx.fillRect(px + 9, yt - 18, 2, 18);
+    }
+  }
+  if (S.phase === 2) { ctx.fillStyle = `rgba(255,90,0,${0.06 + Math.sin(S.t / 20) * 0.025})`; ctx.fillRect(0, 0, W, H); }
 }
 
 // Rellena la franja visible [a, b) (mundo) con un material
@@ -3896,6 +4111,7 @@ function drawWorld() {
   drawKittens();
   drawGrassFires();
   drawGas();
+  if (MODS[S.mod] && MODS[S.mod].innerTimer) drawInnerTimers();
   drawPlayer();
   drawCureBar();
   drawCatBar();
