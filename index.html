@@ -139,8 +139,12 @@ for (const pose of ['idle', 'salto', 'aire', 'aterriza'])
   for (let i = 1; i <= STAGES; i++) loadImg(`${pose}_${i}`, `img/bombero/${pose}_${i}.png`);
 for (let i = 1; i <= STAGES; i++)
   for (let f = 1; f <= 6; f++) loadImg(`camina_${i}_${f}`, `img/bombero/camina_${i}_${f}.png`);
-for (let f = 1; f <= 5; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
-for (let f = 1; f <= 3; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
+for (let f = 1; f <= 7; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
+for (let f = 1; f <= 5; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
+// Recibir daño: impacto, retroceso y se recompone (40 cuadros). Derrota: retrocede, cae de rodillas y se desvanece.
+const HURT_SEQ = [2, 3, 4, 5, 4, 3, 2];
+const DIE_SEQ = [[0, 'dano_3'], [8, 'dano_5'], [18, 'dano_6'], [28, 'dano_7'], [40, 'derrota_1'], [56, 'derrota_2'],
+  [72, 'derrota_3'], [88, 'derrota_4'], [104, 'derrota_5']];
 for (let f = 1; f <= 3; f++) loadImg(`halligan_${f}`, `img/bombero/halligan_${f}.png`);
 for (let f = 1; f <= 3; f++) loadImg(`piton_${f}`, `img/bombero/piton_${f}.png`);
 for (let f = 1; f <= 5; f++) loadImg(`palanca_${f}`, `img/bombero/palanca_${f}.png`);
@@ -4486,9 +4490,9 @@ function drawPlayer() {
     : S.mod === 'ascensor' ? (S.have.casco ? 'c' : 3) : Math.min(STAGES, 1 + S.epp);
   let key = `idle_${stage}`, h = 70, rot = 0;
   if (S.state === 'dying' || S.state === 'over') {
-    key = `derrota_${S.dieT < 25 ? 1 : S.dieT < 55 ? 2 : 3}`; h = 0;
+    key = DIE_SEQ.filter(([t]) => S.dieT >= t).pop()[1]; h = 0;
   } else if (S.hurtT > 0) {
-    key = `dano_${2 + Math.min(3, Math.floor((40 - S.hurtT) / 10))}`; h = 0;
+    key = `dano_${HURT_SEQ[Math.min(HURT_SEQ.length - 1, Math.floor((40 - S.hurtT) / 40 * HURT_SEQ.length))]}`; h = 0;
   } else if (S.halT > 0) {
     const f = S.tool === 'palanca' ? Math.min(5, 1 + Math.floor((LEV_T - S.halT) / 12))
       : S.halT > 27 ? 1 : S.halT > HAL_HIT ? 2 : 3;
