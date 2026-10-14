@@ -53,19 +53,7 @@
   #controls.medmode .med{display:block}
   #controls .lamp.on img{filter:drop-shadow(0 0 10px #ffe9a0) drop-shadow(0 2px 3px #000a)}
   #controls.on{display:flex}
-  #controls.tilt .grp, #controls.joymode .grp{visibility:hidden}
-  /* Joystick (modo 🕹️): base abajo a la izquierda con una perilla que se arrastra */
-  #controls .joy{display:none;position:absolute;left:14px;bottom:4px;width:132px;height:132px;border-radius:50%;
-    pointer-events:auto;touch-action:none;background:radial-gradient(circle,#2a2a2ecc 0 55%,#111c 56% 100%);
-    box-shadow:0 0 0 4px #c1121f inset,0 0 0 7px #111a inset,0 3px 8px #000a}
-  #controls .joy::before,#controls .joy::after{content:'◀';position:absolute;top:50%;left:12px;transform:translateY(-50%);
-    color:#fff6;font:16px sans-serif}
-  #controls .joy::after{content:'▶';left:auto;right:12px}
-  #controls .joy .knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;
-    background:radial-gradient(circle at 35% 30%,#ff6b6b,#c1121f 55%,#7a0b12);box-shadow:0 0 0 3px #111,0 3px 6px #000a;
-    pointer-events:none}
-  #controls.joymode .joy{display:block}
-  #mute,#full,#tilt{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
+  #mute{position:fixed;z-index:4;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#000a;
     font-size:18px;line-height:34px;touch-action:none;-webkit-tap-highlight-color:transparent}
   /* Volver al menú: en la barra superior, a la izquierda de los corazones */
   #back{position:fixed;z-index:4;display:none;width:30px;height:30px;padding:0;border:0;border-radius:8px;
@@ -85,12 +73,9 @@
 <div id="wrap">
   <canvas id="c"></canvas>
   <button id="mute" aria-label="Sonido">🔊</button>
-  <button id="full" aria-label="Pantalla completa">⛶</button>
-  <button id="tilt" aria-label="Control: flechas o inclinación">⬅➡</button>
   <button id="back" aria-label="Volver al menú">‹</button>
   <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
   <div id="controls">
-    <div class="joy" aria-label="Joystick"><div class="knob"></div></div>
     <div class="row">
       <div class="grp">
         <button data-k="left" class="move" aria-label="Izquierda"><img src="img/botones/izquierda.png" alt=""></button>
@@ -133,10 +118,6 @@ function resize() {
   // Botón de sonido: esquina superior derecha del juego, bajo la barra del HUD
   const r = cv.getBoundingClientRect(), mb = document.getElementById('mute');
   mb.style.left = (r.right - 42) + 'px'; mb.style.top = (r.top + 40 * s) + 'px';
-  const fb = document.getElementById('full');
-  fb.style.left = (r.right - 42) + 'px'; fb.style.top = (r.top + 40 * s + 40) + 'px';
-  const tb = document.getElementById('tilt');
-  tb.style.left = (r.right - 42) + 'px'; tb.style.top = (r.top + 40 * s + 80) + 'px';
   const bb = document.getElementById('back');
   bb.style.left = (r.left + 4 * s) + 'px'; bb.style.top = (r.top + 17 * s - 15) + 'px';
 }
@@ -959,7 +940,7 @@ const showMute = () => muteBtn.textContent = SFX.muted ? '🔇' : '🔊';
 showMute();
 muteBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); SFX.toggleMute(); showMute(); });
 
-// Pantalla completa: en el celular se activa sola al empezar a jugar; el botón ⛶ la quita o la pone.
+// Pantalla completa: en el navegador del celular se activa sola al empezar a jugar (la app ya abre así).
 // En iPhone el navegador no lo permite: ahí se usa "Añadir a pantalla de inicio" (abre sin barras).
 const FS = {
   el: document.documentElement,
@@ -972,10 +953,6 @@ const FS = {
   },
   exit() { (document.exitFullscreen || document.webkitExitFullscreen).call(document); },
 };
-const fullBtn = document.getElementById('full');
-const installed = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
-if (!FS.can() || installed) fullBtn.style.display = 'none';
-fullBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); FS.on ? FS.exit() : FS.enter(); });
 // Al entrar o salir de pantalla completa cambia el tamaño disponible
 for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => setTimeout(resize, 50));
 
@@ -989,128 +966,6 @@ backBtn.addEventListener('pointerdown', e => {
   toast('Toca ‹ otra vez para volver al menú', '#ffd166');
 });
 
-// Control por inclinación del celular (opcional, en lugar de las flechas). El botón cambia entre
-// flechas ⬅➡ y tres sensibilidades (suave, normal, rápida), y queda guardado.
-// Se lee el acelerómetro con gravedad: a diferencia del ángulo "gamma", no se vuelve inestable con el
-// celular vertical. La velocidad es proporcional a la inclinación (como en Doodle Jump), sin retrasos.
-// Al empezar cada partida, la posición en que se tiene el celular cuenta como "derecho".
-const TILT_LEVELS = [null, { name: 'suave', full: 24 }, { name: 'normal', full: 17 }, { name: 'rápida', full: 11 }];
-const Tilt = {
-  level: 0, x: 0, ang: 0, zero: 0, got: false, listening: false,
-  // iPhone entrega el acelerómetro con el signo al revés; se corrige y además se verifica con la orientación
-  flip: /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
-  btn: document.getElementById('tilt'),
-  get on() { return this.level > 0; },
-  init() {
-    // El botón aparece en todo celular/tableta (flechas y joystick); la inclinación solo si hay sensor
-    // (los navegadores lo ocultan en páginas sin https, por ejemplo al probar por la red local)
-    if (!matchMedia('(pointer: coarse)').matches) { this.btn.style.display = 'none'; return; }
-    this.sensor = !!window.DeviceMotionEvent;
-    try { this.level = clamp(+localStorage.getItem('firejump_tilt2') || 0, 0, 3); } catch (e) {}
-    if (!this.sensor) this.level = 0;
-    // En iPhone el permiso se pide con un toque: si está guardado, se vuelve a pedir al tocar el botón
-    if (this.on && typeof DeviceMotionEvent.requestPermission === 'function') this.level = 0;
-    if (this.on) this.listen();
-    this.btn.addEventListener('pointerdown', e => e.stopPropagation());
-    this.btn.addEventListener('click', e => { e.stopPropagation(); this.toggle(); });
-    this.show();
-  },
-  listen() {
-    if (this.listening) return;
-    this.listening = true;
-    addEventListener('devicemotion', e => this.read(e));
-    addEventListener('deviceorientation', e => this.checkSign(e));
-  },
-  // Gravedad en el eje horizontal de la pantalla (según cómo esté girada) → ángulo lateral en grados
-  read(e) {
-    const g = e.accelerationIncludingGravity;
-    if (!g || g.x == null) return;
-    const a = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
-    let side = a === 90 ? -g.y : a === 270 || a === -90 ? g.y : a === 180 ? -g.x : g.x;
-    const other = a === 90 || a === 270 || a === -90 ? g.x : g.y;
-    if (!this.flip) side = -side;   // Android: inclinar a la derecha da x negativo
-    const ang = Math.atan2(side, Math.hypot(other, g.z || 0)) * 180 / Math.PI;
-    this.ang = this.got ? this.ang * 0.35 + ang * 0.65 : ang;   // filtro leve contra el pulso de la mano
-    this.got = true;
-    const L = TILT_LEVELS[this.level];
-    if (!L) { this.x = 0; return; }
-    const d = this.ang - this.zero, dead = 2;
-    this.x = Math.abs(d) < dead ? 0 : Math.sign(d) * Math.min(1, (Math.abs(d) - dead) / (L.full - dead));
-  },
-  // Con el celular no muy vertical, gamma es confiable: si contradice al acelerómetro, se invierte el signo
-  checkSign(e) {
-    if (e.gamma == null || e.beta == null || Math.abs(e.beta) > 55 || Math.abs(e.gamma) < 12 || Math.abs(this.ang) < 8) return;
-    if (Math.sign(e.gamma) !== Math.sign(this.ang)) { this.flip = !this.flip; this.ang = -this.ang; this.zero = -this.zero; }
-  },
-  calibrate() { this.zero = this.got ? clamp(this.ang, -25, 25) : 0; },
-  // ⬅➡ → suave → normal → rápida → ⬅➡
-  toggle() {
-    // ⬅➡ → 🕹️ → 📱1 → 📱2 → 📱3 → ⬅➡
-    if (!this.on && !Joy.on) { Joy.set(true); this.show(); updateControls(); toast('Control con joystick: arrastra la perilla', '#7f7'); return; }
-    if (Joy.on) Joy.set(false);
-    if (!this.sensor) {   // sin sensor: solo flechas y joystick
-      this.set(0); toast('Control con flechas (la inclinación necesita el enlace https)', '#ccc'); return;
-    }
-    const next = (this.level + 1) % TILT_LEVELS.length;
-    if (!next) { this.set(0); toast('Control con flechas', '#ccc'); return; }
-    if (this.on) { this.set(next); toast(`Inclinación ${TILT_LEVELS[next].name}`, '#7f7'); return; }
-    const DME = window.DeviceMotionEvent, DOE = window.DeviceOrientationEvent;
-    const go = () => {
-      this.listen(); this.set(next); this.calibrate();
-      toast(`Inclinación ${TILT_LEVELS[next].name}: inclina el celular para moverte`, '#7f7');
-      // Sin datos del sensor (por ejemplo, la página no está en https): se vuelve a las flechas
-      setTimeout(() => { if (this.on && !this.got) { this.set(0); toast('Este navegador no deja usar la inclinación', '#ff8a8a'); } }, 1500);
-    };
-    if (typeof DME.requestPermission === 'function') {
-      DME.requestPermission().then(r => {
-        if (r !== 'granted') { toast('Sin permiso para usar la inclinación', '#ff8a8a'); return; }
-        if (DOE && typeof DOE.requestPermission === 'function') DOE.requestPermission().catch(() => {});
-        go();
-      }).catch(() => {});
-    } else go();
-  },
-  set(level) {
-    this.level = level; this.x = 0;
-    try { localStorage.setItem('firejump_tilt2', String(level)); } catch (e) {}
-    this.show(); updateControls();
-  },
-  show() { this.btn.textContent = this.on ? '📱' + this.level : Joy.on ? '🕹️' : '⬅➡'; },
-};
-// Joystick: la perilla se arrastra en horizontal; x va de -1 a 1 (gradual, con margen al centro)
-const Joy = {
-  on: false, x: 0, id: null,
-  el: document.querySelector('#controls .joy'),
-  init() {
-    try { this.on = localStorage.getItem('firejump_joy') === '1' && matchMedia('(pointer: coarse)').matches; } catch (e) {}
-    const knob = this.el.querySelector('.knob'), R = 44;
-    const move = e => {
-      const r = this.el.getBoundingClientRect();
-      let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-      const d = Math.hypot(dx, dy);
-      if (d > R) { dx *= R / d; dy *= R / d; }
-      knob.style.transform = `translate(${dx}px,${dy}px)`;
-      const k = dx / R;
-      this.x = Math.abs(k) < 0.15 ? 0 : Math.sign(k) * Math.min(1, (Math.abs(k) - 0.15) / 0.75);
-    };
-    const end = e => {
-      if (e.pointerId !== this.id) return;
-      this.id = null; this.x = 0; knob.style.transform = '';
-    };
-    this.el.addEventListener('pointerdown', e => {
-      e.preventDefault(); e.stopPropagation();
-      this.id = e.pointerId; move(e);
-      try { this.el.setPointerCapture(e.pointerId); } catch (err) {}   // sigue al dedo aunque salga del círculo
-    });
-    this.el.addEventListener('pointermove', e => { if (e.pointerId === this.id) move(e); });
-    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) this.el.addEventListener(ev, end);
-  },
-  set(on) {
-    this.on = on; this.x = 0;
-    try { localStorage.setItem('firejump_joy', on ? '1' : '0'); } catch (e) {}
-  },
-};
-Joy.init();
-Tilt.init();
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && document.activeElement !== nameIn) { SFX.toggleMute(); showMute(); } });
 
 // Ranking TOP 10 compartido en Firebase (Firestore, por su API REST). Si no hay conexión,
@@ -1268,7 +1123,6 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
   updateControls();
   if (state === 'play') toast(MODS[mod] ? MODS[mod].start : 'Salta de ventana en ventana y recoge tu EPP', '#ffd166');
   if (state === 'play' && matchMedia('(pointer: coarse)').matches) FS.enter();
-  if (state === 'play') Tilt.calibrate();
 }
 
 const DOOR_COLORS = ['#6b3f1f', '#4a5d3a', '#3b4a6b', '#7a2e2e'];
@@ -1938,8 +1792,6 @@ function updateControls() {
     c.querySelector('.forest img').src = S.have.mochilaf ? 'img/botones/mochila_forestal.png' : 'img/botones/batefuego.png';
   }
   if (S.mod === 'gatos') c.classList.toggle('tools', S.carrier);
-  c.classList.toggle('tilt', Tilt.on);
-  c.classList.toggle('joymode', Joy.on && !Tilt.on);
   c.querySelector('.lamp').classList.toggle('on', S.lamp);
 }
 
@@ -2242,7 +2094,7 @@ cv.addEventListener('pointerdown', e => { if (S.state !== 'play') handleTap(e); 
 // Mientras el dedo siga apoyado el salto es más alto; un toque corto da un salto corto.
 const jumpPtrs = new Set();
 document.getElementById('wrap').addEventListener('pointerdown', e => {
-  if (S.state !== 'play' || e.target.closest('button, input, .joy')) return;
+  if (S.state !== 'play' || e.target.closest('button, input')) return;
   e.preventDefault();
   S.p.buf = 8; keys.jump = true; jumpPtrs.add(e.pointerId);
 }, true);   // en captura: el toque que inicia la partida desde el menú no cuenta como salto
@@ -2272,9 +2124,9 @@ function update() {
   if (keys.hose && S.halT === 0 && toolOk('piton') && !S.hoseLock) S.hoseT++; else S.hoseT = 0;
   const busy = S.halT > 0 || S.hoseT > 0 || S.cureT > 0 || S.gasT > 0 || S.keyT > 0 || S.catT > 0 || S.beatT > 0;
   // Flechas/teclado (-1, 0, 1) y, si está activa, la inclinación del celular (gradual)
-  const ix = busy && p.ground ? 0 : clamp((keys.left ? -1 : 0) + (keys.right ? 1 : 0) + (Tilt.on ? Tilt.x : Joy.on ? Joy.x : 0), -1, 1);
+  const ix = busy && p.ground ? 0 : (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
   if (ix) p.dir = Math.sign(ix);
-  p.vx += (ix * 5 - p.vx) * (Tilt.on || Joy.on ? 0.5 : 0.25);   // con inclinación o joystick responde más directo
+  p.vx += (ix * 5 - p.vx) * 0.25;
   p.x += p.vx;
   if (p.x < -15) p.x = W + 15;
   if (p.x > W + 15) p.x = -15;
@@ -4858,10 +4710,6 @@ function drawMenu() {
   ctx.fillStyle = '#000a'; ctx.fillRect(W / 2 - 80, 598, 160, 30);
   ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 80, 598, 160, 30);
   ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 614);
-  if (Tilt.btn.style.display !== 'none') {
-    ctx.font = font(12); ctx.textAlign = 'left'; ctx.fillStyle = '#aaa';
-    ctx.fillText(Tilt.on ? `Control: inclinación ${TILT_LEVELS[Tilt.level].name} 📱` : Joy.on ? 'Control: joystick 🕹️' : 'Control: flechas ⬅➡', 10, 18);
-  }
 }
 
 // Pantalla final: desglose del puntaje, total sobre 1000 y récord
