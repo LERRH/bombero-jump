@@ -111,7 +111,12 @@
 </div>
 
 <script>
-const W = 400, H = 640;
+const W = 400;
+// El ancho del juego es fijo; el alto se adapta a la proporción de la pantalla (una sola vez al abrir),
+// así en celulares altos se ve más edificio y no quedan franjas negras. Los menús se diseñaron para 640
+// de alto y se dibujan centrados (UIY = margen superior).
+const H = Math.round(Math.min(960, Math.max(640, W * (innerHeight / Math.max(1, innerWidth)))));
+const UIY = Math.round((H - 640) / 2);
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
 dark.width = W; dark.height = H;
@@ -1185,12 +1190,12 @@ nameIn.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'En
 function placeNameBox(y) {
   const r = cv.getBoundingClientRect(), k = r.width / W;
   nameBox.style.left = (r.left + r.width / 2 - 125) + 'px';
-  nameBox.style.top = (r.top + y * k - 24) + 'px';
+  nameBox.style.top = (r.top + (y + UIY) * k - 24) + 'px';
 }
 
 // Toques sobre el canvas en las pantallas de inicio y final
 function handleTap(e) {
-  const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) * H / r.height;
+  const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) * H / r.height - UIY;
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
   if (S.state === 'menu') {
     if (S.view === 'rank') { S.view = 'menu'; return; }
@@ -4765,7 +4770,7 @@ function moduleButton(label, sub, y, pulse) {
 // Pantalla con los 14 módulos en dos columnas
 const TILE = { x: [12, 206], y0: 66, dy: 74, w: 182, h: 66 };
 function drawModsScreen() {
-  ctx.fillStyle = '#0b0f18'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#0b0f18'; ctx.fillRect(0, -UIY, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(24); ctx.fillStyle = '#ffd166'; ctx.fillText('MÓDULOS DE ENTRENAMIENTO', W / 2, 32);
   const pr = Progress.get();
@@ -4788,12 +4793,12 @@ function drawModsScreen() {
 
 // Pantalla de inicio: logo, chispas y botones de los módulos
 function drawMenu() {
-  const g = ctx.createLinearGradient(0, 0, 0, H);
+  const g = ctx.createLinearGradient(0, -UIY, 0, H - UIY);
   g.addColorStop(0, '#091220'); g.addColorStop(0.6, '#0e121c'); g.addColorStop(1, '#3a1206');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = g; ctx.fillRect(0, -UIY, W, H);
   const t = performance.now() / 1000;
   for (let i = 0; i < 40; i++) {   // chispas que suben
-    const x = (i * 97 + Math.sin(t + i) * 20) % W, y = H - ((t * (30 + (i % 7) * 12) + i * 53) % (H + 40));
+    const x = (i * 97 + Math.sin(t + i) * 20) % W, y = H - UIY - ((t * (30 + (i % 7) * 12) + i * 53) % (H + 40));
     ctx.globalAlpha = 0.4 + (i % 5) * 0.12;
     ctx.fillStyle = i % 3 ? '#ff8c1a' : '#ffd23f';
     ctx.fillRect(x, y, 2 + (i % 3), 2 + (i % 3));
@@ -4823,7 +4828,7 @@ function drawMenu() {
 // Pantalla final: desglose del puntaje, total sobre 1000 y récord
 function drawScoreScreen(title, color) {
   const F = S.final || computeScore(false);
-  ctx.fillStyle = '#000d'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#000d'; ctx.fillRect(0, -UIY, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(32); ctx.fillStyle = color; ctx.fillText(title, W / 2, 90);
   const m = Math.floor(F.secs / 60), sec = String(Math.floor(F.secs % 60)).padStart(2, '0');
@@ -4850,7 +4855,7 @@ function drawScoreScreen(title, color) {
 // Pantalla final del entrenamiento: estrellas, tiempo y caídas
 function drawTrainScreen(title, color) {
   const F = S.final;
-  ctx.fillStyle = '#000d'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#000d'; ctx.fillRect(0, -UIY, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(30); ctx.fillStyle = color; ctx.fillText(title, W / 2, 110);
   ctx.font = font(15); ctx.fillStyle = '#ffd166'; ctx.fillText(MODS[S.mod].title, W / 2, 150);
@@ -4877,7 +4882,7 @@ function drawTrainScreen(title, color) {
 
 // Pantalla del ranking: los 10 mejores; si el puntaje entra, pide el nombre
 function drawRankScreen(fromMenu) {
-  ctx.fillStyle = '#000e'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#000e'; ctx.fillRect(0, -UIY, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(36); ctx.fillStyle = '#3a0d00'; ctx.fillText('🏆 TOP 10', W / 2 + 2, 72);
   ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 TOP 10', W / 2, 70);
@@ -4913,7 +4918,7 @@ function drawRankScreen(fromMenu) {
 }
 
 function drawScreen(title, lines, color) {
-  ctx.fillStyle = '#000c'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#000c'; ctx.fillRect(0, -UIY, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(34); ctx.fillStyle = color;
   ctx.fillText(title, W / 2, 150);
@@ -4930,10 +4935,11 @@ function draw() {
   drawDarkness();
   if (inside()) drawFlicker();
   ctx.restore();
+  ctx.save(); ctx.translate(0, UIY);   // menús y pantallas finales centrados
   if (S.state === 'menu') {
     if (S.view === 'rank') drawRankScreen(true); else if (S.view === 'mods') drawModsScreen(); else drawMenu();
   } else {
-    drawHUD();
+    ctx.save(); ctx.translate(0, -UIY); drawHUD(); ctx.restore();
     if (MODS[S.mod] && S.state === 'win' && S.winT < 170) {
       ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
@@ -4950,6 +4956,7 @@ function draw() {
       if (S.view === 'rank') drawRankScreen(false); else drawScoreScreen('¡VÍCTIMA RESCATADA!', '#7f7');
     }
   }
+  ctx.restore();
 }
 
 // Bucle a 60 pasos/seg fijos
