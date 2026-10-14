@@ -1139,9 +1139,9 @@ function handleTap(e) {
       });
       return;
     }
-    if (Math.abs(y - 614) < 18) { refreshRank(); S.view = 'rank'; return; }
+    if (SHOW_EMERGENCY && Math.abs(y - 614) < 18) { refreshRank(); S.view = 'rank'; return; }
     if (Math.abs(y - MENU_Y.modulos) < 27) { S.view = 'mods'; return; }
-    if (Math.abs(y - MENU_Y.emergencia) < 27) newGame('play', 'emergencia');
+    if (SHOW_EMERGENCY && Math.abs(y - MENU_Y.emergencia) < 27) newGame('play', 'emergencia');
     return;
   }
   // Módulos de entrenamiento: sin ranking, solo reintentar o volver al menú
@@ -4697,7 +4697,9 @@ function tapButton(label, y) {
 }
 
 // Botones de los módulos en el menú (el primero late)
-const MENU_Y = { modulos: 450, emergencia: 520 };
+// Por ahora el menú solo tiene MÓDULOS; la Emergencia y el ranking quedan guardados para adaptarlos después
+const SHOW_EMERGENCY = false;
+const MENU_Y = { modulos: SHOW_EMERGENCY ? 450 : 480, emergencia: 520 };
 function moduleButton(label, sub, y, pulse) {
   const k = pulse ? 1 + Math.sin(performance.now() / 260) * 0.04 : 1;
   ctx.save(); ctx.translate(W / 2, y); ctx.scale(k, k);
@@ -4767,11 +4769,13 @@ function drawMenu() {
   const pr = Progress.get(), st = n => '★'.repeat(n || 0) + '☆'.repeat(3 - (n || 0));
   const got = MOD_LIST.reduce((a, [id]) => a + (pr[id] || 0), 0), playable = MOD_LIST.filter(([id]) => MODS[id]).length;
   moduleButton('MÓDULOS', `${MOD_LIST.length} entrenamientos · ★ ${got}/${playable * 3}`, MENU_Y.modulos, true);
-  moduleButton('EMERGENCIA', 'Todo junto · ranking mundial', MENU_Y.emergencia, false);
-  ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#000a'; ctx.fillRect(W / 2 - 80, 598, 160, 30);
-  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 80, 598, 160, 30);
-  ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 614);
+  if (SHOW_EMERGENCY) moduleButton('EMERGENCIA', 'Todo junto · ranking mundial', MENU_Y.emergencia, false);
+  if (SHOW_EMERGENCY) {
+    ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000a'; ctx.fillRect(W / 2 - 80, 598, 160, 30);
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 80, 598, 160, 30);
+    ctx.fillStyle = '#ffd166'; ctx.fillText('🏆 RANKING', W / 2, 614);
+  }
 }
 
 // Pantalla final: desglose del puntaje, total sobre 1000 y récord
