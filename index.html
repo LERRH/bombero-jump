@@ -1238,7 +1238,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     state, mod, falls: 0, prevCx: W / 2, medic: false, bagToPlace: mod === 'medico', grassOut: 0, grassTotal: 0, beatT: 0, gfTarget: null, gfWarned: false, carrier: false, sackToPlace: mod === 'gatos', catT: 0, cats: 0, catTotal: 0, catWarned: false, catTarget: null, cureT: 0, cured: 0, injTotal: 0, injWarned: false, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
-    itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, banner: null,
+    itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, levelMax: -1, banner: null,
     goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, poles: [], shock: 0, hoseLock: false, poleWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
   };
   SFX.music(state !== 'play' ? 0 : (MODS[mod] && MODS[mod].music) || 1); SFX.jet(0);
@@ -2507,7 +2507,11 @@ function update() {
   }
   // Cartel al entrar a cada nivel
   const lv = levelAt(p.y);
-  if (lv && lv.i !== S.levelIdx) { S.levelIdx = lv.i; S.banner = { lv, t: 200 }; SFX.play('alert'); }
+  // Aviso de nivel: solo la primera vez que se llega a un nivel nuevo (al bajar no se repite)
+  if (lv && lv.i !== S.levelIdx) {
+    S.levelIdx = lv.i;
+    if (lv.i > S.levelMax) { S.levelMax = lv.i; S.banner = { lv, t: BANNER_T }; SFX.play('alert'); }
+  }
   if (S.banner && --S.banner.t <= 0) S.banner = null;
 
   // Personas atrapadas a la vista gritan cada 3–5 s
@@ -4687,6 +4691,7 @@ function drawDarkness() {
   }
 }
 
+const BANNER_T = 150;   // 2,5 s
 function drawHUD() {
   ctx.fillStyle = '#000a'; ctx.fillRect(0, 0, W, 34);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
@@ -4699,17 +4704,17 @@ function drawHUD() {
   ctx.textAlign = 'right';
   ctx.fillText(Math.max(0, Math.round((H - 20 - S.p.y) / 30)) + ' m', W - 8, 17);
   if (S.banner) {
-    const b = S.banner, a = clamp(Math.min(b.t, 200 - b.t) / 25, 0, 1);
+    // Aviso compacto bajo la barra superior: nivel, nombre y consejo en una franja delgada
+    const b = S.banner, a = clamp(Math.min(b.t, BANNER_T - b.t) / 18, 0, 1), y = 40;
+    ctx.globalAlpha = a * 0.92;
+    ctx.fillStyle = '#000b'; ctx.fillRect(0, y, W, 38);
+    ctx.fillStyle = '#ffd166'; ctx.fillRect(0, y + 37, W * (b.t / BANNER_T), 1.5);
     ctx.globalAlpha = a;
-    ctx.fillStyle = '#000c'; ctx.fillRect(20, 120, W - 40, 86);
-    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.strokeRect(20, 120, W - 40, 86);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = font(13); ctx.fillStyle = '#ffd166';
-    ctx.fillText(`NIVEL ${b.lv.i + 1} DE ${S.levels.length}`, W / 2, 138);
-    ctx.font = font(22); ctx.fillStyle = '#fff';
-    ctx.fillText(b.lv.name.toUpperCase(), W / 2, 163);
-    ctx.font = font(12); ctx.fillStyle = '#ddd';
-    ctx.fillText(b.lv.hint, W / 2, 189, W - 56);
+    ctx.font = font(14); ctx.fillStyle = '#ffd166';
+    ctx.fillText(`NIVEL ${b.lv.i + 1}/${S.levels.length} · ${b.lv.name.toUpperCase()}`, W / 2, y + 12, W - 20);
+    ctx.font = font(11); ctx.fillStyle = '#ddd';
+    ctx.fillText(b.lv.hint, W / 2, y + 28, W - 20);
     ctx.globalAlpha = 1;
   }
 
