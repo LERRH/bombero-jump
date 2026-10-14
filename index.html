@@ -1202,6 +1202,18 @@ function handleTap(e) {
     if (S.view === 'mods') {
       const x = (e.clientX - r.left) * W / r.width;
       if (y > 590) { S.view = 'menu'; return; }
+      if (y < 56) {   // truco oculto
+        const now = performance.now();
+        S.cheat = (S.cheat && now - S.cheatT < 1500) ? S.cheat + 1 : 1; S.cheatT = now;
+        if (S.cheat >= 5) {
+          S.cheat = 0;
+          const on = !unlockAll();
+          try { localStorage.setItem('firejump_unlockall', on ? '1' : '0'); } catch (err) {}
+          S.lockMsg = { text: on ? '🔓 Todos los módulos desbloqueados' : '🔒 Desbloqueo progresivo activado', t: 150 };
+          SFX.play('tools');
+        }
+        return;
+      }
       MOD_LIST.forEach(([id], i) => {
         const tx = TILE.x[i % 2], ty = TILE.y0 + Math.floor(i / 2) * TILE.dy;
         if (x > tx && x < tx + TILE.w && y > ty && y < ty + TILE.h) {
@@ -1628,9 +1640,11 @@ const MOD_LIST = [
   ['extremo', 'EXTREMO'], ['reloj', 'CONTRARRELOJ'],
 ];
 // Un módulo se desbloquea al superar (llegar a la azotea con al menos ★) el anterior de la lista
+// Truco: 5 toques seguidos sobre el título "MÓDULOS DE ENTRENAMIENTO" desbloquea (o vuelve a bloquear) todo
+const unlockAll = () => { try { return localStorage.getItem('firejump_unlockall') === '1'; } catch (e) { return false; } };
 function modUnlocked(id) {
   const i = MOD_LIST.findIndex(m => m[0] === id);
-  if (i <= 0) return true;
+  if (i <= 0 || unlockAll()) return true;
   return (Progress.get()[MOD_LIST[i - 1][0]] || 0) > 0;
 }
 
@@ -4805,11 +4819,11 @@ function drawModsScreen() {
   });
   ctx.textAlign = 'center'; ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MENÚ', W / 2, 612);
   if (S.lockMsg && S.lockMsg.t-- > 0) {
-    const prev = MOD_LIST[S.lockMsg.i - 1][1];
+    const prev = S.lockMsg.text ? '' : MOD_LIST[S.lockMsg.i - 1][1];
     ctx.globalAlpha = Math.min(1, S.lockMsg.t / 20);
     ctx.fillStyle = '#000d'; ctx.fillRect(20, 581, W - 40, 24);
     ctx.font = font(14); ctx.fillStyle = '#ffd166';
-    ctx.fillText(`🔒 Primero supera el módulo ${S.lockMsg.i}: ${prev}`, W / 2, 593, W - 50);
+    ctx.fillText(S.lockMsg.text || `🔒 Primero supera el módulo ${S.lockMsg.i}: ${prev}`, W / 2, 593, W - 50);
     ctx.globalAlpha = 1;
   }
 }
