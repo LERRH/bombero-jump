@@ -28,12 +28,14 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 | 6 | Forestal (entorno listo; faltan matorrales, rocas/troncos que caen y ropa forestal) | 🚧 |
 | 7 | Ascensor (recoger llave, abrir ascensores con gente atrapada) | ✅ |
 | 8 | Fuego interno (recoger halligan) | ✅ |
-| 9 | Backdraft | ✅ |
-| 10 | Entrada forzada | ✅ |
-| 11 | Linterna (recoger linterna, humo) | ✅ |
-| 12 | Extremo (todo combinado) | ✅ |
-| 13 | Contrarreloj (el fuego sube desde abajo) | ✅ |
-| 14 | Postes eléctricos | próximamente |
+| 9 | Postes eléctricos (chorros intermitentes) | ✅ |
+| 10 | Backdraft | ✅ |
+| 11 | Entrada forzada | ✅ |
+| 12 | Linterna (recoger linterna, humo) | ✅ |
+| 13 | Extremo (todo combinado) | ✅ |
+| 14 | Contrarreloj (el fuego sube desde abajo) | ✅ |
+
+Cada módulo se desbloquea al superar el anterior.
 
 ## Niveles de la emergencia
 

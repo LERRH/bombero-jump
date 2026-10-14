@@ -1205,7 +1205,9 @@ function handleTap(e) {
       MOD_LIST.forEach(([id], i) => {
         const tx = TILE.x[i % 2], ty = TILE.y0 + Math.floor(i / 2) * TILE.dy;
         if (x > tx && x < tx + TILE.w && y > ty && y < ty + TILE.h) {
-          if (MODS[id]) newGame('play', id); else toast('Este módulo llegará pronto', '#ccc');
+          if (!MODS[id]) toast('Este módulo llegará pronto', '#ccc');
+          else if (!modUnlocked(id)) { S.lockMsg = { i, t: 120 }; SFX.play('click'); }
+          else newGame('play', id);
         }
       });
       return;
@@ -1622,45 +1624,53 @@ const TASK_RULE = '★ llegar  ·  ★★ la mitad de las tareas  ·  ★★★ 
 const MOD_LIST = [
   ['saltos', 'SALTOS'], ['medico', 'PARAMÉDICO'], ['fuego', 'FUEGO EXPUESTO'], ['gas', 'GAS STOP'],
   ['gatos', 'GATITOS'], ['forestal', 'FORESTAL'], ['ascensor', 'ASCENSOR'], ['interno', 'FUEGO INTERNO'],
-  ['backdraft', 'BACKDRAFT'], ['forzada', 'ENTRADA FORZADA'], ['linterna', 'LINTERNA'], ['extremo', 'EXTREMO'],
-  ['reloj', 'CONTRARRELOJ'], ['postes', 'POSTES ELÉCTRICOS'],
+  ['postes', 'POSTES ELÉCTRICOS'], ['backdraft', 'BACKDRAFT'], ['forzada', 'ENTRADA FORZADA'], ['linterna', 'LINTERNA'],
+  ['extremo', 'EXTREMO'], ['reloj', 'CONTRARRELOJ'],
 ];
+// Un módulo se desbloquea al superar (llegar a la azotea con al menos ★) el anterior de la lista
+function modUnlocked(id) {
+  const i = MOD_LIST.findIndex(m => m[0] === id);
+  if (i <= 0) return true;
+  return (Progress.get()[MOD_LIST[i - 1][0]] || 0) > 0;
+}
 
+// Título "MÓDULO N · NOMBRE" según la posición en la lista
+const modTitle = id => `MÓDULO ${MOD_LIST.findIndex(m => m[0] === id) + 1} · ${MODS[id].title}`;
 // Módulos de entrenamiento (sin ranking; se ganan estrellas al llegar a la azotea)
 // epp: se recoge el EPP antes; gear: empieza ya equipado; tools: herramientas del módulo;
 // pickups: herramientas que hay que recoger en el camino; tasks: estrellas por tareas; race: el fuego sube
 const MODS = {
-  fuego: { title: 'MÓDULO 3 · FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS, music: 9, facade: 'viejo',
+  fuego: { title: 'FUEGO EXPUESTO', epp: true, tools: ['piton'], tasks: true, levels: FIRE_LEVELS, music: 9, facade: 'viejo',
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: apaga todas las llamas', rule: TASK_RULE },
-  gatos: { title: 'MÓDULO 5 · GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS, music: 6,
+  gatos: { title: 'GATITOS', theme: 'tree', notools: true, levels: TREE_LEVELS, music: 6,
     start: 'Rescate nocturno: recoge la mochila para gatitos',
     rule: '★ llegar  ·  ★★ rescatar la mitad  ·  ★★★ rescatar a todos' },
-  forestal: { title: 'MÓDULO 6 · FORESTAL', theme: 'forest', notools: true, levels: FOREST_LEVELS, music: 7,
+  forestal: { title: 'FORESTAL', theme: 'forest', notools: true, levels: FOREST_LEVELS, music: 7,
     pickups: ['traje', 'batefuego', 'mochilaf'],
     start: 'Incendio forestal: recoge tu traje de bombero forestal', rule: '★ llegar  ·  ★★ apagar la mitad  ·  ★★★ apagar todos' },
-  ascensor: { title: 'MÓDULO 7 · ASCENSOR', gear: true, tools: ['llave'], pickups: ['casco', 'llave'], tasks: true, levels: ELEV_LEVELS, music: 8, facade: 'interior',
+  ascensor: { title: 'ASCENSOR', gear: true, tools: ['llave'], pickups: ['casco', 'llave'], tasks: true, levels: ELEV_LEVELS, music: 8, facade: 'interior',
     start: 'Rescate en ascensores: recoge tu casco', rule: TASK_RULE },
-  gas: { title: 'MÓDULO 4 · GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS, music: 5, facade: 'cemento',
+  gas: { title: 'GAS STOP', epp: true, tools: ['gasstop'], pickups: ['gasstop'], tasks: true, levels: GAS_LEVELS, music: 5, facade: 'cemento',
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge el Gas Stop', rule: TASK_RULE },
-  interno: { title: 'MÓDULO 8 · FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+  interno: { title: 'FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
     innerTimer: true, music: 10, facade: 'deco',
     levels: INNER_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
-  backdraft: { title: 'MÓDULO 9 · BACKDRAFT', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+  backdraft: { title: 'BACKDRAFT', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
     levels: BACKDRAFT_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
-  forzada: { title: 'MÓDULO 10 · ENTRADA FORZADA', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+  forzada: { title: 'ENTRADA FORZADA', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
     levels: FORCED_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
-  linterna: { title: 'MÓDULO 11 · LINTERNA', epp: true, tools: ['piton', 'halligan', 'linterna'], pickups: ['halligan', 'linterna'],
+  linterna: { title: 'LINTERNA', epp: true, tools: ['piton', 'halligan', 'linterna'], pickups: ['halligan', 'linterna'],
     tasks: true, levels: LAMP_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan y la linterna', rule: TASK_RULE },
-  extremo: { title: 'MÓDULO 12 · EXTREMO', epp: true, tools: ['piton', 'halligan', 'linterna'], tasks: true, levels: EXTREME_LEVELS,
+  extremo: { title: 'EXTREMO', epp: true, tools: ['piton', 'halligan', 'linterna'], tasks: true, levels: EXTREME_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Pitón, halligan y linterna: ¡todo junto!', rule: TASK_RULE },
-  postes: { title: 'MÓDULO 14 · POSTES ELÉCTRICOS', epp: true, tools: ['piton'], tasks: true, levels: POLE_LEVELS,
+  postes: { title: 'POSTES ELÉCTRICOS', epp: true, tools: ['piton'], tasks: true, levels: POLE_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: en la electricidad, solo chorros cortos', rule: TASK_RULE },
-  reloj: { title: 'MÓDULO 13 · CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], levels: RACE_LEVELS,
+  reloj: { title: 'CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], levels: RACE_LEVELS,
     start: '¡El fuego sube desde abajo! No te detengas', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
-  saltos: { title: 'MÓDULO 1 · SALTOS', levels: TRAIN_LEVELS,
+  saltos: { title: 'SALTOS', levels: TRAIN_LEVELS,
     start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto', time: [150, 210],
     rule: '★★★ menos de 2:30  ·  ★★ menos de 3:30  ·  ★ llegar' },
-  medico: { title: 'MÓDULO 2 · PARAMÉDICO', levels: MEDIC_LEVELS, music: 3,
+  medico: { title: 'PARAMÉDICO', levels: MEDIC_LEVELS, music: 3,
     start: 'Recoge tu maletín de abordaje',
     rule: '★ llegar  ·  ★★ curar la mitad  ·  ★★★ curar a todos' },
 };
@@ -4780,7 +4790,7 @@ function drawModsScreen() {
   ctx.font = font(24); ctx.fillStyle = '#ffd166'; ctx.fillText('MÓDULOS DE ENTRENAMIENTO', W / 2, 32);
   const pr = Progress.get();
   MOD_LIST.forEach(([id, name], i) => {
-    const x = TILE.x[i % 2], y = TILE.y0 + Math.floor(i / 2) * TILE.dy, soon = !MODS[id];
+    const x = TILE.x[i % 2], y = TILE.y0 + Math.floor(i / 2) * TILE.dy, soon = !MODS[id] || !modUnlocked(id);
     ctx.fillStyle = '#111'; ctx.fillRect(x - 2, y - 2, TILE.w + 4, TILE.h + 4);
     const g = ctx.createLinearGradient(0, y, 0, y + TILE.h);
     g.addColorStop(0, soon ? '#2a2d36' : '#d9481c'); g.addColorStop(1, soon ? '#1b1d24' : '#7a1d12');
@@ -4791,9 +4801,17 @@ function drawModsScreen() {
     ctx.fillText(name, x + 46, y + 23, TILE.w - 52);
     ctx.font = font(soon ? 11 : 15);
     ctx.fillStyle = soon ? '#777' : '#ffe9a8';
-    ctx.fillText(soon ? '🔒 PRÓXIMAMENTE' : '★'.repeat(pr[id] || 0) + '☆'.repeat(3 - (pr[id] || 0)), x + 46, y + 46);
+    ctx.fillText(!MODS[id] ? '🔒 PRÓXIMAMENTE' : soon ? '🔒 SUPERA EL ANTERIOR' : '★'.repeat(pr[id] || 0) + '☆'.repeat(3 - (pr[id] || 0)), x + 46, y + 46);
   });
   ctx.textAlign = 'center'; ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MENÚ', W / 2, 612);
+  if (S.lockMsg && S.lockMsg.t-- > 0) {
+    const prev = MOD_LIST[S.lockMsg.i - 1][1];
+    ctx.globalAlpha = Math.min(1, S.lockMsg.t / 20);
+    ctx.fillStyle = '#000d'; ctx.fillRect(20, 581, W - 40, 24);
+    ctx.font = font(14); ctx.fillStyle = '#ffd166';
+    ctx.fillText(`🔒 Primero supera el módulo ${S.lockMsg.i}: ${prev}`, W / 2, 593, W - 50);
+    ctx.globalAlpha = 1;
+  }
 }
 
 // Pantalla de inicio: logo, chispas y botones de los módulos
@@ -4863,7 +4881,7 @@ function drawTrainScreen(title, color) {
   ctx.fillStyle = '#000d'; ctx.fillRect(0, -UIY, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(30); ctx.fillStyle = color; ctx.fillText(title, W / 2, 110);
-  ctx.font = font(15); ctx.fillStyle = '#ffd166'; ctx.fillText(MODS[S.mod].title, W / 2, 150);
+  ctx.font = font(15); ctx.fillStyle = '#ffd166'; ctx.fillText(modTitle(S.mod), W / 2, 150);
   for (let i = 0; i < 3; i++) {
     const on = i < F.stars, pop = on ? 1 + Math.max(0, 1 - (S.winT - 170 - i * 15) / 12) * 0.4 : 1;
     ctx.save(); ctx.translate(W / 2 + (i - 1) * 78, 235); ctx.scale(Math.min(pop, 1.4), Math.min(pop, 1.4));
