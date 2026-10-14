@@ -1643,9 +1643,11 @@ const MOD_LIST = [
 // Truco: 5 toques seguidos sobre el título "MÓDULOS DE ENTRENAMIENTO" desbloquea (o vuelve a bloquear) todo
 const unlockAll = () => { try { return localStorage.getItem('firejump_unlockall') === '1'; } catch (e) { return false; } };
 function modUnlocked(id) {
-  const i = MOD_LIST.findIndex(m => m[0] === id);
-  if (i <= 0 || unlockAll()) return true;
-  return (Progress.get()[MOD_LIST[i - 1][0]] || 0) > 0;
+  if (unlockAll()) return true;
+  // En cadena: abierto solo si todos los anteriores están superados (no quedan módulos sueltos abiertos)
+  const i = MOD_LIST.findIndex(m => m[0] === id), pr = Progress.get();
+  for (let k = 0; k < i; k++) if (!(pr[MOD_LIST[k][0]] > 0)) return false;
+  return true;
 }
 
 // Título "MÓDULO N · NOMBRE" según la posición en la lista
