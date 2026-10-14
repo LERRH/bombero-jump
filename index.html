@@ -539,7 +539,7 @@ const SFX = (() => {
   const DRUM1 = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
   const DRUM2 = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1];
   const st = (f, n) => f * Math.pow(2, n / 12);
-  const spb = () => mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : mood === 9 ? 60 / 120 / 4 : mood === 10 ? 60 / 126 / 3 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
+  const spb = () => mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : mood === 9 ? 60 / 120 / 4 : mood === 10 ? 60 / 126 / 3 : mood === 11 ? 60 / 140 / 4 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
 
   // mood 7 = sabana (Forestal): ritmo africano en 12/8 con djembé y shaker, kalimba en pentatónica de La menor,
   // drone grave y terroso, una flauta lejana de vez en cuando, y el cerro ardiendo: fuego, chasquidos y viento.
@@ -668,6 +668,27 @@ const SFX = (() => {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(musicBus); send(g, 0.2); o.start(t); vib.start(t); o.stop(t + dur + 0.02); vib.stop(t + dur + 0.02);
   }
+  // mood 11 = Saltos: chiptune alegre de juego de plataformas en Do mayor (Do – Sol – Lam – Fa), 140 BPM.
+  // Melodía de onda cuadrada, bajo que rebota en octavas, arpegios brillantes, bombo, caja y charles.
+  const P_ROOT = [130.81, 98, 110, 87.31];
+  const P_CHORD = [[0, 4, 7], [0, 4, 7], [0, 3, 7], [0, 4, 7]];
+  const P_MEL = [[7, 9, 12, 9, 7, 4, 7, null], [2, 7, 11, 7, 2, -1, 2, null], [0, 4, 9, 4, 0, -3, 0, null], [5, 9, 12, 14, 12, 9, 7, null]];
+  const P_MEL2 = [[12, null, 12, 14, 16, 14, 12, null], [11, null, 7, 9, 11, 14, 11, null], [9, null, 12, 9, 7, 4, 7, null], [5, 7, 9, 12, 14, 12, 16, null]];
+  function playJump(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = P_ROOT[bar], ch = P_CHORD[bar];
+    if (s % 2 === 0) tone('triangle', s % 4 === 0 ? f : f * 2, s % 4 === 0 ? f : f * 2, d * 1.8, 0.2, at, musicBus);   // bajo que rebota
+    tone('square', st(f * 4, ch[s % 3]), st(f * 4, ch[s % 3]), d * 0.7, 0.018, at, musicBus);                       // arpegio brillante
+    if (s % 8 === 0) tone('sine', 150, 50, 0.14, 0.32, at, musicBus);                                                // bombo
+    if (s === 4 || s === 12) noise(0.07, 0.12, 'bandpass', 2200, 1500, at, 1.4, musicBus);                         // caja
+    if (s % 2 === 1) noise(0.02, 0.03, 'highpass', 9000, 9000, at, 1, musicBus);                                    // charles
+    const mel = (loopN % 2 ? P_MEL2 : P_MEL)[bar][s / 2];
+    if (s % 2 === 0 && mel !== null && mel !== undefined) {
+      const fm = st(523.25, mel);
+      tone('square', fm, fm, d * 1.7, 0.045, at, musicBus, 0.25);
+      tone('square', fm * 2, fm * 2, d * 0.5, 0.012, at, musicBus);   // brillo de octava
+    }
+  }
+
   function playHappy(at, d) {
     const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = J_ROOT[bar], ch = J_CHORD[bar];
     if (s % 4 === 0) pluck(f, at, d * 2, 0.3);                                    // bajo: fundamental…
@@ -809,6 +830,7 @@ const SFX = (() => {
     if (mood === 4) { playHero(at, d); return; }
     if (mood === 5) { playThriller(at, d); return; }
     if (mood === 6) { playHappy(at, d); return; }
+    if (mood === 11) { playJump(at, d); return; }
     if (mood === 7) { playSavanna(at, d); return; }
     if (mood === 8) { playLounge(at, d); return; }
     if (mood === 9) { playFlamenco(at, d); return; }
@@ -1207,7 +1229,7 @@ function gen() {
     const prevY = S.genY;
     const p = addPlat(x, y, w, TL && Math.random() < (TL.win || 0) ? { kind: 'window' } : {});
     if (attachTheme()) treeify(p);
-    if (TL && TL.crack) p.crackMax = TL.crack;
+    if (TL && TL.crack) p.crackMax = Math.round(TL.crack * 1.3);
     if (hurtHere) {
       p.injured = { who: pickWho(), side: Math.random() < 0.5 ? -1 : 1, state: 'hurt', t: 0 };
       S.injTotal++;
@@ -1283,6 +1305,8 @@ function gen() {
 
 // Alto total del dibujo de una plataforma (puerta o ventana + alféizar) más un margen
 const ART_H = 80;
+// Cuadros que aguanta un alféizar agrietado antes de romperse (~0,5 s); los niveles difíciles usan menos
+const CRACK_T = 32;
 // Escalera lateral de los techos cerrados: ancho del hueco y del descanso
 const STAIR_GAP = 70, STAIR_LANDING = 110;
 // Altura entre el techo y el descanso de la puerta: espacio para llegar saltando sin chocar
@@ -1541,7 +1565,7 @@ const MODS = {
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: en la electricidad, solo chorros cortos', rule: TASK_RULE },
   reloj: { title: 'CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], levels: RACE_LEVELS,
     start: '¡El fuego sube desde abajo! No te detengas', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
-  saltos: { title: 'SALTOS', levels: TRAIN_LEVELS,
+  saltos: { title: 'SALTOS', levels: TRAIN_LEVELS, music: 11,
     start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto', time: [150, 210],
     rule: '★★★ menos de 2:30  ·  ★★ menos de 3:30  ·  ★ llegar' },
   medico: { title: 'PARAMÉDICO', levels: MEDIC_LEVELS, music: 3,
@@ -2334,7 +2358,7 @@ function update() {
     pl.crackT++;
     const tree = theme() === 'tree', chips = tree ? ['#8a6a48', '#5e4630', '#a8916f'] : ['#c9c9c9', '#8d8d8d', '#a9a9a9'];
     if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, tree ? chips : ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
-    if (pl.crackT >= (pl.crackMax || 24)) {
+    if (pl.crackT >= (pl.crackMax || CRACK_T)) {
       pl.broken = true;
       SFX.play('crumble');
       for (let k = 0; k < 22; k++) {
@@ -3357,7 +3381,7 @@ function drawBranch(pl) {
   const left = pl.side < 0, dir = left ? 1 : -1;
   if (pl.fragile && pl.broken) { drawBrokenBranch(pl); return; }
   if (pl.fragile && pl.crackT) {   // cruje: tiembla y se dobla hacia abajo
-    const k = Math.min(1, pl.crackT / (pl.crackMax || 24)), xb0 = left ? pl.x : pl.x + pl.w;
+    const k = Math.min(1, pl.crackT / (pl.crackMax || CRACK_T)), xb0 = left ? pl.x : pl.x + pl.w;
     ctx.save(); ctx.translate(xb0 + rand(-1, 1) * k * 2, pl.y); ctx.rotate(dir * k * 0.12); ctx.translate(-xb0, -pl.y);
     drawBranchBody(pl, left, dir); ctx.restore(); return;
   }
