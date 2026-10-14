@@ -6,7 +6,7 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 
 ## Cómo se juega
 
-1. Recoge tu EPP en orden (pantalón, chaqueta, EPR, capucha, casco y guantes). No puedes seguir subiendo sin cada pieza.
+1. Recoge tu EPP en orden (botas, pantalón, chaqueta, EPR, capucha, casco y guantes). No puedes seguir subiendo sin cada pieza.
 2. Con el EPP completo recibes el pitón, la halligan y la linterna.
 3. Apaga las llamas con el pitón.
 4. Cuando un techo cerrado no te deje pasar, fuerza la puerta de la escalera del costado con la halligan y sube por ahí.
@@ -15,6 +15,25 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
    Si una ventana está llena de humo negro, no la abras (backdraft): sube al techo de arriba y rómpelo con la halligan para ventilar.
    Si ves a una persona pidiendo ayuda en una ventana, rompe el vidrio con la halligan para que salga.
 6. En la zona de humo enciende tu linterna para ver el camino y rescata a la víctima en la azotea.
+
+## Módulos de entrenamiento
+
+| # | Módulo | Estado |
+|---|---|---|
+| 1 | Saltos | ✅ |
+| 2 | Paramédico | ✅ |
+| 3 | Fuego expuesto (EPP + pitón) | ✅ |
+| 4 | Gas Stop (recoger Gas Stop, balones con fuga de 4 s) | ✅ |
+| 5 | Gatitos en el árbol (entorno nocturno listo; faltan gatitos y mochila) | 🚧 |
+| 6 | Forestal (entorno listo; faltan matorrales, rocas/troncos que caen y ropa forestal) | 🚧 |
+| 7 | Ascensor (recoger llave, abrir ascensores con gente atrapada) | ✅ |
+| 8 | Fuego interno (recoger halligan) | ✅ |
+| 9 | Backdraft | ✅ |
+| 10 | Entrada forzada | ✅ |
+| 11 | Linterna (recoger linterna, humo) | ✅ |
+| 12 | Extremo (todo combinado) | ✅ |
+| 13 | Contrarreloj (el fuego sube desde abajo) | ✅ |
+| 14 | Postes eléctricos | próximamente |
 
 ## Niveles de la emergencia
 
@@ -45,7 +64,7 @@ Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad po
 | Botón | Acción |
 |-------|--------|
 | ◀ ▶ | Moverse |
-| ⬆ | Saltar |
+| Tocar la pantalla | Saltar (mantén el dedo para saltar más alto) |
 | Pitón | Apagar fuego |
 | Halligan | Forzar puertas, romper ventanas y romper el techo para ventilar |
 | 🔦 | Linterna (en la zona oscura) |
