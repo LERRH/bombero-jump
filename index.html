@@ -1479,7 +1479,7 @@ function gen() {
     const prevY = S.genY;
     const p = addPlat(x, y, w, TL && Math.random() < (TL.win || 0) ? { kind: 'window' } : {});
     if (attachTheme()) treeify(p);
-    if (TL && TL.crack) p.crackMax = Math.round(TL.crack * 1.3);
+    if (TL && TL.crack) p.crackMax = Math.round(TL.crack * 1.8);
     if (hurtHere) {
       p.injured = { who: pickWho(), side: Math.random() < 0.5 ? -1 : 1, state: 'hurt', t: 0 };
       S.injTotal++;
@@ -1555,8 +1555,8 @@ function gen() {
 
 // Alto total del dibujo de una plataforma (puerta o ventana + alféizar) más un margen
 const ART_H = 80;
-// Cuadros que aguanta un alféizar agrietado antes de romperse (~0,5 s); los niveles difíciles usan menos
-const CRACK_T = 32;
+// Cuadros que aguanta un alféizar agrietado antes de romperse (~0,75 s); los niveles difíciles usan menos
+const CRACK_T = 45;
 // Escalera lateral de los techos cerrados: ancho del hueco y del descanso
 const STAIR_GAP = 70, STAIR_LANDING = 110;
 // Altura entre el techo y el descanso de la puerta: espacio para llegar saltando sin chocar
