@@ -1360,8 +1360,10 @@ function handleTap(e) {
   }
   // Módulos de entrenamiento: sin ranking, solo reintentar o volver al menú
   if ((S.state === 'over' || S.state === 'win') && MODS[S.mod]) {
-    if (Math.abs(y - 500) < 28) newGame('play', S.mod);
-    else if (Math.abs(y - 570) < 22) { newGame('menu'); S.view = 'mods'; }
+    const nx = nextMod();
+    if (nx && Math.abs(y - 470) < 28) newGame('play', nx);
+    else if (nx ? Math.abs(y - 540) < 22 : Math.abs(y - 500) < 28) newGame('play', S.mod);
+    else if (Math.abs(y - 590) < 22) { newGame('menu'); S.view = 'mods'; }
     return;
   }
   if (S.state === 'over' || S.state === 'win') {
@@ -5402,8 +5404,8 @@ function tapButton(label, y) {
   g.addColorStop(0, '#ffb000'); g.addColorStop(1, '#e8430c');
   ctx.fillStyle = g; ctx.fillRect(-119, -21, 238, 42);
   ctx.font = font(24); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#3a0d00'; ctx.fillText(label, 2, 3);
-  ctx.fillStyle = '#fff'; ctx.fillText(label, 0, 1);
+  ctx.fillStyle = '#3a0d00'; ctx.fillText(label, 2, 3, 224);   // textos largos se ajustan al botón
+  ctx.fillStyle = '#fff'; ctx.fillText(label, 0, 1, 224);
   ctx.restore();
 }
 
@@ -5521,7 +5523,7 @@ function drawTrainScreen(title, color) {
   const F = S.final;
   ctx.fillStyle = '#000d'; ctx.fillRect(0, -UIY, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = font(30); ctx.fillStyle = color; ctx.fillText(title, W / 2, 110);
+  ctx.font = font(30); ctx.fillStyle = color; ctx.fillText(title, W / 2, 110, W - 24);
   ctx.font = font(15); ctx.fillStyle = '#ffd166'; ctx.fillText(modTitle(S.mod), W / 2, 150);
   for (let i = 0; i < 3; i++) {
     const on = i < F.stars, pop = on ? 1 + Math.max(0, 1 - (S.winT - 170 - i * 15) / 12) * 0.4 : 1;
@@ -5531,17 +5533,27 @@ function drawTrainScreen(title, color) {
   }
   const m = Math.floor(F.secs / 60), sec = String(Math.floor(F.secs % 60)).padStart(2, '0');
   ctx.font = font(16); ctx.fillStyle = '#ddd';
-  ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315);
+  ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315, W - 24);
   if (S.mod === 'medico') { ctx.fillStyle = '#7f7'; ctx.fillText(`Heridos curados: ${F.cured} de ${F.injTotal}`, W / 2, 340); }
   if (S.mod === 'gatos') { ctx.fillStyle = '#7f7'; ctx.fillText(`Gatitos rescatados: ${S.cats} de ${S.catTotal}`, W / 2, 340); }
   if (S.mod === 'forestal') { ctx.fillStyle = '#7f7'; ctx.fillText(`Fuegos apagados: ${S.grassOut} de ${S.grassTotal}`, W / 2, 340); }
   if (MODS[S.mod].tasks) { ctx.fillStyle = '#7f7'; ctx.fillText(`Tareas resueltas: ${F.done} de ${F.taskTotal}`, W / 2, 340); }
   ctx.font = font(14); ctx.fillStyle = '#aaa';
-  ctx.fillText(MODS[S.mod].rule, W / 2, 368);
+  ctx.fillText(MODS[S.mod].rule, W / 2, 368, W - 24);
   ctx.font = font(16); ctx.fillStyle = F.record ? '#7f7' : '#bbb';
   ctx.fillText(F.record ? '¡NUEVO RÉCORD!' : `Tu mejor resultado: ${'★'.repeat(F.best) || 'sin estrellas'}`, W / 2, 400);
-  tapButton('REINTENTAR', 500);
-  ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MENÚ', W / 2, 570);
+  const nx = nextMod();
+  if (nx) {   // superado y hay otro módulo: el botón principal pasa al siguiente
+    tapButton(`SIGUIENTE: ${MOD_LIST.find(m => m[0] === nx)[1]} ›`, 470);
+    ctx.font = font(19); ctx.fillStyle = '#fff'; ctx.fillText('↻ REINTENTAR', W / 2, 540);
+  } else tapButton('REINTENTAR', 500);
+  ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MÓDULOS', W / 2, 590);
+}
+// Módulo que sigue al actual, si este se superó y el siguiente ya está desbloqueado (si no, null)
+function nextMod() {
+  if (S.state !== 'win') return null;
+  const i = MOD_LIST.findIndex(m => m[0] === S.mod), nx = MOD_LIST[i + 1];
+  return nx && MODS[nx[0]] && modUnlocked(nx[0]) ? nx[0] : null;
 }
 
 // Pantalla del ranking: los 10 mejores; si el puntaje entra, pide el nombre
