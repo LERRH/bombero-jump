@@ -1627,15 +1627,15 @@ const LEVELS = [
 // El salto más alto llega a ~165 px, por eso gap no pasa de 140 (en Saltos, 125: es el módulo para aprender).
 const TRAIN_LEVELS = [
   { name: 'Primeros saltos', hint: 'Salta de alféizar en alféizar', len: 800,
-    gap: [60, 80], w: [85, 100], dx: [30, 130], p: {} },
+    gap: [55, 75], w: [90, 105], dx: [20, 110], p: {} },
   { name: 'Más alto', hint: 'Mantén el dedo en la pantalla para saltar más alto', len: 900,
-    gap: [80, 105], w: [75, 90], dx: [50, 150], p: { fragile: 0.1 }, chain: 1, steps: 3 },
-  { name: 'Alféizares agrietados', hint: 'Los agrietados aguantan 2 pisadas: ¡no te quedes encima!', len: 1000,
-    gap: [80, 100], w: [72, 86], dx: [40, 150], p: { fragile: 0.35 }, chain: 1, win: 0.85, crack: 30, steps: 2 },
+    gap: [70, 92], w: [82, 96], dx: [40, 130], p: { fragile: 0.06 }, chain: 1, steps: 3 },
+  { name: 'Alféizares agrietados', hint: 'Los agrietados aguantan pocas pisadas: ¡no te quedes encima!', len: 950,
+    gap: [72, 95], w: [78, 92], dx: [40, 140], p: { fragile: 0.18 }, chain: 1, win: 0.85, crack: 32, steps: 3 },
   { name: 'Saltos largos', hint: 'Más alto y más lejos: mantén el dedo', len: 1000,
-    gap: [95, 118], w: [64, 78], dx: [70, 170], p: { fragile: 0.35 }, chain: 2, win: 0.85, crack: 28, steps: 2 },
-  { name: 'Prueba final', hint: 'Muchos agrietados: ¡no te detengas!', len: 1100,
-    gap: [100, 125], w: [58, 70], dx: [80, 180], p: { fragile: 0.6 }, chain: 3, win: 1, crack: 24 },
+    gap: [85, 105], w: [70, 84], dx: [55, 155], p: { fragile: 0.18 }, chain: 1, win: 0.85, crack: 30, steps: 2 },
+  { name: 'Prueba final', hint: 'Más agrietados: ¡no te detengas!', len: 1050,
+    gap: [90, 112], w: [64, 76], dx: [65, 165], p: { fragile: 0.3 }, chain: 2, win: 1, crack: 28, steps: 2 },
 ];
 // Estrellas guardadas por módulo (en este celular)
 const Progress = {
