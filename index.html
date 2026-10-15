@@ -143,6 +143,10 @@ for (let f = 1; f <= 7; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
 for (let f = 1; f <= 5; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
 // Recibir daño: impacto, retroceso y se recompone (40 cuadros). Derrota: retrocede, cae de rodillas y se desvanece.
 const HURT_SEQ = [2, 3, 4, 5, 4, 3, 2];
+// Electrocución (postes): susto y descarga al perder un corazón; si muere, sale despedido, cae y queda tendido
+for (let f = 1; f <= 14; f++) loadImg(`electro_${f}`, `img/bombero/electro_${f}.png`);
+const ZAP_T = 72, ZAP_SEQ = [2, 3, 4, 5, 6, 7, 8, 5, 6, 3];
+const ZAP_DIE = [[0, 4], [10, 5], [20, 6], [30, 7], [40, 8], [50, 9], [60, 10], [70, 11], [82, 12], [96, 13], [110, 14]];
 const DIE_SEQ = [[0, 'dano_3'], [8, 'dano_5'], [18, 'dano_6'], [28, 'dano_7'], [40, 'derrota_1'], [56, 'derrota_2'],
   [72, 'derrota_3'], [88, 'derrota_4'], [104, 'derrota_5']];
 for (let f = 1; f <= 3; f++) loadImg(`halligan_${f}`, `img/bombero/halligan_${f}.png`);
@@ -463,6 +467,27 @@ const SFX = (() => {
     return vs.find(v => re.test(v.name) && !other.test(v.name)) || vs[0];
   }
   if (window.speechSynthesis) speechSynthesis.getVoices();   // algunos navegadores cargan las voces de a poco
+  // Voz infantil en inglés para "Help!": primero voces de niño/niña, luego voces femeninas en inglés
+  const CHILD = /\bana\b|child|kid|junior|ivy|justin|kevin/i, EN_FEM = /jenny|aria|samantha|zira|ava|allison|susan|karen|female|google us english|google uk english female/i;
+  function childVoice() {
+    const sp = window.speechSynthesis, vs = sp ? sp.getVoices() : [];
+    const en = vs.filter(v => /^en/i.test(v.lang));
+    const kid = en.find(v => CHILD.test(v.name));
+    if (kid) return { v: kid, kid: true };
+    const fem = en.find(v => EN_FEM.test(v.name) && /natural|neural|online/i.test(v.name)) || en.find(v => EN_FEM.test(v.name)) || en[0] || vs[0];
+    return fem ? { v: fem, kid: false } : null;
+  }
+  // Respaldo sin voces del sistema: "help" corto y agudo (soplo de la h + vocal e + cierre de la p)
+  function synthHelp(at) {
+    const t = ac.currentTime + at, f0 = rand(380, 440);
+    noise(0.06, 0.12, 'bandpass', 1800, 1800, at, 1.5);   // h
+    const o = ac.createOscillator(), env = ac.createGain(), out = ac.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f0, t + 0.05); o.frequency.linearRampToValueAtTime(f0 * 1.25, t + 0.16); o.frequency.linearRampToValueAtTime(f0 * 1.05, t + 0.3);
+    env.gain.setValueAtTime(0.0001, t + 0.05); env.gain.exponentialRampToValueAtTime(1, t + 0.08); env.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    o.connect(env);
+    for (const [f, g] of [[600, 1.6], [2200, 1]]) { const bp = ac.createBiquadFilter(), gg = ac.createGain(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 6; gg.gain.value = g; env.connect(bp); bp.connect(gg); gg.connect(out); }
+    out.gain.value = 0.22; out.connect(sfxBus); o.start(t + 0.05); o.stop(t + 0.32);
+  }
 
   const FX = {
     jump() { tone('square', 260, 640, 0.13, 0.07); tone('triangle', 130, 320, 0.13, 0.1); },
@@ -539,10 +564,157 @@ const SFX = (() => {
   const DRUM1 = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
   const DRUM2 = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1];
   const st = (f, n) => f * Math.pow(2, n / 12);
-  const spb = () => mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : mood === 9 ? 60 / 120 / 4 : mood === 10 ? 60 / 126 / 3 : mood === 11 ? 60 / 140 / 4 : mood === 12 ? 60 / 120 / 4 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
+  const spb = () => mood === 16 ? 60 / 66 / 4 : mood === 15 ? 60 / 160 / 4 : mood === 14 ? 60 / 150 / 4 : mood === 13 ? 60 / 124 / 4 : mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : mood === 9 ? 60 / 120 / 4 : mood === 10 ? 60 / 126 / 3 : mood === 11 ? 60 / 140 / 4 : mood === 12 ? 60 / 120 / 4 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
 
   // mood 7 = sabana (Forestal): ritmo africano en 12/8 con djembé y shaker, kalimba en pentatónica de La menor,
   // drone grave y terroso, una flauta lejana de vez en cuando, y el cerro ardiendo: fuego, chasquidos y viento.
+  // mood 14 = explosiva (Backdraft): tráiler de acción a 150 BPM en Re menor (Re – Sib – Do – La).
+  // Bombo doble, caja con eco, toms al final de cada vuelta, bajo distorsionado, "BRAAM" en cada compás
+  // y una subida de tensión que termina en una gran explosión cada 4 compases.
+  const B_ROOT = [73.42, 58.27, 65.41, 55];
+  let distCurve = null;
+  function dist() {
+    if (!distCurve) { distCurve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; distCurve[i] = Math.tanh(x * 6); } }
+    const w = ac.createWaveShaper(); w.curve = distCurve; return w;
+  }
+  // mood 15 = metal (Entrada forzada): Mi menor a 160 BPM. Guitarra distorsionada con riffs apagados
+  // con la palma y acordes de quinta abiertos, bajo, doble bombo en semicorcheas y caja potente.
+  const M_RIFF = [[0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 10, 0, 7, 0, 5, 3], [0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 13, 12, 10, 8, 7, 5]];
+  const M_OPEN = [0, 0, 0, 0, 3, 3, 5, 6];   // acordes abiertos en las vueltas de "coro" (semitonos sobre Mi)
+  function gtr(f, at, dur, vol, palm) {   // guitarra distorsionada: dos dientes de sierra + quinta, saturados
+    const t = ac.currentTime + at, ws = dist(), lp = ac.createBiquadFilter(), g = ac.createGain();
+    for (const [m, det] of [[1, -9], [1, 9], [1.5, 0]]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f * m; o.detune.value = det;
+      const og = ac.createGain(); og.gain.value = 0.5; o.connect(og); og.connect(ws); o.start(t); o.stop(t + dur + 0.02);
+    }
+    lp.type = 'lowpass'; lp.Q.value = 1.2; lp.frequency.value = palm ? 900 : 3200;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    ws.connect(lp); lp.connect(g); g.connect(musicBus);
+  }
+  function playMetal(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 8, chorus = Math.floor(step / 128) % 2 === 1, E = 82.41;
+    // Doble bombo en semicorcheas, caja en 2 y 4, platillo en cada negra
+    tone('sine', 150, 50, 0.1, 0.5, at, musicBus);
+    if (s === 4 || s === 12) { noise(0.18, 0.55, 'bandpass', 2000, 1000, at, 0.8, musicBus, 0.3); tone('triangle', 240, 160, 0.09, 0.3, at, musicBus); }
+    if (s % 4 === 0) noise(0.18, chorus ? 0.12 : 0.07, 'highpass', 5000, 3500, at, 0.8, musicBus);
+    if (s === 0 && bar % 4 === 0) noise(1.2, 0.18, 'highpass', 4000, 2500, at, 0.6, musicBus, 0.4);   // platillo de golpe
+    if (!chorus) {
+      // Riff apagado con la palma (nota grave) con notas agudas sueltas
+      const n = M_RIFF[bar % 2][s];
+      gtr(st(E, n), at, n ? d * 1.4 : d * 0.8, n ? 0.12 : 0.15, !n);
+      if (s % 2 === 0) pluck(st(E / 2, n), at, d * 1.5, 0.22, 'square');   // bajo
+    } else {
+      // Coro: acordes de quinta abiertos, uno por compás, re-atacados en corcheas
+      const n = M_OPEN[bar];
+      if (s % 2 === 0) gtr(st(E, n), at, d * (s === 0 ? 3.5 : 1.8), s === 0 ? 0.15 : 0.1, false);
+      if (s % 4 === 0) pluck(st(E / 2, n), at, d * 3, 0.24, 'square');
+    }
+  }
+  // mood 16 = terror (Linterna, casa embrujada): Re menor lento a 66 BPM. Drone grave disonante, cajita
+  // musical desafinada con una melodía triste, golpes graves como latidos, susurros de viento,
+  // crujidos de madera y de vez en cuando un chirrido de violín.
+  const T_BOX = [[14, , 13, , 10, , 9, , 10, , 6, , 5, , , ], [9, , 10, , 13, , 14, , 13, , 10, , 9, , , ],
+                 [14, , 17, , 15, , 13, , 14, , 10, , 9, , , ], [6, , 5, , 2, , 1, , 2, , , , , , , ]];
+  function musicBox(f, at, dur, vol) {   // cajita musical: campanita aguda, con una segunda voz desafinada
+    const t = ac.currentTime + at;
+    for (const [m, det, v] of [[1, 0, 1], [1, 22, 0.5], [3, 0, 0.12]]) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f * m; o.detune.value = det;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(musicBus); send(g, 0.7); o.start(t); o.stop(t + dur + 0.02);
+    }
+  }
+  function playHorror(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64);
+    if (s === 0) for (const o of droneOsc) o.frequency.setTargetAtTime([36.7, 38.9, 36.7, 34.6][bar], ac.currentTime + at, 1.2);   // drone que se arrastra un semitono
+    // Latido grave (lub-dub) en el 1 y en el 3
+    if (s === 0 || s === 8) { tone('sine', 70, 38, 0.3, 0.55, at, musicBus); tone('sine', 62, 34, 0.25, 0.35, at + 0.22, musicBus); }
+    // Cajita musical (desde la segunda vuelta)
+    const n = T_BOX[bar][s];
+    if (loopN >= 1 && n !== undefined) musicBox(st(293.66, n), at, d * 6, 0.07);
+    // Susurros de viento y aire que entra
+    if (s === 0 && bar % 2 === 0) noise(d * 30, 0.08, 'bandpass', 400, 1800, at, 4, musicBus, 0.6, d * 14);
+    // Crujido de madera ocasional
+    if (Math.random() < 0.03) { const f0 = rand(60, 110); tone('sawtooth', f0, f0 * rand(0.7, 1.4), rand(0.6, 1.2), 0.04, at, musicBus, 0.6); noise(0.8, 0.05, 'bandpass', rand(300, 700), rand(500, 1100), at, 9, musicBus, 0.6, 0.3); }
+    // Chirrido de violín (cluster agudo que sube) cada cuatro vueltas
+    if (bar === 3 && s === 8 && loopN % 2 === 1) {
+      const t = ac.currentTime + at;
+      for (const f of [1046, 1108, 1174]) {
+        const o = ac.createOscillator(), g = ac.createGain(), vib = ac.createOscillator(), vg = ac.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.06, t + d * 8);
+        vib.frequency.value = 7; vg.gain.value = 12; vib.connect(vg); vg.connect(o.frequency);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.025, t + d * 6); g.gain.exponentialRampToValueAtTime(0.0001, t + d * 8);
+        o.connect(g); g.connect(musicBus); send(g, 0.6); o.start(t); vib.start(t); o.stop(t + d * 8 + 0.05); vib.stop(t + d * 8 + 0.05);
+      }
+    }
+  }
+  function growl(f, at, dur, vol) {   // bajo distorsionado
+    const t = ac.currentTime + at, o = ac.createOscillator(), o2 = ac.createOscillator(), ws = dist(), lp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = 'sawtooth'; o2.type = 'square'; o.frequency.value = f; o2.frequency.value = f / 2;
+    lp.type = 'lowpass'; lp.Q.value = 5; lp.frequency.setValueAtTime(1600, t); lp.frequency.exponentialRampToValueAtTime(300, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(ws); o2.connect(ws); ws.connect(lp); lp.connect(g); g.connect(musicBus);
+    o.start(t); o2.start(t); o.stop(t + dur + 0.02); o2.stop(t + dur + 0.02);
+  }
+  function playBlast(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, f = B_ROOT[bar];
+    // Batería
+    if ([0, 3, 8, 10, 11].includes(s)) tone('sine', 160, 40, 0.24, 0.9, at, musicBus);                     // bombo doble
+    if (s === 4 || s === 12) { noise(0.2, 0.5, 'bandpass', 1900, 900, at, 0.9, musicBus, 0.45); tone('triangle', 220, 140, 0.1, 0.3, at, musicBus); }   // caja con eco
+    noise(0.025, s % 2 ? 0.04 : 0.08, 'highpass', 8000, 8000, at, 1, musicBus);                            // hi-hat en semicorcheas
+    if (bar === 3 && s >= 12) tone('sine', [220, 180, 150, 120][s - 12], [130, 100, 80, 60][s - 12], 0.18, 0.55, at, musicBus);   // redoble de toms
+    // Bajo distorsionado en corcheas con acento
+    if (s % 2 === 0) growl(f, at, d * 1.7, s % 4 === 0 ? 0.16 : 0.1);
+    // BRAAM en cada compás
+    if (s === 0) braam(f, at);
+    // Subida de tensión en el último compás y explosión al empezar la vuelta
+    if (bar === 3 && s === 0) {
+      const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain(), L = d * 16;
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(80, t); o.frequency.exponentialRampToValueAtTime(900, t + L);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + L * 0.95); g.gain.exponentialRampToValueAtTime(0.0001, t + L);
+      o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + L + 0.02);
+      noise(L, 0.12, 'bandpass', 400, 8000, at, 2, musicBus, 0, L * 0.9);
+    }
+    if (bar === 0 && s === 0 && step > 0) {   // ¡BUM!
+      tone('sine', 90, 25, 1.4, 0.9, at, musicBus, 0.6);
+      noise(1.6, 0.6, 'lowpass', 2500, 80, at, 1, musicBus, 0.6);
+      for (let k = 0; k < 8; k++) noise(0.05, 0.15, 'bandpass', rand(1500, 4500), rand(1500, 4500), at + rand(0.05, 0.8), 4, musicBus);
+    }
+  }
+  // mood 13 = electrónica (Postes eléctricos): La menor (Lam – Fa – Do – Sol). Bombo en cada tiempo,
+  // palmas, hi-hat abierto en contratiempo, bajo que "bombea" con el bombo, arpegio de sintetizador
+  // y un zumbido eléctrico que sube antes de cada vuelta.
+  const X_ROOT = [110, 87.31, 130.81, 98];
+  const X_CHORD = [[0, 3, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12]];
+  const X_ARP = [0, 1, 2, 3, 2, 1, 2, 3, 0, 2, 1, 3, 2, 3, 1, 2];
+  function synth(f, at, dur, vol, type = 'sawtooth', cut = 2400) {
+    const t = ac.currentTime + at, o = ac.createOscillator(), o2 = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = type; o2.type = type; o.frequency.value = f; o2.frequency.value = f; o2.detune.value = 12;
+    lp.type = 'lowpass'; lp.Q.value = 6; lp.frequency.setValueAtTime(cut, t); lp.frequency.exponentialRampToValueAtTime(cut * 0.25, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(musicBus);
+    o.start(t); o2.start(t); o.stop(t + dur + 0.02); o2.stop(t + dur + 0.02);
+    return g;
+  }
+  function playElectro(at, d) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4, loopN = Math.floor(step / 64), f = X_ROOT[bar], ch = X_CHORD[bar];
+    if (s % 4 === 0) tone('sine', 150, 42, 0.22, 0.75, at, musicBus);                                   // bombo en cada tiempo
+    if (s === 4 || s === 12) noise(0.12, 0.3, 'bandpass', 1500, 1200, at, 1, musicBus, 0.25);          // palmas
+    if (s % 4 === 2) noise(0.09, 0.09, 'highpass', 7000, 6000, at, 1, musicBus);                        // hi-hat abierto
+    if (s % 2 === 1) noise(0.02, 0.03, 'highpass', 9000, 9000, at, 1, musicBus);                        // hi-hat cerrado
+    // Bajo: corcheas que "bombean" (entran suaves justo después del bombo)
+    if (s % 2 === 0) synth(f / 2, at + (s % 4 === 0 ? d * 0.5 : 0), d * (s % 4 === 0 ? 1.4 : 1.8), s % 4 === 0 ? 0.12 : 0.2, 'sawtooth', 900);
+    // Arpegio de sintetizador (más brillante en las vueltas impares)
+    synth(st(f * 4, ch[X_ARP[s]]), at, d * 0.9, 0.05, 'square', loopN % 2 ? 4000 : 2200);
+    // Zumbido eléctrico que sube antes de empezar la vuelta
+    if (bar === 3 && s === 8) {
+      const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(880, t + d * 8);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.04, t + d * 7); g.gain.exponentialRampToValueAtTime(0.0001, t + d * 8);
+      o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + d * 8 + 0.02);
+      noise(d * 8, 0.05, 'bandpass', 800, 6000, at, 3, musicBus, 0, d * 7);
+    }
+  }
   // mood 10 = jazz noir de los años 20-30 (Fuego interno, edificio art déco): Re menor con swing en tresillos.
   // Contrabajo que camina, platillo "ride" con swing, escobillas, piano y trompeta con sordina.
   const N_ROOT = [73.42, 98, 110, 73.42];
@@ -869,6 +1041,10 @@ const SFX = (() => {
     if (mood === 8) { playLounge(at, d); return; }
     if (mood === 9) { playFlamenco(at, d); return; }
     if (mood === 10) { playNoir(at, d); return; }
+    if (mood === 13) { playElectro(at, d); return; }
+    if (mood === 14) { playBlast(at, d); return; }
+    if (mood === 15) { playMetal(at, d); return; }
+    if (mood === 16) { playHorror(at, d); return; }
     const s = step % 16, bar = Math.floor(step / 16) % 4, f = ROOT[bar];
     if (s === 0) for (const o of droneOsc) o.frequency.setTargetAtTime(f / 2, t, 0.3);
     // Cuerdas: en tensión solo corcheas y más suaves; en la emergencia, todas las semicorcheas
@@ -906,7 +1082,7 @@ const SFX = (() => {
   function startSeq() {
     if (!ac) return;
     const now = ac.currentTime;
-    droneGain.gain.setTargetAtTime(mood === 2 ? 0.22 : mood === 7 ? 0.09 : mood >= 3 ? 0 : 0.16, now, 0.5);
+    droneGain.gain.setTargetAtTime(mood === 2 ? 0.22 : mood === 7 ? 0.09 : mood === 16 ? 0.2 : mood >= 3 ? 0 : 0.16, now, 0.5);
     fireGain.gain.setTargetAtTime(mood === 2 ? 0.13 : mood === 7 ? 0.12 : mood === 4 ? 0.05 : mood >= 3 ? 0 : 0.08, now, 0.8);
     if (seqT) return;
     step = 0; nextT = now + 0.1;
@@ -941,21 +1117,22 @@ const SFX = (() => {
       meowOnce(d1 + rand(0.1, 0.18), f0 * rand(1.04, 1.12), d1 * rand(0.8, 1), happy);
     },
     // Herido pidiendo ayuda (Paramédico): "¡Ayuda!" con voz dulce, sin eco ni ronquera
+    // Herido pidiendo ayuda (Paramédico): "Help!" con voz infantil
     call(who) {
       if (!ac || muted) return;
-      const sp = window.speechSynthesis, v = window.SpeechSynthesisUtterance && voiceFor(who);
-      if (v) {
+      const sp = window.speechSynthesis, c = window.SpeechSynthesisUtterance && childVoice();
+      if (c) {
         if (sp.speaking) return;
-        const u = new SpeechSynthesisUtterance(Math.random() < 0.3 ? '¡Ayuda, por favor!' : '¡Ayuda!');
-        u.voice = v; u.lang = v.lang;
-        const sameGender = (who === 'hombre' ? MAS : FEM).test(v.name);
-        // Dulce: algo aguda, pausada y no muy fuerte; si la voz no es del género del herido, se corrige con el tono
-        u.pitch = who === 'hombre' ? (sameGender ? 1.05 : 0.8) : (sameGender ? 1.2 : 1.6);
-        u.rate = 0.9; u.volume = 0.6;
+        const u = new SpeechSynthesisUtterance(Math.random() < 0.3 ? 'Help! Help!' : 'Help!');
+        u.voice = c.v; u.lang = /^en/i.test(c.v.lang) ? c.v.lang : 'en-US';
+        // Voz de niño/niña: si no es una voz infantil, se sube bastante el tono
+        u.pitch = c.kid ? (who === 'hombre' ? 1.05 : 1.2) : (who === 'hombre' ? 1.65 : 1.85);
+        u.rate = 1.05; u.volume = 0.65;
         sp.speak(u);
         return;
       }
-      sweetAyuda(who, 0);
+      synthHelp(0);
+      if (Math.random() < 0.3) synthHelp(0.4);
     },
     help(who, behindGlass = true, level = 1) {
       if (!ac || muted) return;
@@ -1190,7 +1367,7 @@ function addPlat(x, y, w, o = {}) {
   const p = Object.assign({
     x, y, w,
     // alféizar de ventana, balcón con puerta o repisa con aire acondicionado
-    kind: (r => r < 0.25 ? 'door' : r < 0.37 ? 'ac' : 'window')(Math.random()),
+    kind: (r => r < 0.25 ? 'door' : r < 0.37 && !(MODS[S.mod] && MODS[S.mod].facade === 'embrujada') ? 'ac' : 'window')(Math.random()),
     plant: Math.random() < 0.5, side: Math.random() < 0.5 ? -1 : 1,
     c: DOOR_COLORS[Math.floor(Math.random() * DOOR_COLORS.length)],
     lit: Math.random() < 0.5
@@ -1306,7 +1483,7 @@ function gen() {
       } else if (take(pr.elev, p.w >= 66 && !nearEvent)) {
         // Ascensor detenido con una persona adentro
         p.kind = 'elev'; p.elev = { state: 'closed', t: 0 }; p.who = pickWho(); p.ph = Math.random() * 6;
-      } else if (take(pr.gas, p.kind !== 'ac' && p.w >= 64)) {
+      } else if (take(pr.gas, p.kind !== 'ac' && p.w >= 58)) {
         // Balón de gas: empieza a fugar cuando el bombero se acerca
         const T = gasTimeAt(p.y);
         p.gas = { state: 'ok', t: T, max: T, side: Math.random() < 0.5 ? -1 : 1, fix: 0 };
@@ -1369,6 +1546,8 @@ function freeX(y, w, pref) {
   if (attachTheme()) return freeBranchX(y, w, pref);
   // Un ascensor ocupa ~115 px hacia arriba de su piso: ninguna plataforma puede cruzarlo
   const near = S.plats.filter(o => !o.ground && !o.roof && (Math.abs(o.y - y) < ART_H || (o.kind === 'elev' && y < o.y && o.y - y < 118)));
+  // La parte alta de cada poste (cruceta y transformador) también ocupa espacio
+  if (S.poles) for (const o of S.poles) if (Math.abs(o.y - 10 - y) < 95) near.push({ x: o.x - 42, w: 84 });
   // El carro bomba de la calle también ocupa espacio: ninguna ventana puede taparlo
   if (Math.abs(TRUCK_ZONE.y - y) < ART_H && !theme()) near.push(TRUCK_ZONE);
   const free = [];
@@ -1526,9 +1705,13 @@ const ELEV_LEVELS = [
 const KEY_T = 60;   // 1 s girando la llave
 // Módulo 4: balones de gas. gas = probabilidad de balón por alféizar
 const GAS_LEVELS = [
-  { name: 'Primer balón', hint: 'Junto al balón con fuga, mantén el Gas Stop 1 segundo', len: 1100, doors: 0, p: { gas: 0.16 } },
-  { name: 'Fugas', hint: 'Cada nivel, los balones explotan más rápido: ¡corre!', len: 1200, doors: 0, p: { gas: 0.22 } },
-  { name: 'Edificio con gas', hint: 'Más balones y pisos agrietados', len: 1300, doors: 0, p: { gas: 0.26, fragile: 0.12 } },
+  // Saltos como en el Módulo 1 (gap, w, dx), cada vez más separados, y alféizares agrietados desde el inicio
+  { name: 'Primer balón', hint: 'Junto al balón con fuga, mantén el Gas Stop 1 segundo', len: 1100, doors: 0,
+    gap: [75, 100], w: [66, 84], dx: [40, 160], p: { gas: 0.16, fragile: 0.16 }, chain: 1, win: 0.75 },
+  { name: 'Fugas', hint: 'Cada nivel, los balones explotan más rápido: ¡corre!', len: 1200, doors: 0,
+    gap: [90, 112], w: [64, 80], dx: [60, 175], p: { gas: 0.2, fragile: 0.26 }, chain: 1, win: 0.8 },
+  { name: 'Edificio con gas', hint: 'Más balones y pisos agrietados', len: 1300, doors: 0,
+    gap: [102, 124], w: [60, 76], dx: [75, 185], p: { gas: 0.22, fragile: 0.36 }, chain: 2, win: 0.85, crack: 20 },
 ];
 const GAS_T = 240, GASFIX_T = 60;   // 4 s hasta que explota; 1 s manteniendo el Gas Stop
 // Segundos hasta que explota un balón: 8 en el primer nivel y baja parejo hasta 4 en el último
@@ -1587,17 +1770,17 @@ const MODS = {
   interno: { title: 'FUEGO INTERNO', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
     innerTimer: true, music: 10, facade: 'deco',
     levels: INNER_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
-  backdraft: { title: 'BACKDRAFT', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+  backdraft: { title: 'BACKDRAFT', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true, music: 14, facade: 'oficina', innerTimer: true,
     levels: BACKDRAFT_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
-  forzada: { title: 'ENTRADA FORZADA', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true,
+  forzada: { title: 'ENTRADA FORZADA', epp: true, tools: ['piton', 'halligan'], pickups: ['halligan'], tasks: true, music: 15, facade: 'madera', innerTimer: true,
     levels: FORCED_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan', rule: TASK_RULE },
   linterna: { title: 'LINTERNA', epp: true, tools: ['piton', 'halligan', 'linterna'], pickups: ['halligan', 'linterna'],
-    tasks: true, levels: LAMP_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan y la linterna', rule: TASK_RULE },
-  extremo: { title: 'EXTREMO', epp: true, tools: ['piton', 'halligan', 'linterna'], tasks: true, levels: EXTREME_LEVELS,
+    tasks: true, music: 16, facade: 'embrujada', blackout: true, innerTimer: true, levels: LAMP_LEVELS, start: 'Equípate con tu EPP', go: '¡EPP completo! Recoge la halligan y la linterna', rule: TASK_RULE },
+  extremo: { title: 'EXTREMO', epp: true, tools: ['piton', 'halligan', 'linterna'], tasks: true, innerTimer: true, levels: EXTREME_LEVELS,
     start: 'Equípate con tu EPP', go: '¡EPP completo! Pitón, halligan y linterna: ¡todo junto!', rule: TASK_RULE },
-  postes: { title: 'POSTES ELÉCTRICOS', epp: true, tools: ['piton'], tasks: true, levels: POLE_LEVELS,
+  postes: { title: 'POSTES ELÉCTRICOS', epp: true, tools: ['piton'], tasks: true, levels: POLE_LEVELS, music: 13, facade: 'jaulas',
     start: 'Equípate con tu EPP', go: '¡EPP completo! Recibes el pitón: en la electricidad, solo chorros cortos', rule: TASK_RULE },
-  reloj: { title: 'CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], levels: RACE_LEVELS,
+  reloj: { title: 'CONTRARRELOJ', gear: true, race: true, tools: ['piton', 'halligan'], innerTimer: true, levels: RACE_LEVELS,
     start: '¡El fuego sube desde abajo! No te detengas', rule: '★★★ sin perder vidas  ·  ★★ perdiendo una  ·  ★ llegar' },
   saltos: { title: 'SALTOS', levels: TRAIN_LEVELS, music: 11,
     start: 'Toca la pantalla para saltar; mantén el dedo para saltar más alto', time: [150, 210],
@@ -1730,9 +1913,12 @@ function startPhase2() {
 }
 
 // Poste eléctrico al costado del edificio, a la altura del alféizar, con el transformador en llamas
-const POLE_X = 26;
+const POLE_X = 36;   // la cruceta (±34 px) queda dentro de la pantalla
 function addPole(pl) {
   const side = pl.x + pl.w / 2 < W / 2 ? -1 : 1, x = side < 0 ? POLE_X : W - POLE_X, y = pl.y - 34;
+  // El alféizar se corre para no tapar el transformador (deja libre la columna del poste)
+  if (side < 0 && pl.x < x + 44) { const r = pl.x + pl.w; pl.x = x + 44; pl.w = Math.max(56, r - pl.x); }
+  if (side > 0 && pl.x + pl.w > x - 44) { pl.w = Math.max(56, x - 44 - pl.x); if (pl.x + pl.w > x - 44) pl.x = x - 44 - pl.w; }
   // El fuego está sobre el transformador, que cuelga del lado del edificio
   const f = { x: x - side * 12, y: y - 24, hp: 70, elec: true, ph: Math.random() * 6, age: Math.floor(rand(0, 300)), dead: 0 };
   S.flames.push(f);
@@ -1746,6 +1932,8 @@ function electrocute(f) {
   burst(p.x, p.y - 30, 30, ['#fff8a0', '#7fd3ff', '#ffffff'], 5, 0.05, 25, 3);
   burst(f.x, f.y - 10, 30, ['#fff8a0', '#7fd3ff', '#ffffff'], 6, 0.05, 25, 3);
   hurt('⚡ ¡Electrocución! Sobre la electricidad, solo chorros cortos', true);
+  S.zapT = ZAP_T; S.hurtT = 0;
+  if (S.state === 'dying') { S.zapDeath = true; S.zapT = 0; }
 }
 
 // Cuenta cada tarea (llama, fuego interno, ventana con humo, persona) cuando aparece en pantalla
@@ -1859,12 +2047,15 @@ function updateControls() {
 
 // Qué tan oscuro está donde va el bombero (0 = normal, 1 = humo total)
 function darkLevel() {
+  // Apagón total (Linterna): desde que se recoge la linterna todo queda a oscuras hasta la azotea
+  if (blackout()) return 1;
   const y = S.p.y;
   let d = 0;
   for (const [top, bottom] of S.darkZones) d = Math.max(d, clamp((bottom - y) / 250, 0, 1) * clamp((y - top) / 200, 0, 1));
   return d;
 }
 
+const blackout = () => !!(MODS[S.mod] && MODS[S.mod].blackout && S.have.linterna);
 // Linterna: solo se puede usar en la zona oscura
 function toggleLamp() {
   if (S.state !== 'play' || !toolOk('linterna')) return;
@@ -1974,11 +2165,15 @@ function explodeInner(pl) {
 function drawInnerTimers() {
   for (const pl of S.plats) {
     if (pl.ibT == null || pl.inner !== 'closed') continue;
-    const r = opening(pl), sec = Math.ceil(pl.ibT / 60), k = 1 + (pl.ibT % 60) / 60 * 0.35;
-    ctx.save(); ctx.translate(r.x + r.w / 2, r.y + r.h / 2 + 2); ctx.scale(k, k);   // en el centro de la abertura (arriba va el cartel de la herramienta)
-    ctx.font = font(26); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#111'; ctx.fillText(sec, 2, 2);
-    ctx.fillStyle = sec <= 2 ? '#ff3b3b' : sec <= 4 ? '#ff9a3c' : '#ffd23f'; ctx.fillText(sec, 0, 0);
+    const r = opening(pl), cx = r.x + r.w / 2, cy = r.y + r.h / 2 + 2, sec = Math.ceil(pl.ibT / 60), k = pl.ibT / (pl.ibMax || 1);
+    const col = sec <= 2 ? '#ff3b3b' : sec <= 4 ? '#ff9a3c' : '#ffd23f', pulse = 1 + (pl.ibT % 60) / 60 * 0.2;
+    // Círculo oscuro de fondo con aro que se va vaciando
+    ctx.fillStyle = 'rgba(10,8,8,0.82)'; ctx.beginPath(); ctx.arc(cx, cy, 17 * pulse, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(cx, cy, 14 * pulse, 0, 7); ctx.stroke();
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(cx, cy, 14 * pulse, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(pulse, pulse);
+    ctx.font = font(20); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.fillText(sec, 0, 1);
     ctx.restore();
   }
 }
@@ -2501,6 +2696,7 @@ function update() {
   }
   if (S.landT > 0) S.landT--;
   if (S.hurtT > 0) S.hurtT--;
+  if (S.zapT > 0) S.zapT--;
   if (S.shake > 0) S.shake--;
   if (S.msg && --S.msg.t <= 0) S.msg = null;
 
@@ -3558,6 +3754,10 @@ function drawBg() {
   if (MODS[S.mod] && MODS[S.mod].facade === 'cemento') { drawCementFacade(); return; }
   if (MODS[S.mod] && MODS[S.mod].facade === 'viejo') { drawOldFacade(); return; }
   if (MODS[S.mod] && MODS[S.mod].facade === 'deco') { drawDecoFacade(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'jaulas') { drawCageFacade(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'oficina') { drawOfficeFacade(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'madera') { drawWoodFacade(); return; }
+  if (MODS[S.mod] && MODS[S.mod].facade === 'embrujada') { drawHauntedFacade(); return; }
   if (inside()) { drawInteriorBg(); return; }
   const deep = clamp(-S.camY / 6000, 0, 1);
   ctx.fillStyle = '#1c1c20';
@@ -3773,6 +3973,196 @@ function drawDecoFacade() {
     }
   }
   if (S.phase === 2) { ctx.fillStyle = `rgba(255,90,0,${0.06 + Math.sin(S.t / 20) * 0.025})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// Edificio de ladrillo naranja con rejas tipo jaula y manojos de cables (inspirado en edificios
+// populares con balcones enrejados). Ladrillo cálido a pleno sol, cielo celeste a los costados arriba.
+function drawCageFacade() {
+  const top = S.camY;
+  // Cielo
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#4f8fd0'); sky.addColorStop(1, '#a9cdee');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // Muro de ladrillo (deja ver un poco de cielo en los bordes, que se angosta al subir: perspectiva)
+  const BH = 12, BW = 30;
+  ctx.fillStyle = '#9a4a2a'; ctx.fillRect(14, 0, W - 28, H);
+  for (let r = Math.floor(top / BH) - 1; r * BH < top + H; r++) {
+    const y = r * BH - top, sh = (r & 1) ? BW / 2 : 0;
+    for (let c = -1; c < W / BW + 1; c++) {
+      const h = hash(c, r), v = Math.floor(h * 22);
+      ctx.fillStyle = h > 0.97 ? `rgb(${150 + v},${70 + v / 2},${40})` : `rgb(${196 + v},${104 + v / 2},${62 + v / 3})`;
+      ctx.fillRect(14 + c * BW - sh + 1, y + 1, BW - 2, BH - 2);
+    }
+  }
+  // Luz de sol diagonal y sombra en el borde derecho
+  const sun = ctx.createLinearGradient(0, 0, W, H);
+  sun.addColorStop(0, 'rgba(255,230,180,0.18)'); sun.addColorStop(1, 'rgba(60,20,10,0.22)');
+  ctx.fillStyle = sun; ctx.fillRect(14, 0, W - 28, H);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(W - 22, 0, 8, H);
+  // Rejas tipo jaula y aleros de calamina (de fondo, entre las ventanas donde se pisa)
+  const FH = 150;
+  for (let f = Math.floor((H - 20 - top - H) / FH) - 1; f <= Math.floor((H - 20 - top) / FH) + 1; f++) {
+    const yb = H - 20 - f * FH - top;
+    for (let k = 0; k < 2; k++) {
+      if (hash(f, k + 7) < 0.45) continue;
+      const cw = 54 + hash(f, k) * 20, ch = 62, cx = k ? W - 40 - cw - hash(f, 9) * 40 : 40 + hash(f, 8) * 40, cy = yb - 40 - ch - hash(f, k + 3) * 20;
+      ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(cx + 6, cy + 6, cw, ch);           // sombra en el muro
+      ctx.fillStyle = 'rgba(40,40,44,0.55)'; ctx.fillRect(cx, cy, cw, ch);                // interior oscuro
+      ctx.fillStyle = ['#c9b38a', '#8fa6a0', '#d8c9a6'][Math.floor(hash(f, k + 5) * 3)];   // ropa/plantas detrás
+      if (hash(f, k + 6) > 0.5) ctx.fillRect(cx + 8, cy + 14, 10, 22);
+      ctx.strokeStyle = '#3d3a36'; ctx.lineWidth = 1.4;
+      for (let x = cx; x <= cx + cw; x += 6) { ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x, cy + ch); ctx.stroke(); }
+      for (let y = cy; y <= cy + ch; y += 15) { ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(cx + cw, y); ctx.stroke(); }
+      ctx.strokeStyle = '#2a2826'; ctx.lineWidth = 2.5; ctx.strokeRect(cx, cy, cw, ch);
+      // Alero de calamina oxidada
+      ctx.fillStyle = '#7a5a3e'; ctx.beginPath(); ctx.moveTo(cx - 6, cy); ctx.lineTo(cx + cw + 6, cy); ctx.lineTo(cx + cw + 2, cy - 9); ctx.lineTo(cx - 2, cy - 9); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = cx - 4; x < cx + cw + 4; x += 5) ctx.fillRect(x, cy - 9, 1.5, 9);
+    }
+  }
+  // Manojos de cables en diagonal que cruzan la fachada
+  ctx.lineCap = 'round';
+  for (let b = Math.floor(top / 260) - 1; b * 260 < top + H; b++) {
+    const y0 = b * 260 - top + hash(b, 1) * 60, rise = 120 + hash(b, 2) * 90, n = 3 + Math.floor(hash(b, 3) * 4), left = hash(b, 4) < 0.5;
+    for (let k = 0; k < n; k++) {
+      ctx.strokeStyle = k % 3 ? '#1b1b1d' : '#2c2a28'; ctx.lineWidth = 1.3 + (k % 2) * 0.6;
+      const yA = y0 + k * 4, yB = yA + (left ? rise : -rise) * 0.4;
+      ctx.beginPath(); ctx.moveTo(-10, yA); ctx.quadraticCurveTo(W / 2, (yA + yB) / 2 + 26 + k * 3, W + 10, yB); ctx.stroke();
+    }
+  }
+  ctx.lineCap = 'butt';
+  if (S.phase === 2) { ctx.fillStyle = `rgba(255,120,0,${0.04 + Math.sin(S.t / 20) * 0.02})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// Edificio moderno de oficinas: paneles de granito gris claro, grilla de ventanas cuadradas oscuras
+// con marco hundido y una franja verde oscuro bajo la cornisa cada cierto número de pisos
+function drawOfficeFacade() {
+  const top = S.camY, PW = 50, PH = 40;
+  ctx.fillStyle = '#9fa1a3'; ctx.fillRect(0, 0, W, H);
+  for (let r = Math.floor(top / PH) - 1; r * PH < top + H; r++)
+    for (let c = 0; c < W / PW + 1; c++) {
+      const x = c * PW, y = r * PH - top, v = Math.floor(hash(c, r) * 12);
+      ctx.fillStyle = `rgb(${190 + v},${192 + v},${194 + v})`; ctx.fillRect(x + 1, y + 1, PW - 2, PH - 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x + 1, y + 1, PW - 2, 2);
+      // Ventana cuadrada en un panel de cada dos (columna) y dos (fila)
+      if (c % 2 === 0 && r % 2 === 0) {
+        const wx = x + 13, wy = y + 8, ws = 24;
+        ctx.fillStyle = '#6e7174'; ctx.fillRect(wx - 3, wy - 3, ws + 6, ws + 6);   // marco hundido
+        const g = ctx.createLinearGradient(wx, wy, wx + ws, wy + ws);
+        g.addColorStop(0, '#3a4148'); g.addColorStop(1, '#1d2125');
+        ctx.fillStyle = g; ctx.fillRect(wx, wy, ws, ws);
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(wx + 3, wy + 2, 4, ws - 4);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(wx - 3, wy - 3, ws + 6, 3);   // sombra del dintel
+      }
+    }
+  // Cornisa con franja verde cada 6 filas de paneles
+  for (let r = Math.floor(top / (PH * 6)) - 1; r * PH * 6 < top + H; r++) {
+    const y = r * PH * 6 - top;
+    ctx.fillStyle = '#e6e7e8'; ctx.fillRect(0, y - 8, W, 8);
+    ctx.fillStyle = '#2f4a3c'; ctx.fillRect(0, y, W, 6);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(0, y + 6, W, 4);
+  }
+  if (S.phase === 2) { ctx.fillStyle = `rgba(255,90,0,${0.05 + Math.sin(S.t / 20) * 0.02})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// Fachada de madera (terraza moderna): tablas verticales de madera clara, pilares y vigas de madera
+// con sombra, sombra diagonal del sol y barandas negras de barrotes (fijo en el mundo)
+function drawWoodFacade() {
+  const top = S.camY, FH = 200;
+  ctx.fillStyle = '#7a5a34'; ctx.fillRect(0, 0, W, H);
+  // Tablas verticales con vetas
+  for (let c = 0; c < W / 14 + 1; c++) {
+    const x = c * 14, v = Math.floor(hash(c, 3) * 18);
+    ctx.fillStyle = `rgb(${200 + v},${158 + v},${98 + v / 2})`; ctx.fillRect(x + 0.5, 0, 13, H);
+    ctx.strokeStyle = 'rgba(120,80,40,0.22)'; ctx.lineWidth = 1;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath(); const vx = x + 3 + k * 4;
+      for (let yy = -10; yy < H + 10; yy += 20) ctx.lineTo(vx + Math.sin((yy + top) / 37 + c + k) * 1.2, yy);
+      ctx.stroke();
+    }
+  }
+  // Juntas de las tablas, vigas horizontales con su sombra y barandas
+  for (let f = Math.floor((H - 20 - top - H) / FH) - 1; f <= Math.floor((H - 20 - top) / FH) + 1; f++) {
+    const yb = H - 20 - f * FH - top, yt = yb - FH;
+    ctx.fillStyle = 'rgba(70,45,20,0.35)'; ctx.fillRect(0, yt + 100, W, 2);
+    ctx.fillStyle = 'rgba(40,25,10,0.35)'; ctx.fillRect(0, yt + 16, W, 14);   // sombra bajo la viga
+    ctx.fillStyle = '#c99a5c'; ctx.fillRect(0, yt, W, 16);
+    ctx.fillStyle = '#e2b878'; ctx.fillRect(0, yt, W, 3);
+    for (let k = 0; k < 3; k++) { ctx.fillStyle = 'rgba(110,70,30,0.3)'; ctx.fillRect(0, yt + 5 + k * 4, W, 1); }
+    if (hash(f, 5) > 0.5) {
+      const by = yb - 46, bx0 = hash(f, 6) * 120, bx1 = bx0 + 140 + hash(f, 7) * 100;
+      ctx.fillStyle = '#16161a'; ctx.fillRect(bx0, by, bx1 - bx0, 3);
+      for (let x = bx0; x < bx1; x += 7) ctx.fillRect(x, by, 2, 44);
+    }
+  }
+  // Pilares verticales con cara en sombra
+  for (const px of [52, W - 52]) {
+    ctx.fillStyle = 'rgba(40,25,10,0.3)'; ctx.fillRect(px + 14, 0, 10, H);
+    ctx.fillStyle = '#d4a868'; ctx.fillRect(px - 14, 0, 28, H);
+    ctx.fillStyle = '#b08248'; ctx.fillRect(px + 4, 0, 10, H);
+    ctx.fillStyle = 'rgba(120,80,40,0.25)'; for (const dx of [-8, -2]) ctx.fillRect(px + dx, 0, 1, H);
+  }
+  // Sombra diagonal del sol
+  ctx.fillStyle = 'rgba(60,35,15,0.22)';
+  ctx.beginPath(); ctx.moveTo(W * 0.15, H); ctx.lineTo(W, H * 0.15); ctx.lineTo(W, H); ctx.fill();
+  if (S.phase === 2) { ctx.fillStyle = `rgba(255,90,0,${0.05 + Math.sin(S.t / 20) * 0.02})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// Casa embrujada victoriana: tablones horizontales de madera gris gastada, ventanas góticas en arco
+// (algunas tapiadas), molduras con puntas entre pisos, enredaderas, luz fría de luna y niebla
+function drawHauntedFacade() {
+  const top = S.camY, FH = 180;
+  ctx.fillStyle = '#16171a'; ctx.fillRect(0, 0, W, H);
+  // Tablones horizontales (plomo oscuro)
+  for (let r = Math.floor(top / 14) - 1; r * 14 < top + H; r++) {
+    const y = r * 14 - top, v = Math.floor(hash(r, 2) * 14);
+    ctx.fillStyle = `rgb(${36 + v},${38 + v},${42 + v})`; ctx.fillRect(0, y, W, 12);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, y + 12, W, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fillRect(0, y, W, 1);
+    if (hash(r, 9) > 0.8) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(hash(r, 4) * W, y + 2, 20 + hash(r, 5) * 40, 8); }   // tablón podrido
+  }
+  for (let f = Math.floor((H - 20 - top - H) / FH) - 1; f <= Math.floor((H - 20 - top) / FH) + 1; f++) {
+    const yb = H - 20 - f * FH - top, yt = yb - FH;
+    // Ventanas góticas de fondo (una o dos por piso), algunas tapiadas
+    for (let k = 0; k < 2; k++) {
+      if (hash(f, k + 20) < 0.4) continue;
+      const wx = 30 + k * 220 + hash(f, k + 21) * 90, wy = yt + 50, ww = 34, wh = 62;
+      const arch = () => { ctx.beginPath(); ctx.moveTo(wx, wy + wh); ctx.lineTo(wx, wy + 16); ctx.quadraticCurveTo(wx, wy - 4, wx + ww / 2, wy - 12); ctx.quadraticCurveTo(wx + ww, wy - 4, wx + ww, wy + 16); ctx.lineTo(wx + ww, wy + wh); ctx.closePath(); };
+      ctx.fillStyle = '#121316'; ctx.save(); ctx.translate(-4, -4); ctx.scale(1, 1); arch(); ctx.restore(); ctx.fill();
+      ctx.lineWidth = 5; ctx.strokeStyle = '#2a2c31'; arch(); ctx.stroke();
+      ctx.fillStyle = hash(f, k + 30) > 0.7 ? '#3a3420' : '#0c0d10'; arch(); ctx.fill();   // alguna con luz amarillenta tenue
+      ctx.strokeStyle = '#2b2d32'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(wx + ww / 2, wy - 10); ctx.lineTo(wx + ww / 2, wy + wh); ctx.moveTo(wx, wy + 26); ctx.lineTo(wx + ww, wy + 26); ctx.stroke();
+      if (hash(f, k + 40) > 0.5) {   // tapiada con tablas cruzadas
+        ctx.fillStyle = '#5a4a38';
+        for (const [a, oy] of [[0.35, 14], [-0.3, 36]]) { ctx.save(); ctx.translate(wx + ww / 2, wy + oy); ctx.rotate(a); ctx.fillRect(-ww / 2 - 6, -4, ww + 12, 8); ctx.restore(); }
+      }
+    }
+    // Moldura victoriana con puntas
+    ctx.fillStyle = '#16171a'; ctx.fillRect(0, yt - 2, W, 12);
+    ctx.fillStyle = '#2e3036'; ctx.fillRect(0, yt, W, 8);
+    ctx.fillStyle = '#16171a';
+    for (let x = 0; x < W; x += 12) { ctx.beginPath(); ctx.moveTo(x, yt + 8); ctx.lineTo(x + 6, yt + 16); ctx.lineTo(x + 12, yt + 8); ctx.fill(); }
+    // Enredadera que trepa
+    if (hash(f, 50) > 0.35) {
+      const vx = hash(f, 51) * W; ctx.strokeStyle = '#1d2a1c'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(vx, yb);
+      for (let k = 1; k <= 8; k++) ctx.lineTo(vx + Math.sin(k * 1.3 + f) * 14, yb - k * FH / 8);
+      ctx.stroke();
+      ctx.fillStyle = '#26381f';
+      for (let k = 1; k <= 14; k++) { const ly = yb - k * FH / 14, lx = vx + Math.sin(k * 0.7 + f) * 14; ctx.beginPath(); ctx.ellipse(lx + (k % 2 ? 4 : -4), ly, 4, 2.5, k, 0, 7); ctx.fill(); }
+    }
+  }
+  // Luz fría de luna desde arriba a la izquierda y niebla que se mueve
+  const moon = ctx.createLinearGradient(0, 0, W, H);
+  moon.addColorStop(0, 'rgba(150,170,200,0.08)'); moon.addColorStop(1, 'rgba(5,5,12,0.45)');
+  ctx.fillStyle = moon; ctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < 4; i++) {
+    const fx = ((S.t * (0.15 + i * 0.05) + i * 160) % (W + 300)) - 150, fy = 120 + i * 140;
+    const g = ctx.createRadialGradient(fx, fy, 10, fx, fy, 140);
+    g.addColorStop(0, 'rgba(180,190,200,0.10)'); g.addColorStop(1, 'rgba(180,190,200,0)');
+    ctx.fillStyle = g; ctx.fillRect(fx - 140, fy - 140, 280, 280);
+  }
+  if (S.phase === 2) { ctx.fillStyle = `rgba(255,90,0,${0.03 + Math.sin(S.t / 20) * 0.015})`; ctx.fillRect(0, 0, W, H); }
 }
 
 // Rellena la franja visible [a, b) (mundo) con un material
@@ -4025,7 +4415,7 @@ function drawWorld() {
   }
 
   if (!theme() && !inside()) drawDecor();
-  drawPoles();
+  drawPoles();   // detrás de los alféizares, para no tapar dónde se pisa
   for (const pl of S.plats) {
     if (pl.ground) continue;
     if (pl.kind === 'slab' || pl.kind === 'stairstep') continue;   // los dibuja el techo de la escalera
@@ -4184,7 +4574,17 @@ function drawRoof(pl) {
   } else {
     // Ventana: marco gris, vidrio oscuro y alféizar de concreto
     const ww = w - 14, wx = x + 7, wh = 44, wy = y - wh;
-    box(wx - 4, wy - 4, ww + 8, wh + 4, '#a3a3a8');
+    if (pl.vent) drawBayBox(pl);
+    const haunted = MODS[S.mod] && MODS[S.mod].facade === 'embrujada';
+    if (haunted) {   // casa embrujada: arco gótico de madera oscura sobre la ventana
+      ctx.fillStyle = '#0d0907';
+      ctx.beginPath(); ctx.moveTo(wx - 6, wy - 2); ctx.quadraticCurveTo(wx - 4, wy - 16, wx + ww / 2, wy - 24); ctx.quadraticCurveTo(wx + ww + 4, wy - 16, wx + ww + 6, wy - 2); ctx.fill();
+      ctx.fillStyle = '#3b2c20';
+      ctx.beginPath(); ctx.moveTo(wx - 4, wy - 2); ctx.quadraticCurveTo(wx - 2, wy - 14, wx + ww / 2, wy - 21); ctx.quadraticCurveTo(wx + ww + 2, wy - 14, wx + ww + 4, wy - 2); ctx.fill();
+      ctx.fillStyle = '#120e0b';
+      ctx.beginPath(); ctx.moveTo(wx + 4, wy - 3); ctx.quadraticCurveTo(wx + 6, wy - 11, wx + ww / 2, wy - 16); ctx.quadraticCurveTo(wx + ww - 6, wy - 11, wx + ww - 4, wy - 3); ctx.fill();
+    }
+    box(wx - 4, wy - 4, ww + 8, wh + 4, pl.vent ? '#1e2024' : haunted ? '#3b2c20' : '#a3a3a8');
     if (broken) {
       // Ventana rota: interior oscuro con el fuego (o restos) y trozos de vidrio en las esquinas
       ctx.fillStyle = pl.inner === 'open' ? '#1a0d08' : pl.glassBroken && !pl.inner ? '#2a221d' : '#151517'; ctx.fillRect(wx, wy, ww, wh);
@@ -4197,7 +4597,7 @@ function drawRoof(pl) {
       if (pl.smokeWin === 'sealed' || pl.smokeWin === 'venting') drawSmokyGlass(pl, wx, wy, ww, wh);
       else if (pl.trapped === 'inside') drawTrappedGlass(pl, wx, wy, ww, wh);
       else glass(wx, wy, ww, wh, fire, x);
-      ctx.fillStyle = '#a3a3a8';
+      ctx.fillStyle = haunted ? '#2a1f16' : '#a3a3a8';
       ctx.fillRect(wx + ww / 2 - 2, wy, 4, wh); ctx.fillRect(wx, wy + wh / 2 - 2, ww, 4);
     }
     if (!pl.fragile) drawSill(x - 3, y, w + 6);
@@ -4326,12 +4726,34 @@ function drawSmokyGlass(pl, wx, wy, ww, wh) {
   ctx.fillStyle = `rgba(20,16,14,${0.5 * (1 - clear)})`; ctx.fillRect(wx - 4, wy - 4, ww + 8, 6);
 }
 
-// Techo sobre la ventana con humo: losa con trampilla que se rompe con la halligan
+// Cuerpo de la ventana saliente (bow window) bajo su techo: caja de pizarra oscura con sombra en la pared
+function drawBayBox(pl) {
+  const v = pl.vent, x0 = pl.x - 2, x1 = pl.x + pl.w + 2, top = v.y + 10, bot = pl.y;
+  // Sombra que la caja proyecta en la fachada (hacia abajo a la derecha)
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath(); ctx.moveTo(x1, top + 4); ctx.lineTo(x1 + 12, top + 16); ctx.lineTo(x1 + 12, bot + 14); ctx.lineTo(x0 + 10, bot + 14); ctx.lineTo(x0, bot); ctx.lineTo(x1, bot); ctx.fill();
+  // Caja con placas de pizarra
+  ctx.fillStyle = '#0d0e10'; ctx.fillRect(x0 - 1.5, top - 1.5, x1 - x0 + 3, bot - top + 3);
+  ctx.fillStyle = '#34373c'; ctx.fillRect(x0, top, x1 - x0, bot - top);
+  for (let yy = top; yy < bot; yy += 11)
+    for (let xx = x0 + ((yy - top) / 11 % 2) * 9; xx < x1; xx += 18) {
+      ctx.fillStyle = hash(Math.floor(xx), Math.floor(yy)) > 0.5 ? '#3d4046' : '#2e3135';
+      ctx.fillRect(xx + 0.5, yy + 0.5, Math.min(17, x1 - xx - 0.5), 10);
+    }
+  // Canto lateral (da profundidad) y brillo arriba
+  ctx.fillStyle = '#22252a'; ctx.fillRect(x1 - 5, top, 5, bot - top);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(x0, top, x1 - x0, 2);
+}
+
+// Techo sobre la ventana con humo: losa saliente con canto, sombra y trampilla que se rompe con la halligan
 function drawVentRoof(pl) {
   const { x, y, w } = pl, hx = x + w / 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x + 4, y + 11, w - 8, 6);
-  box(x, y, w, 10, '#7c7c82');
-  ctx.fillStyle = '#9a9aa0'; ctx.fillRect(x, y, w, 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x + 2, y + 12, w - 2, 7);    // sombra sobre la caja
+  ctx.fillStyle = '#0d0e10'; ctx.fillRect(x - 6.5, y - 1.5, w + 13, 15);
+  ctx.fillStyle = '#4a4e55'; ctx.fillRect(x - 5, y, w + 10, 12);              // losa que sobresale
+  ctx.fillStyle = '#6c717a'; ctx.fillRect(x - 5, y, w + 10, 3);               // filo iluminado
+  ctx.fillStyle = '#2a2d32'; ctx.fillRect(x - 5, y + 9, w + 10, 3);           // canto inferior
+  ctx.fillStyle = '#8a8f98'; ctx.fillRect(x - 5, y + 3, w + 10, 1);
   if (!pl.opened) {
     box(hx - 14, y + 1, 28, 6, '#5d636e');
     ctx.fillStyle = '#c9ccd2';
@@ -4375,46 +4797,127 @@ function drawFlame(f) {
 // El fuste se desvanece hacia abajo (sigue detrás de los techos de la cuadra).
 function drawPoles() {
   for (const o of S.poles) {
-    if (o.y < S.camY - 120 || o.y > S.camY + H + 360) continue;
-    const { x, y, side } = o, burning = o.f.hp > 0, out = !burning;
-    // Fuste
-    const g = ctx.createLinearGradient(0, y - 40, 0, y + 320);
-    g.addColorStop(0, '#9a9a9a'); g.addColorStop(0.7, 'rgba(110,110,110,0.9)'); g.addColorStop(1, 'rgba(110,110,110,0)');
-    ctx.fillStyle = g; ctx.fillRect(x - 5, y - 40, 10, 360);
-    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x + 2, y - 40, 3, 360);
-    // Cruceta y aisladores
-    ctx.fillStyle = '#5b4632'; ctx.fillRect(x - 26, y - 36, 52, 6);
-    ctx.fillStyle = '#d9e3ea';
-    for (const dx of [-22, 0, 22]) ctx.fillRect(x + dx - 2, y - 44, 4, 8);
-    // Cables hacia la fachada (con comba) y fuera de pantalla
-    ctx.strokeStyle = '#1b1b1d'; ctx.lineWidth = 1.4;
-    for (const dx of [-22, 0, 22]) {
-      ctx.beginPath(); ctx.moveTo(x + dx, y - 44);
-      ctx.quadraticCurveTo(x + dx - side * 70, y - 14, x - side * 150, y - 40 + dx * 0.3); ctx.stroke();
-    }
-    // Transformador (tambor gris colgado del poste)
-    const tx = x - side * 12;
-    ctx.fillStyle = out ? '#3a3a3e' : '#7b8188'; ctx.fillRect(tx - 9, y - 26, 18, 26);
-    ctx.fillStyle = out ? '#2a2a2e' : '#5d636b'; ctx.fillRect(tx - 9, y - 26, 18, 4);
-    ctx.fillStyle = '#26262a'; ctx.fillRect(tx - 7, y - 30, 3, 4); ctx.fillRect(tx + 4, y - 30, 3, 4);
-    // Señal de peligro eléctrico
-    ctx.fillStyle = '#ffd400';
-    ctx.beginPath(); ctx.moveTo(x, y + 14); ctx.lineTo(x - 7, y + 26); ctx.lineTo(x + 7, y + 26); ctx.fill();
-    ctx.fillStyle = '#111'; ctx.font = font(9); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚡', x, y + 22);
-    // Chispas mientras sigue energizado y ardiendo
-    if (burning && Math.random() < 0.35) {
-      const a = rand(0, Math.PI * 2);
-      S.parts.push({ x: tx + rand(-8, 8), y: y - 26 + rand(-6, 6), vx: Math.cos(a) * rand(1, 3), vy: Math.sin(a) * rand(1, 3) - 1,
-        g: 0.12, life: rand(8, 16), max: 16, c: Math.random() < 0.5 ? '#fff38a' : '#9fe3ff', s: rand(1, 2) });
-    }
-    // Destello eléctrico ocasional
-    if (burning && Math.sin(S.t / 9 + o.ph) > 0.93) {
-      ctx.strokeStyle = 'rgba(190,235,255,0.9)'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(x - 22, y - 44);
-      for (let k = 1; k <= 4; k++) ctx.lineTo(x - 22 + k * 11, y - 44 + rand(-6, 6));
-      ctx.stroke();
-    }
+    if (o.y < S.camY - 140 || o.y > S.camY + H + 420) continue;
+    drawPole(o);
   }
+}
+// Rayo dibujado (placas de peligro y transformador)
+function boltPath(cx, cy, s) {
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.15, cy - s * 0.55); ctx.lineTo(cx - s * 0.3, cy + s * 0.08); ctx.lineTo(cx - s * 0.02, cy + s * 0.08);
+  ctx.lineTo(cx - s * 0.18, cy + s * 0.55); ctx.lineTo(cx + s * 0.3, cy - s * 0.1); ctx.lineTo(cx + s * 0.02, cy - s * 0.1); ctx.closePath();
+}
+// Arco eléctrico en zigzag con brillo
+function elecArc(x0, y0, x1, y1) {
+  ctx.save();
+  ctx.shadowColor = '#9fe3ff'; ctx.shadowBlur = 10; ctx.strokeStyle = 'rgba(220,245,255,0.95)'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(x0, y0);
+  for (let k = 1; k < 6; k++) { const t = k / 6; ctx.lineTo(x0 + (x1 - x0) * t + rand(-4, 4), y0 + (y1 - y0) * t + rand(-4, 4)); }
+  ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.restore();
+}
+// Poste de concreto con cruceta de madera, aisladores de vidrio, transformador, cables y (a veces) farol
+function drawPole(o) {
+  const { x, y, side } = o, inw = -side;   // inw: hacia el centro de la pantalla
+  const burning = o.f.hp > 0, out = !burning, seed = Math.floor(o.ph * 100);
+  const bottom = Math.min(y + 460, S.camY + H + 30);
+  // --- Fuste (cilindro de concreto que se angosta hacia arriba) ---
+  const sg = ctx.createLinearGradient(x - 8, 0, x + 8, 0);
+  sg.addColorStop(0, '#d2cec4'); sg.addColorStop(0.35, '#b3aea3'); sg.addColorStop(0.8, '#7c776e'); sg.addColorStop(1, '#5a564f');
+  ctx.fillStyle = '#1a1816';
+  ctx.beginPath(); ctx.moveTo(x - 6, y - 64); ctx.lineTo(x + 6, y - 64); ctx.lineTo(x + 9, bottom); ctx.lineTo(x - 9, bottom); ctx.fill();
+  ctx.fillStyle = sg;
+  ctx.beginPath(); ctx.moveTo(x - 5, y - 63); ctx.lineTo(x + 5, y - 63); ctx.lineTo(x + 8, bottom); ctx.lineTo(x - 8, bottom); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  for (let j = y - 20; j < bottom; j += 64) ctx.fillRect(x - 7, j, 14, 2);                         // juntas del concreto
+  ctx.fillStyle = '#3a3733';
+  for (let j = y + 30, k = 0; j < Math.min(bottom, y + 300); j += 22, k++) ctx.fillRect(k % 2 ? x + 5 : x - 11, j, 6, 2.5);   // peldaños
+  // Placa de peligro
+  const py = y + 54;
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(x, py - 11); ctx.lineTo(x + 11, py + 8); ctx.lineTo(x - 11, py + 8); ctx.fill();
+  ctx.fillStyle = '#ffd400'; ctx.beginPath(); ctx.moveTo(x, py - 8); ctx.lineTo(x + 8.5, py + 6); ctx.lineTo(x - 8.5, py + 6); ctx.fill();
+  ctx.fillStyle = '#111'; boltPath(x, py + 1.5, 9); ctx.fill();
+  // --- Farol en algunos postes ---
+  if (seed % 2 === 0) {
+    const ly = y + 96, lx = x + inw * 34;
+    ctx.strokeStyle = '#2a2826'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, ly + 10); ctx.quadraticCurveTo(x + inw * 6, ly - 8, lx, ly - 4); ctx.stroke();
+    const on = burning ? (Math.sin(S.t / 3 + o.ph) > -0.3 ? 1 : 0.15) : 1;   // parpadea mientras el poste arde
+    const cone = ctx.createLinearGradient(0, ly, 0, ly + 120);
+    cone.addColorStop(0, `rgba(255,236,170,${0.32 * on})`); cone.addColorStop(1, 'rgba(255,236,170,0)');
+    ctx.fillStyle = cone; ctx.beginPath(); ctx.moveTo(lx - 7, ly); ctx.lineTo(lx + 7, ly); ctx.lineTo(lx + 38, ly + 120); ctx.lineTo(lx - 38, ly + 120); ctx.fill();
+    box(lx - 10, ly - 7, 20, 7, '#3a3835');
+    ctx.fillStyle = on > 0.5 ? '#fff4c8' : '#6a665c'; ctx.fillRect(lx - 7, ly, 14, 3);
+  }
+  // --- Cruceta de madera con tirantes ---
+  const cy = y - 50, cx0 = x - 34, cw = 68;
+  ctx.strokeStyle = '#2b2b2e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, cy + 22); ctx.lineTo(x - 22, cy + 5); ctx.moveTo(x, cy + 22); ctx.lineTo(x + 22, cy + 5); ctx.stroke();
+  box(cx0, cy, cw, 7, '#5e3f24');
+  ctx.fillStyle = '#7a5532'; ctx.fillRect(cx0 + 1, cy + 1, cw - 2, 2);
+  ctx.strokeStyle = 'rgba(40,24,12,0.6)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(cx0 + 4, cy + 4.5); ctx.lineTo(cx0 + cw - 6, cy + 4.5); ctx.stroke();
+  // --- Aisladores de vidrio (tres) ---
+  const ins = [x - 26, x, x + 26];
+  for (const ix of ins) {
+    ctx.fillStyle = '#1a2a28'; ctx.fillRect(ix - 1, cy - 4, 2, 4);
+    for (let k = 0; k < 3; k++) {
+      const iy = cy - 5 - k * 4;
+      ctx.fillStyle = '#123'; ctx.beginPath(); ctx.ellipse(ix, iy, 5.5, 2.4, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = out ? '#4a5a56' : '#7fbfae'; ctx.beginPath(); ctx.ellipse(ix, iy - 0.5, 4.5, 1.8, 0, 0, 7); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(ix - 3, cy - 15, 1.5, 6);   // brillo del vidrio
+  }
+  // --- Cables con comba (salen de pantalla) y acometida hacia el edificio ---
+  ctx.lineCap = 'round';
+  for (const [k, ix] of ins.entries()) {
+    const yy = cy - 15;
+    ctx.strokeStyle = '#141416'; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(ix, yy); ctx.quadraticCurveTo(ix + inw * 80, yy + 22 + k * 3, ix + inw * 190, yy + 6 + k * 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(ix, yy - 1); ctx.quadraticCurveTo(ix + inw * 80, yy + 21 + k * 3, ix + inw * 190, yy + 5 + k * 4); ctx.stroke();
+  }
+  ctx.strokeStyle = '#141416'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(x + inw * 26, cy - 15); ctx.quadraticCurveTo(x + inw * 60, cy + 40, x + inw * 120, cy + 70); ctx.stroke();
+  ctx.lineCap = 'butt';
+  // --- Transformador colgado del lado del edificio ---
+  const tx = o.f.x, tt = y - 26, tb = y + 6, tw = 24;
+  ctx.fillStyle = '#2b2b2e'; ctx.fillRect(Math.min(x, tx), tt + 6, Math.abs(tx - x), 3); ctx.fillRect(Math.min(x, tx), tb - 8, Math.abs(tx - x), 3);   // abrazaderas
+  const tg = ctx.createLinearGradient(tx - tw / 2, 0, tx + tw / 2, 0);
+  if (out) { tg.addColorStop(0, '#3a3a3a'); tg.addColorStop(1, '#1c1c1c'); }
+  else { tg.addColorStop(0, '#a3b0aa'); tg.addColorStop(0.4, '#7d8c86'); tg.addColorStop(1, '#4b5652'); }
+  ctx.fillStyle = '#121212'; ctx.fillRect(tx - tw / 2 - 1.5, tt - 1.5, tw + 3, tb - tt + 3);
+  ctx.fillStyle = tg; ctx.fillRect(tx - tw / 2, tt, tw, tb - tt);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  for (const fx of [tx - tw / 2 - 3, tx + tw / 2]) for (let j = tt + 4; j < tb - 2; j += 4) ctx.fillRect(fx, j, 3, 2);   // aletas de enfriamiento
+  ctx.fillStyle = out ? '#262626' : '#5e6a65'; ctx.fillRect(tx - tw / 2, tt + 10, tw, 2); ctx.fillRect(tx - tw / 2, tb - 9, tw, 2);   // bandas
+  ctx.fillStyle = out ? '#2e2e2e' : '#b7c2bd'; ctx.beginPath(); ctx.ellipse(tx, tt, tw / 2 + 1, 3, 0, 0, 7); ctx.fill();          // tapa
+  // Placa con rayo
+  box(tx - 5, tt + 14, 10, 8, out ? '#3a3a3a' : '#e9e4d2');
+  ctx.fillStyle = out ? '#222' : '#e0a400'; boltPath(tx, tt + 18, 6); ctx.fill();
+  // Bornes de porcelana sobre la tapa, con cables a los aisladores
+  const bush = [tx - 6, tx + 6];
+  for (const bx of bush) {
+    ctx.fillStyle = '#111'; ctx.fillRect(bx - 2.5, tt - 9, 5, 9);
+    ctx.fillStyle = out ? '#555' : '#e8e6df'; ctx.fillRect(bx - 1.5, tt - 8, 3, 7);
+    ctx.strokeStyle = '#141416'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(bx, tt - 9);
+    ctx.quadraticCurveTo(bx, cy - 6, bx === bush[0] ? x : x + inw * 26, cy - 15); ctx.stroke();
+  }
+  // Hollín y brillo mientras arde; carbonizado al apagarse
+  if (burning) {
+    const soot = ctx.createLinearGradient(0, tt, 0, tb);
+    soot.addColorStop(0, 'rgba(10,8,6,0.75)'); soot.addColorStop(1, 'rgba(10,8,6,0)');
+    ctx.fillStyle = soot; ctx.fillRect(tx - tw / 2, tt, tw, (tb - tt) * 0.7);
+    const glow = ctx.createRadialGradient(tx, tt, 2, tx, tt, 46);
+    glow.addColorStop(0, 'rgba(255,170,60,0.35)'); glow.addColorStop(1, 'rgba(255,120,30,0)');
+    ctx.fillStyle = glow; ctx.fillRect(tx - 46, tt - 46, 92, 92);
+    // Arcos eléctricos entre bornes y hacia los aisladores
+    if (Math.sin(S.t / 5 + o.ph) > 0.55) elecArc(bush[0], tt - 9, bush[1], tt - 9);
+    if (Math.sin(S.t / 7 + o.ph * 2) > 0.8) elecArc(bush[1], tt - 9, x + inw * 26, cy - 15);
+    if (Math.random() < 0.3) {
+      const a = rand(0, Math.PI * 2);
+      S.parts.push({ x: tx + rand(-10, 10), y: tt + rand(-6, 6), vx: Math.cos(a) * rand(1, 3), vy: Math.sin(a) * rand(1, 3) - 1,
+        g: 0.15, life: rand(10, 20), max: 20, c: Math.random() < 0.5 ? '#fff38a' : '#9fe3ff', s: rand(1, 2.2) });
+    }
+  } else if ((o.outT = (o.outT || 0) + 1) < 240 && S.t % 10 === 0) addSmoke(tx + rand(-6, 6), tt - 4, 'light', 0.5);   // humea unos segundos
 }
 
 // Barra de carga eléctrica sobre el bombero mientras moja un poste
@@ -4547,8 +5050,12 @@ function drawPlayer() {
   const stage = S.medic ? 'p' : S.carrier ? 'g' : S.have.mochilaf ? 'm' : S.have.traje ? 'f'
     : S.mod === 'ascensor' ? (S.have.casco ? 'c' : 3) : Math.min(STAGES, 1 + S.epp);
   let key = `idle_${stage}`, h = 70, rot = 0;
-  if (S.state === 'dying' || S.state === 'over') {
+  if ((S.state === 'dying' || S.state === 'over') && S.zapDeath) {
+    key = `electro_${ZAP_DIE.filter(([t]) => S.dieT >= t).pop()[1]}`; h = 0;
+  } else if (S.state === 'dying' || S.state === 'over') {
     key = DIE_SEQ.filter(([t]) => S.dieT >= t).pop()[1]; h = 0;
+  } else if (S.zapT > 0) {
+    key = `electro_${ZAP_SEQ[Math.min(ZAP_SEQ.length - 1, Math.floor((ZAP_T - S.zapT) / ZAP_T * ZAP_SEQ.length))]}`; h = 0;
   } else if (S.hurtT > 0) {
     key = `dano_${HURT_SEQ[Math.min(HURT_SEQ.length - 1, Math.floor((40 - S.hurtT) / 40 * HURT_SEQ.length))]}`; h = 0;
   } else if (S.halT > 0) {
@@ -4593,6 +5100,7 @@ function drawPlayer() {
 function drawDarkness() {
   const p = S.p, d = darkLevel();
   if (d <= 0) return;
+  if (blackout()) { drawBlackout(); return; }
   dctx.globalCompositeOperation = 'source-over';
   dctx.clearRect(0, 0, W, H);
   dctx.fillStyle = `rgba(6,6,8,${0.86 * d})`;   // sin linterna: muy oscuro, pero se alcanza a ver algo
@@ -4628,6 +5136,44 @@ function drawDarkness() {
     g.addColorStop(0, 'rgba(255,235,180,0.12)'); g.addColorStop(1, 'rgba(255,235,180,0)');
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.moveTo(hx, hy); ctx.arc(hx, hy, 240, a - 0.38, a + 0.38); ctx.closePath(); ctx.fill();
+  }
+}
+
+// Apagón total: todo negro. La linterna encendida da un halo tenue alrededor del bombero y un haz fuerte
+// hacia donde mira; apagada no se ve casi nada. El fuego deja ver un poco a su alrededor.
+function drawBlackout() {
+  const p = S.p, hx = p.x, hy = p.y - 32 - S.camY;
+  S.blackK = Math.min(1, (S.blackK || 0) + 1 / 50);   // se va oscureciendo en ~1 s al recoger la linterna
+  dctx.globalCompositeOperation = 'source-over';
+  dctx.clearRect(0, 0, W, H);
+  dctx.fillStyle = `rgba(2,2,4,${0.985 * S.blackK})`;
+  dctx.fillRect(0, 0, W, H);
+  dctx.globalCompositeOperation = 'destination-out';
+  const hole = (x, y, r, k) => {
+    const g = dctx.createRadialGradient(x, y, r * 0.2, x, y, r);
+    g.addColorStop(0, `rgba(0,0,0,${k})`); g.addColorStop(1, '#0000');
+    dctx.fillStyle = g; dctx.beginPath(); dctx.arc(x, y, r, 0, 7); dctx.fill();
+  };
+  const fl = 0.96 + Math.sin(S.t / 7) * 0.03;
+  const a = p.dir > 0 ? -Math.PI * 0.3 : -Math.PI * 0.7, half = 0.36, len = 290;
+  if (S.lamp) {
+    hole(hx, hy, 200, 0.42 * fl);   // halo tenue que alumbra todo alrededor
+    const g = dctx.createRadialGradient(hx, hy, 12, hx, hy, len);
+    g.addColorStop(0, `rgba(0,0,0,${0.95 * fl})`); g.addColorStop(0.65, `rgba(0,0,0,${0.75 * fl})`); g.addColorStop(1, '#0000');
+    dctx.fillStyle = g;
+    dctx.beginPath(); dctx.moveTo(hx, hy); dctx.arc(hx, hy, len, a - half, a + half); dctx.closePath(); dctx.fill();
+  } else hole(hx, hy, 34, 0.18);   // a oscuras: apenas la silueta del bombero
+  for (const f of S.flames) if (f.hp > 0) hole(f.x, f.y - 12 - S.camY, 40, 0.55);   // el fuego alumbra un poco
+  for (const pl of S.plats) if (pl.inner === 'open' && pl.flame && pl.flame.hp > 0) { const r = opening(pl); hole(r.x + r.w / 2, r.y + r.h / 2 - S.camY, 38, 0.5); }
+  ctx.drawImage(dark, 0, 0, W, H);
+  if (S.lamp) {   // brillo cálido del haz
+    const g = ctx.createRadialGradient(hx, hy, 10, hx, hy, len);
+    g.addColorStop(0, 'rgba(255,235,180,0.14)'); g.addColorStop(1, 'rgba(255,235,180,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.arc(hx, hy, len, a - half, a + half); ctx.closePath(); ctx.fill();
+    const h2 = ctx.createRadialGradient(hx, hy, 5, hx, hy, 200);
+    h2.addColorStop(0, 'rgba(255,235,180,0.06)'); h2.addColorStop(1, 'rgba(255,235,180,0)');
+    ctx.fillStyle = h2; ctx.fillRect(hx - 200, hy - 200, 400, 400);
   }
 }
 
