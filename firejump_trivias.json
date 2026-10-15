@@ -1,0 +1,1936 @@
+{
+  "titulo": "Trivia FireJump – Banco de preguntas (internacional)",
+  "fuente": "Basado en el Manual del Curso de Formación Básica de Bomberos; normas de referencia: NFPA",
+  "niveles": {
+    "facil": "Niños (8+)",
+    "medio": "Jóvenes",
+    "dificil": "Adultos / bomberos"
+  },
+  "total": 148,
+  "preguntas": [
+    {
+      "id": "q001",
+      "nivel": "facil",
+      "categoria": "Historia y valores",
+      "pregunta": "Completa la frase: «El bombero siempre da, nunca…»",
+      "opciones": [
+        "descansa",
+        "pide"
+      ],
+      "correcta": 1,
+      "explicacion": "La frase resume la vocación del bombero voluntario en todo el mundo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 2"
+    },
+    {
+      "id": "q002",
+      "nivel": "medio",
+      "categoria": "Historia y valores",
+      "pregunta": "¿Qué ciudad es considerada la cuna del bomberismo mundial?",
+      "opciones": [
+        "Roma",
+        "Londres"
+      ],
+      "correcta": 0,
+      "explicacion": "El emperador Augusto organizó a los «vigiles», el primer cuerpo de bomberos como tal.",
+      "fuente": "Manual de formación básica de bomberos – Lección 3"
+    },
+    {
+      "id": "q003",
+      "nivel": "medio",
+      "categoria": "Historia y valores",
+      "pregunta": "¿Cómo se llamaban los bomberos de la antigua Roma?",
+      "opciones": [
+        "Gladiadores",
+        "Vigiles"
+      ],
+      "correcta": 1,
+      "explicacion": "Los «vigiles» o «Cohortes Vigilum» fueron organizados por Augusto.",
+      "fuente": "Manual de formación básica de bomberos – Lección 3"
+    },
+    {
+      "id": "q004",
+      "nivel": "medio",
+      "categoria": "Historia y valores",
+      "pregunta": "¿De qué material era la primera manguera flexible, inventada en 1672?",
+      "opciones": [
+        "De cuero",
+        "De plástico"
+      ],
+      "correcta": 0,
+      "explicacion": "La inventó el holandés Jan van der Heijden, en tramos de 50 pies con uniones de bronce.",
+      "fuente": "Manual de formación básica de bomberos – Lección 3"
+    },
+    {
+      "id": "q006",
+      "nivel": "medio",
+      "categoria": "Historia y valores",
+      "pregunta": "En los cuerpos de bomberos, ¿qué valor se considera la «columna vertebral»?",
+      "opciones": [
+        "La disciplina",
+        "La rapidez"
+      ],
+      "correcta": 0,
+      "explicacion": "En una emergencia nadie puede actuar por su cuenta: la disciplina permite trabajar en equipo de forma segura.",
+      "fuente": "Manual de formación básica de bomberos – Lección 2"
+    },
+    {
+      "id": "q007",
+      "nivel": "facil",
+      "categoria": "Comunicaciones",
+      "pregunta": "En la comunicación, ¿quién envía el mensaje?",
+      "opciones": [
+        "El receptor",
+        "El emisor"
+      ],
+      "correcta": 1,
+      "explicacion": "El emisor envía el mensaje y el receptor lo recibe.",
+      "fuente": "Manual de formación básica de bomberos – Lección 5"
+    },
+    {
+      "id": "q008",
+      "nivel": "medio",
+      "categoria": "Comunicaciones",
+      "pregunta": "Al llamar por teléfono a la central de emergencias, ¿se deben usar claves o códigos?",
+      "opciones": [
+        "No, se habla claro y sin claves",
+        "Sí, siempre se usan claves"
+      ],
+      "correcta": 0,
+      "explicacion": "Hay que identificarse y dar con claridad la dirección, el tipo y el tamaño de la emergencia.",
+      "fuente": "Manual de formación básica de bomberos – Lección 5"
+    },
+    {
+      "id": "q009",
+      "nivel": "medio",
+      "categoria": "Comunicaciones",
+      "pregunta": "¿A qué velocidad viaja una señal de radio?",
+      "opciones": [
+        "A la velocidad del sonido",
+        "A la velocidad de la luz"
+      ],
+      "correcta": 1,
+      "explicacion": "Se propaga a unos 300 000 km/s.",
+      "fuente": "Manual de formación básica de bomberos – Lección 5"
+    },
+    {
+      "id": "q010",
+      "nivel": "facil",
+      "categoria": "Seguridad",
+      "pregunta": "¿Un bombero debe entrar solo a un incendio?",
+      "opciones": [
+        "No, siempre en pareja o en equipo",
+        "Sí, si es valiente"
+      ],
+      "correcta": 0,
+      "explicacion": "Una regla básica de seguridad es no ingresar solo, ni sin EPP ni sin EPRA.",
+      "fuente": "Manual de formación básica de bomberos – Lección 6"
+    },
+    {
+      "id": "q011",
+      "nivel": "facil",
+      "categoria": "Seguridad",
+      "pregunta": "Durante un incendio, ¿qué se debe usar para bajar de un edificio?",
+      "opciones": [
+        "El ascensor",
+        "Las escaleras de emergencia"
+      ],
+      "correcta": 1,
+      "explicacion": "Nunca se deben usar ascensores ni montacargas en caso de incendio.",
+      "fuente": "Manual de formación básica de bomberos – Lección 6"
+    },
+    {
+      "id": "q012",
+      "nivel": "medio",
+      "categoria": "Seguridad",
+      "pregunta": "¿Qué es el «riesgo»?",
+      "opciones": [
+        "La probabilidad de que un peligro cause daño",
+        "Algo que nunca hace daño"
+      ],
+      "correcta": 0,
+      "explicacion": "El peligro puede causar daño; el riesgo es la probabilidad de que ese daño ocurra.",
+      "fuente": "Manual de formación básica de bomberos – Lección 6"
+    },
+    {
+      "id": "q013",
+      "nivel": "facil",
+      "categoria": "Seguridad",
+      "pregunta": "Al subir una escalera de bomberos se deben usar…",
+      "opciones": [
+        "las manos en los bolsillos",
+        "tres puntos de apoyo"
+      ],
+      "correcta": 1,
+      "explicacion": "Mantener siempre tres puntos de apoyo evita caídas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 6"
+    },
+    {
+      "id": "q014",
+      "nivel": "medio",
+      "categoria": "Seguridad",
+      "pregunta": "¿Qué palabra se dice tres veces por radio cuando un bombero está en peligro?",
+      "opciones": [
+        "MAYDAY",
+        "ALERTA"
+      ],
+      "correcta": 0,
+      "explicacion": "Se dice «MAYDAY» tres veces, luego los datos LUNAR, y de nuevo «MAYDAY» tres veces.",
+      "fuente": "Manual de formación básica de bomberos – Lección 8"
+    },
+    {
+      "id": "q015",
+      "nivel": "medio",
+      "categoria": "Seguridad",
+      "pregunta": "¿Pedir MAYDAY es motivo de vergüenza para un bombero?",
+      "opciones": [
+        "Sí, demuestra debilidad",
+        "No, es una advertencia que salva vidas"
+      ],
+      "correcta": 1,
+      "explicacion": "Reportar un MAYDAY no es vergonzoso: activa la ayuda de todo el operativo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q016",
+      "nivel": "dificil",
+      "categoria": "Seguridad",
+      "pregunta": "En el protocolo LUNAR, ¿qué significa la «L»?",
+      "opciones": [
+        "Lugar",
+        "Linterna"
+      ],
+      "correcta": 0,
+      "explicacion": "LUNAR = Lugar, Unidad, Nombre, Aire y Recursos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q017",
+      "nivel": "dificil",
+      "categoria": "Seguridad",
+      "pregunta": "En el protocolo LUNAR, ¿qué significa la «A»?",
+      "opciones": [
+        "La ambulancia que necesita",
+        "El aire que le queda en el tanque"
+      ],
+      "correcta": 1,
+      "explicacion": "Se indica el aire restante, expresado en cuartos de tanque.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q018",
+      "nivel": "dificil",
+      "categoria": "Seguridad",
+      "pregunta": "En el Sistema de Comando de Incidentes, ¿cuál es el alcance de control óptimo?",
+      "opciones": [
+        "Cinco personas",
+        "Veinte personas"
+      ],
+      "correcta": 0,
+      "explicacion": "El número óptimo de personas a cargo de un mismo líder es cinco.",
+      "fuente": "Manual de formación básica de bomberos – Lección 8"
+    },
+    {
+      "id": "q019",
+      "nivel": "dificil",
+      "categoria": "Seguridad",
+      "pregunta": "¿Qué hace primero el oficial que llega primero a una emergencia?",
+      "opciones": [
+        "Ingresar solo al incendio",
+        "Informar a su base que llegó"
+      ],
+      "correcta": 1,
+      "explicacion": "Es el primero de los ocho pasos del SCI; luego asume el mando y establece el Puesto de Comando.",
+      "fuente": "Manual de formación básica de bomberos – Lección 8"
+    },
+    {
+      "id": "q020",
+      "nivel": "medio",
+      "categoria": "Seguridad",
+      "pregunta": "Si un bombero se siente emocionalmente mal, ¿qué es lo recomendable?",
+      "opciones": [
+        "Buscar apoyo y hablarlo",
+        "Quedarse callado y aguantar"
+      ],
+      "correcta": 0,
+      "explicacion": "Suprimir las emociones afecta la salud; se recomienda buscar apoyo profesional.",
+      "fuente": "Manual de formación básica de bomberos – Lección 7"
+    },
+    {
+      "id": "q021",
+      "nivel": "medio",
+      "categoria": "Equipo y aire",
+      "pregunta": "¿Qué porcentaje de oxígeno tiene el aire que respiramos?",
+      "opciones": [
+        "50%",
+        "21%"
+      ],
+      "correcta": 1,
+      "explicacion": "El aire tiene 21% de oxígeno, 78% de nitrógeno y 1% de otros gases.",
+      "fuente": "Manual de formación básica de bomberos – Lección 9"
+    },
+    {
+      "id": "q022",
+      "nivel": "dificil",
+      "categoria": "Equipo y aire",
+      "pregunta": "¿Por debajo de qué porcentaje de oxígeno se considera una atmósfera deficiente?",
+      "opciones": [
+        "19,5%",
+        "50%"
+      ],
+      "correcta": 0,
+      "explicacion": "Según OSHA, una atmósfera con menos de 19,5% de oxígeno es peligrosa.",
+      "fuente": "Manual de formación básica de bomberos – Lección 9"
+    },
+    {
+      "id": "q023",
+      "nivel": "medio",
+      "categoria": "Equipo y aire",
+      "pregunta": "¿Para qué sirve el EPRA (equipo de respiración autónoma)?",
+      "opciones": [
+        "Para apagar el fuego",
+        "Para respirar aire limpio donde hay humo o gases"
+      ],
+      "correcta": 1,
+      "explicacion": "Protege al bombero en atmósferas con humo, gases tóxicos o sin oxígeno.",
+      "fuente": "Manual de formación básica de bomberos – Lección 9"
+    },
+    {
+      "id": "q024",
+      "nivel": "medio",
+      "categoria": "Equipo y aire",
+      "pregunta": "¿El aire del tanque de respiración dura lo mismo para todos los bomberos?",
+      "opciones": [
+        "No, depende del esfuerzo, la condición física y la respiración",
+        "Sí, siempre dura exactamente lo mismo"
+      ],
+      "correcta": 0,
+      "explicacion": "El tiempo nominal del cilindro es solo una referencia. La salida se planifica según el consumo real, la distancia y las condiciones, siempre con aire de reserva.",
+      "fuente": "Manual de formación básica de bomberos – Lección 9"
+    },
+    {
+      "id": "q025",
+      "nivel": "dificil",
+      "categoria": "Equipo y aire",
+      "pregunta": "Cuando suena la alarma de aire bajo del EPRA, significa que…",
+      "opciones": [
+        "aún quedan 30 minutos de aire",
+        "ya se está usando el aire de reserva"
+      ],
+      "correcta": 1,
+      "explicacion": "El bombero debe salir antes de que suene la alarma.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q026",
+      "nivel": "dificil",
+      "categoria": "Equipo y aire",
+      "pregunta": "¿Por qué no hay que quitarse el EPRA durante la remoción de escombros?",
+      "opciones": [
+        "Porque hay mucho monóxido de carbono",
+        "Porque hace frío"
+      ],
+      "correcta": 0,
+      "explicacion": "En esa etapa el monóxido de carbono está muy alto por la combustión incompleta.",
+      "fuente": "Manual de formación básica de bomberos – Lección 9"
+    },
+    {
+      "id": "q027",
+      "nivel": "dificil",
+      "categoria": "Equipo y aire",
+      "pregunta": "La respiración de emergencia «Reilly» consiste en…",
+      "opciones": [
+        "respirar muy rápido",
+        "exhalar lento haciendo un zumbido «hum»"
+      ],
+      "correcta": 1,
+      "explicacion": "Alargar la exhalación ayuda a que el aire dure más mientras llega el rescate.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q028",
+      "nivel": "facil",
+      "categoria": "El fuego",
+      "pregunta": "¿Qué tres elementos forman el triángulo del fuego?",
+      "opciones": [
+        "Oxígeno, calor y combustible",
+        "Agua, tierra y viento"
+      ],
+      "correcta": 0,
+      "explicacion": "Si falta uno de los tres, el fuego no puede existir.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q029",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "¿Cuál es el cuarto elemento del tetraedro del fuego?",
+      "opciones": [
+        "El humo",
+        "La reacción química en cadena"
+      ],
+      "correcta": 1,
+      "explicacion": "Combustible, comburente (oxígeno), calor y reacción en cadena forman el tetraedro.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q030",
+      "nivel": "facil",
+      "categoria": "El fuego",
+      "pregunta": "¿Qué es un incendio?",
+      "opciones": [
+        "Un fuego fuera de control",
+        "Un fuego pequeño y controlado"
+      ],
+      "correcta": 0,
+      "explicacion": "El manual lo define así: incendio es un fuego fuera de control.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q031",
+      "nivel": "facil",
+      "categoria": "El fuego",
+      "pregunta": "¿Qué causa la mayoría de muertes en los incendios?",
+      "opciones": [
+        "El ruido de las sirenas",
+        "El humo tóxico y la falta de oxígeno"
+      ],
+      "correcta": 1,
+      "explicacion": "Los gases tóxicos del humo y la falta de oxígeno causan la mayoría de las muertes.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q032",
+      "nivel": "facil",
+      "categoria": "El fuego",
+      "pregunta": "En una habitación con fuego, el humo y los gases calientes se acumulan…",
+      "opciones": [
+        "arriba, cerca del techo",
+        "abajo, cerca del piso"
+      ],
+      "correcta": 0,
+      "explicacion": "Los gases calientes suben y empujan el aire fresco hacia las zonas bajas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q033",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "¿Cómo se llama la transmisión de calor por contacto directo?",
+      "opciones": [
+        "Radiación",
+        "Conducción"
+      ],
+      "correcta": 1,
+      "explicacion": "Ejemplo: una cuchara metálica que se calienta dentro de una olla.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q034",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "La transmisión de calor por el movimiento del aire caliente o del humo se llama…",
+      "opciones": [
+        "convección",
+        "conducción"
+      ],
+      "correcta": 0,
+      "explicacion": "Los fluidos calientes se vuelven más livianos y suben.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q035",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "El calor que viaja por el espacio, como el del sol, se llama…",
+      "opciones": [
+        "conducción",
+        "radiación"
+      ],
+      "correcta": 1,
+      "explicacion": "El calor radiado es una de las principales causas de propagación del fuego.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q036",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "El humo es producto de una combustión…",
+      "opciones": [
+        "incompleta",
+        "perfecta"
+      ],
+      "correcta": 0,
+      "explicacion": "El humo y la ceniza son combustible que no terminó de quemarse.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q037",
+      "nivel": "dificil",
+      "categoria": "El fuego",
+      "pregunta": "¿Qué es la pirólisis?",
+      "opciones": [
+        "Un tipo de extintor",
+        "La descomposición química de un material por el calor"
+      ],
+      "correcta": 1,
+      "explicacion": "Por el calor, las moléculas del combustible se rompen y liberan gases que pueden arder.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q038",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "Para que un sólido como la madera arda, primero debe…",
+      "opciones": [
+        "liberar gases por el calor",
+        "mojarse"
+      ],
+      "correcta": 0,
+      "explicacion": "Los combustibles deben estar en estado gaseoso para quemarse.",
+      "fuente": "Manual de formación básica de bomberos – Lección 10"
+    },
+    {
+      "id": "q039",
+      "nivel": "facil",
+      "categoria": "El fuego",
+      "pregunta": "El método de extinción que baja la temperatura se llama…",
+      "opciones": [
+        "separación",
+        "enfriamiento"
+      ],
+      "correcta": 1,
+      "explicacion": "Es uno de los métodos más comunes y el agua es ideal para lograrlo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q040",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "Cerrar la válvula de gas que alimenta un fuego es un ejemplo de…",
+      "opciones": [
+        "separación (quitar el combustible)",
+        "enfriamiento"
+      ],
+      "correcta": 0,
+      "explicacion": "Sin combustible, el fuego no puede continuar.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q041",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "Cubrir el fuego para quitarle el oxígeno se llama…",
+      "opciones": [
+        "inhibición",
+        "sofocación"
+      ],
+      "correcta": 1,
+      "explicacion": "Consiste en diluir, reducir o desplazar el oxígeno.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q042",
+      "nivel": "dificil",
+      "categoria": "El fuego",
+      "pregunta": "¿Qué es un flashover?",
+      "opciones": [
+        "Cuando todo lo que hay en un cuarto se enciende de golpe",
+        "Cuando el fuego se apaga solo"
+      ],
+      "correcta": 0,
+      "explicacion": "Ocurre cuando el cuarto se calienta tanto que todo alcanza su punto de ignición.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q043",
+      "nivel": "dificil",
+      "categoria": "El fuego",
+      "pregunta": "¿Qué es un backdraft?",
+      "opciones": [
+        "Llamas que corren por el piso",
+        "Una explosión al entrar aire a un lugar con humo y poco oxígeno"
+      ],
+      "correcta": 1,
+      "explicacion": "También se conoce como explosión de humo; puede ocurrir al abrir una puerta o ventana.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q044",
+      "nivel": "dificil",
+      "categoria": "El fuego",
+      "pregunta": "Cuando las llamas «corren» por el techo de una habitación, se llama…",
+      "opciones": [
+        "rollover",
+        "boilover"
+      ],
+      "correcta": 0,
+      "explicacion": "Es la inflamación de los gases acumulados bajo el techo; suele anteceder al flashover.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q045",
+      "nivel": "dificil",
+      "categoria": "El fuego",
+      "pregunta": "¿Cuál es una señal de que puede ocurrir un backdraft?",
+      "opciones": [
+        "Llamas grandes y muy visibles",
+        "Humo que sale en bocanadas o pulsaciones"
+      ],
+      "correcta": 1,
+      "explicacion": "Otras señales: vidrios ennegrecidos, poca llama visible y humo a presión.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q046",
+      "nivel": "dificil",
+      "categoria": "El fuego",
+      "pregunta": "Si hay señales de backdraft, ¿es seguro abrir de golpe una puerta o ventana?",
+      "opciones": [
+        "No, la entrada de aire puede provocar la explosión",
+        "Sí, así sale el humo enseguida"
+      ],
+      "correcta": 0,
+      "explicacion": "Cualquier ventilación debe coordinarse con el ataque de agua; nunca es una solución automática.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11 · verificada con fuente externa"
+    },
+    {
+      "id": "q047",
+      "nivel": "medio",
+      "categoria": "El fuego",
+      "pregunta": "¿A cuántos grados Fahrenheit hierve el agua?",
+      "opciones": [
+        "100 °F",
+        "212 °F"
+      ],
+      "correcta": 1,
+      "explicacion": "En Celsius hierve a 100 °C; en Fahrenheit, a 212 °F.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q048",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "Según la clasificación NFPA, los fuegos de clase A son de…",
+      "opciones": [
+        "sólidos como madera, papel o tela",
+        "líquidos como gasolina"
+      ],
+      "correcta": 0,
+      "explicacion": "Dejan brasas y pueden volver a encenderse. En Europa también se llaman clase A.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q049",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "Según la clasificación NFPA, los fuegos de clase B son de…",
+      "opciones": [
+        "metales",
+        "líquidos y gases inflamables"
+      ],
+      "correcta": 1,
+      "explicacion": "Ejemplos: gasolina, aceites, pinturas y alcoholes. (Clasificación NFPA, usada en América; en Europa la norma EN 2 usa letras distintas.)",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q050",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "Según la clasificación NFPA, los fuegos de clase C involucran…",
+      "opciones": [
+        "equipos eléctricos energizados",
+        "aceites de cocina"
+      ],
+      "correcta": 0,
+      "explicacion": "El agente extintor no debe conducir electricidad. En Europa, en cambio, la clase C corresponde a los gases.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q051",
+      "nivel": "dificil",
+      "categoria": "Extintores",
+      "pregunta": "Según la clasificación NFPA, los fuegos de clase D son de…",
+      "opciones": [
+        "papel y cartón",
+        "metales combustibles como el magnesio"
+      ],
+      "correcta": 1,
+      "explicacion": "Alcanzan entre 2700 y 3300 °C. En Europa también se llaman clase D.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q052",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "Según la clasificación NFPA, los fuegos de clase K se producen con…",
+      "opciones": [
+        "aceites y grasas de cocina",
+        "madera"
+      ],
+      "correcta": 0,
+      "explicacion": "Son fuegos de cocina con aceites y grasas. En Europa se llaman clase F.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q053",
+      "nivel": "facil",
+      "categoria": "Extintores",
+      "pregunta": "¿Qué pasa si echas agua al aceite de cocina en llamas?",
+      "opciones": [
+        "Se apaga enseguida",
+        "Puede provocar una explosión de fuego"
+      ],
+      "correcta": 1,
+      "explicacion": "A los fuegos de clase K no se les debe echar agua.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q054",
+      "nivel": "dificil",
+      "categoria": "Extintores",
+      "pregunta": "En la clasificación NFPA, el símbolo de los fuegos de clase A es un…",
+      "opciones": [
+        "triángulo verde",
+        "círculo azul"
+      ],
+      "correcta": 0,
+      "explicacion": "Es un triángulo verde con la letra «A». (Clasificación NFPA, usada en América; en Europa la norma EN 2 usa letras distintas.)",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q055",
+      "nivel": "dificil",
+      "categoria": "Extintores",
+      "pregunta": "En la clasificación NFPA, el símbolo de los fuegos de clase C es un…",
+      "opciones": [
+        "cuadrado rojo",
+        "círculo azul"
+      ],
+      "correcta": 1,
+      "explicacion": "Es un círculo azul con la letra «C»; el de la clase B es un cuadrado rojo. (Clasificación NFPA, usada en América; en Europa la norma EN 2 usa letras distintas.)",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q056",
+      "nivel": "dificil",
+      "categoria": "Extintores",
+      "pregunta": "¿Qué se usa para apagar un fuego de metales (clase D)?",
+      "opciones": [
+        "Un agente especial adecuado para ese metal",
+        "Agua en abundancia"
+      ],
+      "correcta": 0,
+      "explicacion": "Muchos metales reaccionan violentamente con el agua, y cada metal requiere un agente clase D específico.",
+      "fuente": "Manual de formación básica de bomberos – Lección 11"
+    },
+    {
+      "id": "q057",
+      "nivel": "facil",
+      "categoria": "Extintores",
+      "pregunta": "¿Para qué sirve un extintor portátil?",
+      "opciones": [
+        "Para apagar incendios de edificios enteros",
+        "Para apagar fuegos en su etapa inicial"
+      ],
+      "correcta": 1,
+      "explicacion": "Evita que un fuego pequeño se convierta en un incendio.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q058",
+      "nivel": "facil",
+      "categoria": "Extintores",
+      "pregunta": "Al usar un extintor, ¿hacia dónde se apunta la boquilla?",
+      "opciones": [
+        "A la base del fuego",
+        "A la punta de las llamas"
+      ],
+      "correcta": 0,
+      "explicacion": "Se dirige el chorro a la base con un movimiento de barrido.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q059",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "Antes de usar un extintor, lo primero es…",
+      "opciones": [
+        "ponerlo boca abajo",
+        "sacar el pasador de seguridad"
+      ],
+      "correcta": 1,
+      "explicacion": "Los extintores que deben invertirse para funcionar no están permitidos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q060",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "El extintor de PQS multipropósito (ABC) sirve para fuegos…",
+      "opciones": [
+        "A, B y C",
+        "solo de clase D"
+      ],
+      "correcta": 0,
+      "explicacion": "Ojo: no todos los extintores de polvo químico son ABC; algunos solo sirven para fuegos B y C. Hay que leer la etiqueta.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12 · verificada con fuente externa"
+    },
+    {
+      "id": "q061",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "¿Para qué fuegos sirve el extintor de agua?",
+      "opciones": [
+        "Clase C (eléctricos)",
+        "Clase A (sólidos)"
+      ],
+      "correcta": 1,
+      "explicacion": "Apaga por enfriamiento; el agua conduce la electricidad.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q062",
+      "nivel": "dificil",
+      "categoria": "Extintores",
+      "pregunta": "¿Cómo apaga el fuego el extintor de CO₂?",
+      "opciones": [
+        "Por sofocación, desplazando el oxígeno",
+        "Por enfriamiento con agua"
+      ],
+      "correcta": 0,
+      "explicacion": "Sirve para fuegos B y C y no deja residuos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q063",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "¿Cuál es el mejor extintor para la cocina de un restaurante?",
+      "opciones": [
+        "El de agua",
+        "El de químico húmedo (clase K)"
+      ],
+      "correcta": 1,
+      "explicacion": "Forma una capa de espuma que enfría la grasa y evita que se vuelva a encender.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q064",
+      "nivel": "medio",
+      "categoria": "Extintores",
+      "pregunta": "Si usas un extintor al aire libre, combate el fuego…",
+      "opciones": [
+        "con el viento a tu espalda",
+        "contra el viento"
+      ],
+      "correcta": 0,
+      "explicacion": "Así el agente y el calor no van hacia ti.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q065",
+      "nivel": "facil",
+      "categoria": "Extintores",
+      "pregunta": "Si el fuego crece y no puedes apagarlo con el extintor, ¿qué debes hacer?",
+      "opciones": [
+        "Seguir intentándolo hasta que se apague",
+        "Salir del lugar y llamar al número de emergencias"
+      ],
+      "correcta": 1,
+      "explicacion": "El extintor solo sirve para fuegos que recién comienzan. Si el fuego crece, lo primero es evacuar.",
+      "fuente": "Manual de formación básica de bomberos – Lección 12"
+    },
+    {
+      "id": "q066",
+      "nivel": "facil",
+      "categoria": "Agua y mangueras",
+      "pregunta": "¿Qué es un hidrante?",
+      "opciones": [
+        "Una toma de agua conectada a la red pública",
+        "Un tanque de gasolina"
+      ],
+      "correcta": 0,
+      "explicacion": "Los bomberos conectan ahí sus mangueras o su camión de bomberos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 13"
+    },
+    {
+      "id": "q067",
+      "nivel": "facil",
+      "categoria": "Agua y mangueras",
+      "pregunta": "¿A qué temperatura se congela el agua?",
+      "opciones": [
+        "10 °C",
+        "0 °C"
+      ],
+      "correcta": 1,
+      "explicacion": "El agua se congela a 0 °C y hierve a 100 °C.",
+      "fuente": "Manual de formación básica de bomberos – Lección 15"
+    },
+    {
+      "id": "q068",
+      "nivel": "medio",
+      "categoria": "Agua y mangueras",
+      "pregunta": "Al convertirse en vapor a 100 °C, el agua se expande unas…",
+      "opciones": [
+        "1700 veces",
+        "10 veces"
+      ],
+      "correcta": 0,
+      "explicacion": "Esa expansión ayuda a enfriar y a expulsar el humo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 15"
+    },
+    {
+      "id": "q069",
+      "nivel": "facil",
+      "categoria": "Agua y mangueras",
+      "pregunta": "¿Es seguro echar agua a un aparato eléctrico encendido?",
+      "opciones": [
+        "Sí, siempre",
+        "No, el agua conduce la electricidad"
+      ],
+      "correcta": 1,
+      "explicacion": "El agua con sales conduce la electricidad y es peligrosa cerca de equipos energizados.",
+      "fuente": "Manual de formación básica de bomberos – Lección 15"
+    },
+    {
+      "id": "q070",
+      "nivel": "medio",
+      "categoria": "Agua y mangueras",
+      "pregunta": "¿Qué absorbe el calor más rápido?",
+      "opciones": [
+        "El agua en gotitas finas (neblina)",
+        "Un chorro grueso de agua"
+      ],
+      "correcta": 0,
+      "explicacion": "Más superficie expuesta significa absorber el calor más rápido.",
+      "fuente": "Manual de formación básica de bomberos – Lección 15"
+    },
+    {
+      "id": "q071",
+      "nivel": "medio",
+      "categoria": "Agua y mangueras",
+      "pregunta": "El chorro de neblina sirve para…",
+      "opciones": [
+        "alcanzar lugares muy lejanos",
+        "proteger al bombero del calor"
+      ],
+      "correcta": 1,
+      "explicacion": "Absorbe mucho calor; el chorro sólido es el que tiene más alcance.",
+      "fuente": "Manual de formación básica de bomberos – Lección 15"
+    },
+    {
+      "id": "q072",
+      "nivel": "dificil",
+      "categoria": "Agua y mangueras",
+      "pregunta": "¿Qué ventaja tiene el chorro sólido?",
+      "opciones": [
+        "Gran alcance y penetración",
+        "Mayor absorción de calor"
+      ],
+      "correcta": 0,
+      "explicacion": "Su desventaja es que absorbe poco calor y empuja al operador de la boquilla hacia atrás.",
+      "fuente": "Manual de formación básica de bomberos – Lección 15"
+    },
+    {
+      "id": "q073",
+      "nivel": "dificil",
+      "categoria": "Agua y mangueras",
+      "pregunta": "¿Cómo se debe cerrar la boquilla de una manguera para evitar el «golpe de ariete»?",
+      "opciones": [
+        "De golpe",
+        "Poco a poco"
+      ],
+      "correcta": 1,
+      "explicacion": "Un cierre brusco genera una sobrepresión que puede romper la manguera.",
+      "fuente": "Manual de formación básica de bomberos – Lección 14"
+    },
+    {
+      "id": "q074",
+      "nivel": "dificil",
+      "categoria": "Agua y mangueras",
+      "pregunta": "¿Qué es la cavitación en una bomba de agua?",
+      "opciones": [
+        "La formación de burbujas de vapor cuando la presión baja demasiado",
+        "Una fuga de agua por la manguera"
+      ],
+      "correcta": 0,
+      "explicacion": "Cuando la presión cae por debajo de la presión de vapor del agua, se forman burbujas que, al reventar, dañan la bomba. Una causa común es pedirle más agua de la que recibe.",
+      "fuente": "Manual de formación básica de bomberos – Lección 14 · verificada con fuente externa"
+    },
+    {
+      "id": "q075",
+      "nivel": "dificil",
+      "categoria": "Agua y mangueras",
+      "pregunta": "Cuando se bombea agua hacia un piso más alto, la presión…",
+      "opciones": [
+        "aumenta con la altura",
+        "disminuye con la altura"
+      ],
+      "correcta": 1,
+      "explicacion": "Se pierden unos 0,433 psi por cada pie de elevación (≈0,1 bar por metro), por el peso de la columna de agua.",
+      "fuente": "Manual de formación básica de bomberos – Lección 14 · verificada con fuente externa"
+    },
+    {
+      "id": "q076",
+      "nivel": "medio",
+      "categoria": "Agua y mangueras",
+      "pregunta": "Para perder menos presión, las mangueras deben ser…",
+      "opciones": [
+        "lo más cortas posible y sin dobleces",
+        "muy largas y dobladas"
+      ],
+      "correcta": 0,
+      "explicacion": "La fricción y los dobleces hacen perder presión.",
+      "fuente": "Manual de formación básica de bomberos – Lección 14"
+    },
+    {
+      "id": "q077",
+      "nivel": "medio",
+      "categoria": "Técnicas de combate",
+      "pregunta": "¿Desde qué lado se debe atacar el fuego?",
+      "opciones": [
+        "Desde el lado que más arde",
+        "Desde el lado que no está ardiendo"
+      ],
+      "correcta": 1,
+      "explicacion": "Así se evita que el chorro empuje y propague el fuego.",
+      "fuente": "Manual de formación básica de bomberos – Lección 16"
+    },
+    {
+      "id": "q078",
+      "nivel": "medio",
+      "categoria": "Técnicas de combate",
+      "pregunta": "¿Qué protege más al bombero antes de entrar a un cuarto?",
+      "opciones": [
+        "Una pared",
+        "Una puerta"
+      ],
+      "correcta": 0,
+      "explicacion": "Las paredes son más resistentes que las puertas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 16"
+    },
+    {
+      "id": "q079",
+      "nivel": "facil",
+      "categoria": "Técnicas de combate",
+      "pregunta": "¿Qué es lo más importante en un incendio?",
+      "opciones": [
+        "Salvar los muebles",
+        "Salvar vidas"
+      ],
+      "correcta": 1,
+      "explicacion": "Primero se rescata a las personas, luego se controla el fuego y al final se cuida la propiedad.",
+      "fuente": "Manual de formación básica de bomberos – Lección 16"
+    },
+    {
+      "id": "q080",
+      "nivel": "medio",
+      "categoria": "Entrada forzada",
+      "pregunta": "La herramienta Halligan se usa principalmente para…",
+      "opciones": [
+        "hacer palanca",
+        "cortar cables"
+      ],
+      "correcta": 0,
+      "explicacion": "Forma parte de las herramientas de palanca, junto con la barreta y la pata de cabra.",
+      "fuente": "Manual de formación básica de bomberos – Lección 17"
+    },
+    {
+      "id": "q081",
+      "nivel": "medio",
+      "categoria": "Entrada forzada",
+      "pregunta": "¿Cómo NO se debe llevar un hacha?",
+      "opciones": [
+        "Con el filo lejos del cuerpo",
+        "Al hombro"
+      ],
+      "correcta": 1,
+      "explicacion": "Se lleva con el filo alejado del cuerpo, protegiendo el pico con una mano.",
+      "fuente": "Manual de formación básica de bomberos – Lección 17"
+    },
+    {
+      "id": "q082",
+      "nivel": "facil",
+      "categoria": "Entrada forzada",
+      "pregunta": "Una herramienta con motor se transporta…",
+      "opciones": [
+        "apagada",
+        "encendida"
+      ],
+      "correcta": 0,
+      "explicacion": "Encendidas son armas mortales: se ponen en marcha recién en el lugar de trabajo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 17"
+    },
+    {
+      "id": "q083",
+      "nivel": "medio",
+      "categoria": "Entrada forzada",
+      "pregunta": "¿Se debe forzar una entrada si hay una puerta abierta disponible?",
+      "opciones": [
+        "Sí, siempre hay que romper",
+        "No, se usa el acceso normal"
+      ],
+      "correcta": 1,
+      "explicacion": "La entrada forzada se usa solo cuando los accesos normales están bloqueados.",
+      "fuente": "Manual de formación básica de bomberos – Lección 17"
+    },
+    {
+      "id": "q084",
+      "nivel": "medio",
+      "categoria": "Entrada forzada",
+      "pregunta": "Para abrir una puerta con vidrio, ¿qué vidrio se rompe?",
+      "opciones": [
+        "El más cercano a la cerradura",
+        "El más lejano a la cerradura"
+      ],
+      "correcta": 0,
+      "explicacion": "Así se puede meter la mano y abrir la cerradura.",
+      "fuente": "Manual de formación básica de bomberos – Lección 17"
+    },
+    {
+      "id": "q085",
+      "nivel": "facil",
+      "categoria": "Ventilación",
+      "pregunta": "¿Qué es ventilar en un incendio?",
+      "opciones": [
+        "Echar más humo adentro",
+        "Sacar el humo y los gases calientes y dejar entrar aire fresco"
+      ],
+      "correcta": 1,
+      "explicacion": "Mejora la visibilidad y la seguridad de víctimas y bomberos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 18"
+    },
+    {
+      "id": "q086",
+      "nivel": "dificil",
+      "categoria": "Ventilación",
+      "pregunta": "¿Qué es el «barlovento»?",
+      "opciones": [
+        "El lado por donde viene el viento",
+        "El lado por donde sale el viento"
+      ],
+      "correcta": 0,
+      "explicacion": "El lado opuesto, por donde sale, se llama sotavento.",
+      "fuente": "Manual de formación básica de bomberos – Lección 18"
+    },
+    {
+      "id": "q087",
+      "nivel": "dificil",
+      "categoria": "Ventilación",
+      "pregunta": "En la ventilación horizontal, ¿qué lado se abre primero?",
+      "opciones": [
+        "El de barlovento (por donde entra el viento)",
+        "El de sotavento (por donde sale el viento)"
+      ],
+      "correcta": 1,
+      "explicacion": "Primero se crea la salida y luego la entrada de aire fresco.",
+      "fuente": "Manual de formación básica de bomberos – Lección 18"
+    },
+    {
+      "id": "q088",
+      "nivel": "medio",
+      "categoria": "Escaleras",
+      "pregunta": "Cuando se usa una escalera de bomberos, debe haber siempre…",
+      "opciones": [
+        "un bombero en la base",
+        "nadie cerca"
+      ],
+      "correcta": 0,
+      "explicacion": "El bombero de la base «hace pie» para darle estabilidad.",
+      "fuente": "Manual de formación básica de bomberos – Lección 19"
+    },
+    {
+      "id": "q089",
+      "nivel": "facil",
+      "categoria": "Escaleras",
+      "pregunta": "¿Se puede correr mientras se transporta una escalera?",
+      "opciones": [
+        "Sí, para llegar más rápido",
+        "No, nunca"
+      ],
+      "correcta": 1,
+      "explicacion": "Los movimientos deben ser suaves y coordinados.",
+      "fuente": "Manual de formación básica de bomberos – Lección 19"
+    },
+    {
+      "id": "q090",
+      "nivel": "dificil",
+      "categoria": "Escaleras",
+      "pregunta": "Al bajar por una escalera a una víctima consciente, ¿qué sale primero de la ventana?",
+      "opciones": [
+        "Las piernas",
+        "La cabeza"
+      ],
+      "correcta": 0,
+      "explicacion": "Así la víctima queda en la misma posición que el bombero que la acompaña.",
+      "fuente": "Manual de formación básica de bomberos – Lección 19"
+    },
+    {
+      "id": "q091",
+      "nivel": "medio",
+      "categoria": "Conservación y estructuras",
+      "pregunta": "«Piensa como el agua»: el agua siempre busca…",
+      "opciones": [
+        "subir a los techos",
+        "el camino más fácil, hacia abajo"
+      ],
+      "correcta": 1,
+      "explicacion": "Por eso se protegen las áreas inferiores de los daños por agua.",
+      "fuente": "Manual de formación básica de bomberos – Lección 20"
+    },
+    {
+      "id": "q092",
+      "nivel": "medio",
+      "categoria": "Conservación y estructuras",
+      "pregunta": "Los daños secundarios en un incendio son causados por…",
+      "opciones": [
+        "las maniobras de extinción, como el agua o la ventilación",
+        "las llamas directamente"
+      ],
+      "correcta": 0,
+      "explicacion": "Los daños primarios los causan las llamas, el calor y el humo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 20"
+    },
+    {
+      "id": "q093",
+      "nivel": "medio",
+      "categoria": "Conservación y estructuras",
+      "pregunta": "La remoción de escombros sirve para…",
+      "opciones": [
+        "dejar el lugar bonito",
+        "evitar que el fuego se vuelva a encender"
+      ],
+      "correcta": 1,
+      "explicacion": "Detiene el daño y elimina el peligro de reignición.",
+      "fuente": "Manual de formación básica de bomberos – Lección 20"
+    },
+    {
+      "id": "q094",
+      "nivel": "medio",
+      "categoria": "Conservación y estructuras",
+      "pregunta": "En un incendio en un museo, ¿por qué se cuida el uso del agua?",
+      "opciones": [
+        "Puede destruir pinturas y documentos",
+        "Porque el agua aviva el fuego"
+      ],
+      "correcta": 0,
+      "explicacion": "El agua disuelve tintas, colas y pinturas de gran valor cultural.",
+      "fuente": "Manual de formación básica de bomberos – Lección 20"
+    },
+    {
+      "id": "q095",
+      "nivel": "medio",
+      "categoria": "Conservación y estructuras",
+      "pregunta": "Frente a los sismos, las viviendas de adobe son…",
+      "opciones": [
+        "las más resistentes",
+        "muy vulnerables"
+      ],
+      "correcta": 1,
+      "explicacion": "Son antiguas, no son sismorresistentes y se deterioran con los años.",
+      "fuente": "Manual de formación básica de bomberos – Lección 21"
+    },
+    {
+      "id": "q096",
+      "nivel": "dificil",
+      "categoria": "Conservación y estructuras",
+      "pregunta": "¿Qué es el «spalling» en el concreto?",
+      "opciones": [
+        "El desprendimiento de la superficie por el calor",
+        "Un tipo de ladrillo"
+      ],
+      "correcta": 0,
+      "explicacion": "Reduce la resistencia del concreto y expone las varillas de acero al fuego.",
+      "fuente": "Manual de formación básica de bomberos – Lección 21"
+    },
+    {
+      "id": "q097",
+      "nivel": "medio",
+      "categoria": "Conservación y estructuras",
+      "pregunta": "Después de un incendio, los bomberos deben mover los objetos…",
+      "opciones": [
+        "todos hacia afuera",
+        "lo menos posible"
+      ],
+      "correcta": 1,
+      "explicacion": "La escena es evidencia para investigar el origen y la causa del fuego.",
+      "fuente": "Manual de formación básica de bomberos – Lección 28"
+    },
+    {
+      "id": "q099",
+      "nivel": "facil",
+      "categoria": "Edificios y ascensores",
+      "pregunta": "La palabra «ascensor» viene del latín «ascendere», que significa…",
+      "opciones": [
+        "bajar",
+        "subir"
+      ],
+      "correcta": 1,
+      "explicacion": "Ascendere significa ascender o subir.",
+      "fuente": "Manual de formación básica de bomberos – Lección 30"
+    },
+    {
+      "id": "q100",
+      "nivel": "facil",
+      "categoria": "Edificios y ascensores",
+      "pregunta": "Si quedas atrapado en un ascensor, ¿qué debes hacer?",
+      "opciones": [
+        "Mantener la calma y pedir ayuda con el botón de alarma",
+        "Intentar salir por el techo de la cabina"
+      ],
+      "correcta": 0,
+      "explicacion": "Salir por cuenta propia es muy peligroso. Los rescatistas siguen procedimientos especiales para asegurar el ascensor antes de abrirlo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 30 · verificada con fuente externa"
+    },
+    {
+      "id": "q101",
+      "nivel": "medio",
+      "categoria": "Edificios y ascensores",
+      "pregunta": "¿Dónde se ubica el Puesto de Comando en un incendio de edificio alto?",
+      "opciones": [
+        "Pegado a la fachada en llamas",
+        "En la vereda de enfrente o en la esquina"
+      ],
+      "correcta": 1,
+      "explicacion": "Así se evita la zona de colapso y la caída de objetos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 22"
+    },
+    {
+      "id": "q102",
+      "nivel": "facil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "Si hueles una fuga de gas en casa, ¿qué NO debes hacer?",
+      "opciones": [
+        "Prender o apagar luces",
+        "Abrir puertas y ventanas"
+      ],
+      "correcta": 0,
+      "explicacion": "Un interruptor puede hacer una chispa; hay que ventilar y evacuar.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q103",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "¿El gas GLP tiene olor propio?",
+      "opciones": [
+        "Sí, huele naturalmente",
+        "No, se le agrega un odorizante"
+      ],
+      "correcta": 1,
+      "explicacion": "Se le agrega etil mercaptano para poder detectar las fugas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q104",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "El GLP (el gas de los cilindros domésticos) es una mezcla de…",
+      "opciones": [
+        "propano y butano",
+        "oxígeno y nitrógeno"
+      ],
+      "correcta": 0,
+      "explicacion": "Es más pesado que el aire y se acumula abajo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q105",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "El gas natural, comparado con el aire, es…",
+      "opciones": [
+        "más pesado",
+        "más liviano"
+      ],
+      "correcta": 1,
+      "explicacion": "Tiende a subir; el GLP, en cambio, baja.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q106",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "¿Cuál es el componente principal del gas natural?",
+      "opciones": [
+        "Metano",
+        "Butano"
+      ],
+      "correcta": 0,
+      "explicacion": "El metano representa como mínimo el 90% del gas natural.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q107",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "Un litro de GLP líquido se convierte en aproximadamente…",
+      "opciones": [
+        "2 litros de gas",
+        "270 litros de gas"
+      ],
+      "correcta": 1,
+      "explicacion": "Por eso una fuga pequeña de líquido genera mucho gas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q108",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "¿Se debe apagar la llama de una fuga de gas si no se puede cerrar la fuga?",
+      "opciones": [
+        "No, nunca",
+        "Sí, siempre primero"
+      ],
+      "correcta": 0,
+      "explicacion": "El gas seguiría saliendo sin control y podría explotar.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q109",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "¿Qué es una BLEVE?",
+      "opciones": [
+        "Un tipo de espuma",
+        "La explosión de un recipiente con líquido en ebullición"
+      ],
+      "correcta": 1,
+      "explicacion": "Expulsa fragmentos a más de 800 metros y genera una gran bola de fuego.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q110",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "Al acetileno comercial se le reconoce por su ligero olor a…",
+      "opciones": [
+        "ajo",
+        "limón"
+      ],
+      "correcta": 0,
+      "explicacion": "Sus impurezas le dan un olor parecido al ajo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 26"
+    },
+    {
+      "id": "q111",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "Si echas agua a la gasolina encendida, la gasolina…",
+      "opciones": [
+        "se apaga y se hunde",
+        "flota y sigue ardiendo"
+      ],
+      "correcta": 1,
+      "explicacion": "La gasolina no se mezcla con el agua y flota sobre ella.",
+      "fuente": "Manual de formación básica de bomberos – Lección 24"
+    },
+    {
+      "id": "q112",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "¿Cuál es más inflamable?",
+      "opciones": [
+        "La gasolina",
+        "El diésel"
+      ],
+      "correcta": 0,
+      "explicacion": "La gasolina es un líquido inflamable; el diésel es un líquido combustible.",
+      "fuente": "Manual de formación básica de bomberos – Lección 25"
+    },
+    {
+      "id": "q113",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "Los hidrocarburos, como el petróleo, están formados por…",
+      "opciones": [
+        "hierro y oxígeno",
+        "carbono e hidrógeno"
+      ],
+      "correcta": 1,
+      "explicacion": "De ahí viene su nombre: hidro-carburos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 25"
+    },
+    {
+      "id": "q114",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "¿Por qué los bomberos estacionan su camión a cierta distancia de un vehículo en llamas?",
+      "opciones": [
+        "Por el riesgo de explosiones y de objetos que salen proyectados",
+        "Para que el camión no se ensucie"
+      ],
+      "correcta": 0,
+      "explicacion": "La distancia exacta depende del escenario y de lo que transporte el vehículo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 24"
+    },
+    {
+      "id": "q115",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "¿Por qué conviene no acercarse por el frente ni por detrás de un vehículo en llamas?",
+      "opciones": [
+        "Porque ahí hace más frío",
+        "Porque piezas como amortiguadores o parachoques pueden salir disparadas"
+      ],
+      "correcta": 1,
+      "explicacion": "Con el calor, algunas piezas presurizadas pueden reventar y salir proyectadas. El acercamiento se decide evaluando cada escena.",
+      "fuente": "Manual de formación básica de bomberos – Lección 24"
+    },
+    {
+      "id": "q116",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "En los vehículos eléctricos, los cables de alto voltaje son de color…",
+      "opciones": [
+        "naranja",
+        "verde"
+      ],
+      "correcta": 0,
+      "explicacion": "Pueden llegar a 650 voltios; nunca se deben cortar ni tocar.",
+      "fuente": "Manual de formación básica de bomberos – Lección 24"
+    },
+    {
+      "id": "q117",
+      "nivel": "medio",
+      "categoria": "Gases y vehículos",
+      "pregunta": "Un incendio de baterías de litio, ¿puede volver a encenderse?",
+      "opciones": [
+        "No, nunca",
+        "Sí, incluso horas después"
+      ],
+      "correcta": 1,
+      "explicacion": "Puede reencenderse hasta unas 22 horas después.",
+      "fuente": "Manual de formación básica de bomberos – Lección 24"
+    },
+    {
+      "id": "q118",
+      "nivel": "dificil",
+      "categoria": "Gases y vehículos",
+      "pregunta": "El «boilover» en un tanque de petróleo ocurre cuando…",
+      "opciones": [
+        "el agua del fondo se convierte de golpe en vapor",
+        "sopla mucho viento"
+      ],
+      "correcta": 0,
+      "explicacion": "El vapor empuja el petróleo encendido hacia afuera como una gran bola de fuego.",
+      "fuente": "Manual de formación básica de bomberos – Lección 25"
+    },
+    {
+      "id": "q119",
+      "nivel": "medio",
+      "categoria": "Espumas",
+      "pregunta": "La espuma contra incendios apaga el fuego porque…",
+      "opciones": [
+        "es inflamable",
+        "forma una capa que lo aísla del aire"
+      ],
+      "correcta": 1,
+      "explicacion": "También enfría y evita que salgan vapores inflamables.",
+      "fuente": "Manual de formación básica de bomberos – Lección 27"
+    },
+    {
+      "id": "q120",
+      "nivel": "medio",
+      "categoria": "Espumas",
+      "pregunta": "¿Sirve la espuma en fuegos eléctricos (clase C)?",
+      "opciones": [
+        "No, contiene agua y conduce electricidad",
+        "Sí, es la mejor opción"
+      ],
+      "correcta": 0,
+      "explicacion": "Tampoco sirve en gases a presión ni en metales combustibles.",
+      "fuente": "Manual de formación básica de bomberos – Lección 27"
+    },
+    {
+      "id": "q121",
+      "nivel": "dificil",
+      "categoria": "Espumas",
+      "pregunta": "¿Qué espuma se usa en incendios de alcoholes?",
+      "opciones": [
+        "Espuma clase A",
+        "AR-AFFF (resistente al alcohol)"
+      ],
+      "correcta": 1,
+      "explicacion": "El alcohol destruye la espuma común; la AR-AFFF forma una membrana protectora.",
+      "fuente": "Manual de formación básica de bomberos – Lección 27"
+    },
+    {
+      "id": "q122",
+      "nivel": "dificil",
+      "categoria": "Espumas",
+      "pregunta": "¿Qué elementos forman el tetraedro de la espuma?",
+      "opciones": [
+        "Concentrado, agua, aire y agitación",
+        "Fuego, humo, calor y vapor"
+      ],
+      "correcta": 0,
+      "explicacion": "Si falta uno o está mal proporcionado, la espuma no se forma bien.",
+      "fuente": "Manual de formación básica de bomberos – Lección 27"
+    },
+    {
+      "id": "q123",
+      "nivel": "facil",
+      "categoria": "Rescate",
+      "pregunta": "Al buscar víctimas, después de gritar «¿Hay alguien aquí?», el bombero…",
+      "opciones": [
+        "sigue caminando sin escuchar",
+        "hace una pausa para escuchar"
+      ],
+      "correcta": 1,
+      "explicacion": "Escuchar la respuesta ayuda a ubicar a las víctimas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q124",
+      "nivel": "facil",
+      "categoria": "Rescate",
+      "pregunta": "De noche, ¿dónde se suele encontrar a las víctimas de un incendio?",
+      "opciones": [
+        "En los dormitorios",
+        "En el garaje"
+      ],
+      "correcta": 0,
+      "explicacion": "De noche suelen estar cerca de camas, ventanas o puertas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q125",
+      "nivel": "medio",
+      "categoria": "Rescate",
+      "pregunta": "¿Qué grupo de personas tiene mayor riesgo en un incendio en casa?",
+      "opciones": [
+        "Los jóvenes de 20 años",
+        "Los adultos mayores de 65 años"
+      ],
+      "correcta": 1,
+      "explicacion": "Según la NFPA, los mayores de 65 tienen el mayor riesgo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q126",
+      "nivel": "dificil",
+      "categoria": "Rescate",
+      "pregunta": "¿Qué significa la regla «2 adentro, 2 afuera»?",
+      "opciones": [
+        "Dos bomberos trabajan dentro y dos esperan afuera listos para rescatarlos",
+        "Solo pueden entrar dos bomberos por día"
+      ],
+      "correcta": 0,
+      "explicacion": "Es la base para la seguridad del equipo de búsqueda.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q128",
+      "nivel": "dificil",
+      "categoria": "Rescate",
+      "pregunta": "¿Qué hace el dispositivo PASS de un bombero?",
+      "opciones": [
+        "Suena una alarma si el bombero queda inmóvil",
+        "Mide la temperatura del agua"
+      ],
+      "correcta": 0,
+      "explicacion": "También se le llama alarma de hombre caído.",
+      "fuente": "Manual de formación básica de bomberos – Lección 29"
+    },
+    {
+      "id": "q129",
+      "nivel": "dificil",
+      "categoria": "Rescate",
+      "pregunta": "¿Qué tipo de cuerda se prefiere en rescate?",
+      "opciones": [
+        "Dinámica (estira mucho)",
+        "Estática (estira poco)"
+      ],
+      "correcta": 1,
+      "explicacion": "Se busca evitar rebotes o estiramientos no controlados.",
+      "fuente": "Manual de formación básica de bomberos – Lección 31"
+    },
+    {
+      "id": "q130",
+      "nivel": "medio",
+      "categoria": "Rescate",
+      "pregunta": "¿Una cuerda de rescate se puede usar para remolcar un vehículo?",
+      "opciones": [
+        "No, solo es para personas",
+        "Sí, para cualquier cosa"
+      ],
+      "correcta": 0,
+      "explicacion": "Las cuerdas de rescate solo soportan vidas humanas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 31"
+    },
+    {
+      "id": "q131",
+      "nivel": "dificil",
+      "categoria": "Rescate",
+      "pregunta": "¿Qué hace una polea fija?",
+      "opciones": [
+        "Reduce el esfuerzo a la mitad",
+        "Solo cambia la dirección de la fuerza"
+      ],
+      "correcta": 1,
+      "explicacion": "No da ventaja mecánica; la polea móvil sí reduce el esfuerzo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 31"
+    },
+    {
+      "id": "q132",
+      "nivel": "medio",
+      "categoria": "Rescate",
+      "pregunta": "Un sistema de poleas 2:1 reduce la carga…",
+      "opciones": [
+        "a la mitad",
+        "al doble"
+      ],
+      "correcta": 0,
+      "explicacion": "Uno 4:1 la reduce a la cuarta parte.",
+      "fuente": "Manual de formación básica de bomberos – Lección 31"
+    },
+    {
+      "id": "q133",
+      "nivel": "dificil",
+      "categoria": "Rescate",
+      "pregunta": "Si una persona queda colgada e inmóvil en un arnés, ¿qué es lo más importante?",
+      "opciones": [
+        "Esperar a que se recupere sola",
+        "Rescatarla lo antes posible"
+      ],
+      "correcta": 1,
+      "explicacion": "Quedar suspendido sin moverse puede causar desmayo en pocos minutos (síndrome del arnés). Luego necesita evaluación médica.",
+      "fuente": "Manual de formación básica de bomberos – Lección 31 · verificada con fuente externa"
+    },
+    {
+      "id": "q134",
+      "nivel": "facil",
+      "categoria": "Primeros auxilios",
+      "pregunta": "¿Cuál es la señal universal de que alguien se está atragantando?",
+      "opciones": [
+        "Agarrarse el cuello con las manos",
+        "Levantar la mano"
+      ],
+      "correcta": 0,
+      "explicacion": "Es el signo universal de atragantamiento.",
+      "fuente": "Manual de formación básica de bomberos – Lección 33"
+    },
+    {
+      "id": "q135",
+      "nivel": "facil",
+      "categoria": "Primeros auxilios",
+      "pregunta": "¿De qué tamaño aproximado es el corazón?",
+      "opciones": [
+        "Del tamaño de una pelota de fútbol",
+        "Del tamaño de un puño"
+      ],
+      "correcta": 1,
+      "explicacion": "Es un órgano hueco que bombea la sangre a todo el cuerpo.",
+      "fuente": "Manual de formación básica de bomberos – Lección 33"
+    },
+    {
+      "id": "q136",
+      "nivel": "facil",
+      "categoria": "Primeros auxilios",
+      "pregunta": "El pulso carotídeo se toma en…",
+      "opciones": [
+        "el cuello",
+        "el tobillo"
+      ],
+      "correcta": 0,
+      "explicacion": "Es el último pulso que se pierde, por eso es tan importante.",
+      "fuente": "Manual de formación básica de bomberos – Lección 32"
+    },
+    {
+      "id": "q137",
+      "nivel": "medio",
+      "categoria": "Primeros auxilios",
+      "pregunta": "En la RCP de un adulto, ¿cuántas compresiones y ventilaciones se hacen?",
+      "opciones": [
+        "5 compresiones y 1 ventilación",
+        "30 compresiones y 2 ventilaciones"
+      ],
+      "correcta": 1,
+      "explicacion": "Hay que comprimir fuerte y rápido.",
+      "fuente": "Manual de formación básica de bomberos – Lección 33"
+    },
+    {
+      "id": "q138",
+      "nivel": "medio",
+      "categoria": "Primeros auxilios",
+      "pregunta": "¿A qué ritmo se hacen las compresiones en la RCP?",
+      "opciones": [
+        "100 a 120 por minuto",
+        "20 a 30 por minuto"
+      ],
+      "correcta": 0,
+      "explicacion": "La profundidad debe ser de al menos 5 a 6 cm.",
+      "fuente": "Manual de formación básica de bomberos – Lección 33"
+    },
+    {
+      "id": "q139",
+      "nivel": "medio",
+      "categoria": "Primeros auxilios",
+      "pregunta": "Si el cerebro se queda sin oxígeno, el daño puede empezar…",
+      "opciones": [
+        "después de varias horas",
+        "en pocos minutos"
+      ],
+      "correcta": 1,
+      "explicacion": "Por eso hay que llamar a emergencias y empezar la RCP lo antes posible.",
+      "fuente": "Manual de formación básica de bomberos – Lección 33"
+    },
+    {
+      "id": "q140",
+      "nivel": "dificil",
+      "categoria": "Primeros auxilios",
+      "pregunta": "Si una mujer embarazada se atraganta, se hacen compresiones…",
+      "opciones": [
+        "en el pecho",
+        "en el abdomen"
+      ],
+      "correcta": 0,
+      "explicacion": "Lo mismo se hace con personas obesas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 33"
+    },
+    {
+      "id": "q141",
+      "nivel": "medio",
+      "categoria": "Primeros auxilios",
+      "pregunta": "En el triage START, el color rojo significa…",
+      "opciones": [
+        "sin lesiones",
+        "primera prioridad (crítico pero salvable)"
+      ],
+      "correcta": 1,
+      "explicacion": "Amarillo = segunda prioridad, verde = lesiones leves, negro = fallecido.",
+      "fuente": "Manual de formación básica de bomberos – Lección 32"
+    },
+    {
+      "id": "q142",
+      "nivel": "medio",
+      "categoria": "Primeros auxilios",
+      "pregunta": "En el triage START, ¿qué color reciben las personas que pueden caminar con lesiones leves?",
+      "opciones": [
+        "Verde",
+        "Rojo"
+      ],
+      "correcta": 0,
+      "explicacion": "Son la tercera prioridad.",
+      "fuente": "Manual de formación básica de bomberos – Lección 32"
+    },
+    {
+      "id": "q143",
+      "nivel": "medio",
+      "categoria": "Primeros auxilios",
+      "pregunta": "En la escala AVDI, la «A» significa…",
+      "opciones": [
+        "Ayuda",
+        "Alerta"
+      ],
+      "correcta": 1,
+      "explicacion": "AVDI = Alerta, Verbal, Dolor, Inconsciente.",
+      "fuente": "Manual de formación básica de bomberos – Lección 32"
+    },
+    {
+      "id": "q144",
+      "nivel": "dificil",
+      "categoria": "Primeros auxilios",
+      "pregunta": "En un adulto que tiene pulso pero no respira normalmente, ¿cada cuánto se da una ventilación de rescate?",
+      "opciones": [
+        "Una cada 6 segundos",
+        "Una cada 30 segundos"
+      ],
+      "correcta": 0,
+      "explicacion": "Son unas 10 ventilaciones por minuto, según las guías de la AHA.",
+      "fuente": "Manual de formación básica de bomberos – Lección 33 · verificada con fuente externa"
+    },
+    {
+      "id": "q145",
+      "nivel": "facil",
+      "categoria": "Primeros auxilios",
+      "pregunta": "Lo primero al llegar a ayudar a una persona herida es…",
+      "opciones": [
+        "correr sin mirar",
+        "verificar que el lugar sea seguro"
+      ],
+      "correcta": 1,
+      "explicacion": "La seguridad siempre es lo primero, para ti y para los demás.",
+      "fuente": "Manual de formación básica de bomberos – Lección 32"
+    },
+    {
+      "id": "q146",
+      "nivel": "facil",
+      "categoria": "Seguridad",
+      "pregunta": "Si ves un incendio, ¿qué debes hacer?",
+      "opciones": [
+        "Alejarte y llamar al número de emergencias",
+        "Acercarte a grabar un video"
+      ],
+      "correcta": 0,
+      "explicacion": "Cada país tiene su número de emergencias; apréndete el tuyo. Avisar rápido salva vidas.",
+      "fuente": "Manual de formación básica de bomberos – Lección 5"
+    },
+    {
+      "id": "q147",
+      "nivel": "facil",
+      "categoria": "Historia y valores",
+      "pregunta": "¿Existen bomberos que ayudan sin cobrar un sueldo?",
+      "opciones": [
+        "No, no existen",
+        "Sí, los bomberos voluntarios"
+      ],
+      "correcta": 1,
+      "explicacion": "En muchos países el servicio lo prestan voluntarios que no cobran por ayudar.",
+      "fuente": "Manual de formación básica de bomberos – Lección 4"
+    },
+    {
+      "id": "q148",
+      "nivel": "medio",
+      "categoria": "Historia y valores",
+      "pregunta": "¿Qué emperador romano organizó a los «vigiles», el primer cuerpo de bomberos?",
+      "opciones": [
+        "Augusto",
+        "Nerón"
+      ],
+      "correcta": 0,
+      "explicacion": "Llegaron a ser 10 000 bomberos, divididos en cohortes con sus propios cuarteles.",
+      "fuente": "Manual de formación básica de bomberos – Lección 3"
+    },
+    {
+      "id": "q149",
+      "nivel": "dificil",
+      "categoria": "Historia y valores",
+      "pregunta": "¿Qué gobernante creó en 1811 el Batallón de Bomberos Zapadores de París, de carácter militar?",
+      "opciones": [
+        "Julio César",
+        "Napoleón"
+      ],
+      "correcta": 1,
+      "explicacion": "Hoy es la Brigada de Bomberos de París, que sigue siendo una unidad militar.",
+      "fuente": "Historia del servicio de bomberos (fuente externa)"
+    },
+    {
+      "id": "q150",
+      "nivel": "dificil",
+      "categoria": "Historia y valores",
+      "pregunta": "¿Qué personaje histórico fundó en 1736 la Union Fire Company de Filadelfia, una compañía de bomberos voluntarios?",
+      "opciones": [
+        "Benjamin Franklin",
+        "George Washington"
+      ],
+      "correcta": 0,
+      "explicacion": "Franklin promovió la prevención con su famosa frase: «una onza de prevención vale una libra de cura».",
+      "fuente": "Historia del servicio de bomberos (fuente externa)"
+    },
+    {
+      "id": "q151",
+      "nivel": "medio",
+      "categoria": "Historia y valores",
+      "pregunta": "Antes de que existieran las mangueras, ¿cómo apagaba la gente los incendios?",
+      "opciones": [
+        "Con ventiladores gigantes",
+        "Con cadenas de personas pasándose baldes de agua"
+      ],
+      "correcta": 1,
+      "explicacion": "Los vecinos formaban cadenas de baldes para ayudarse entre ellos.",
+      "fuente": "Manual de formación básica de bomberos – Lección 3"
+    }
+  ]
+}

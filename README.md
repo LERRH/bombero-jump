@@ -12,6 +12,7 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 4. Cuando un techo cerrado no te deje pasar, fuerza la puerta de la escalera del costado con la halligan y sube por ahí.
 5. Si hay fuego dentro de una ventana o puerta, rómpela con la halligan y apágalo con el pitón.
    Ojo con los alféizares agrietados: se rompen al pisarlos una vez.
+   Si uno se rompe y te deja sin camino, toca 🔧 REPARAR y responde una trivia de bomberos: si aciertas se repara (cuesta una estrella); si fallas, termina el juego.
    Si una ventana está llena de humo negro, no la abras (backdraft): sube al techo de arriba y rómpelo con la halligan para ventilar.
    Si ves a una persona pidiendo ayuda en una ventana, rompe el vidrio con la halligan para que salga.
 6. En la zona de humo enciende tu linterna para ver el camino y rescata a la víctima en la azotea.

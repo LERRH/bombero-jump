@@ -1326,6 +1326,7 @@ function placeNameBox(y) {
 function handleTap(e) {
   const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) * H / r.height - UIY;
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
+  if (S.state === 'trivia') { triviaTap((e.clientX - r.left) * W / r.width, y); return; }
   if (S.state === 'menu') {
     if (S.view === 'rank') { S.view = 'menu'; return; }
     if (S.view === 'mods') {
@@ -1384,7 +1385,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, levelMax: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, poles: [], shock: 0, hoseLock: false, poleWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, poles: [], shock: 0, hoseLock: false, poleWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90, fixPl: null, trivia: null, repairs: 0
   };
   SFX.music(state === 'menu' ? 12 : state !== 'play' ? 0 : (MODS[mod] && MODS[mod].music) || 1); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
@@ -1840,6 +1841,7 @@ function trainResult(won) {
   else if (won && (M.race || M.livesStars)) stars = 3 - Math.min(2, 3 - S.lives);
   else if (won && M.time) { const secs = S.t / 60; stars = secs <= M.time[0] ? 3 : secs <= M.time[1] ? 2 : 1; }
   else if (won) stars = 3;
+  if (won && S.repairs) stars = Math.max(1, stars - S.repairs);   // cada alféizar reparado con trivia cuesta una estrella
   const best = Progress.get()[S.mod] || 0, record = Progress.set(S.mod, stars);
   return { stars, secs: S.t / 60, falls: S.falls, cured: S.cured, injTotal: S.injTotal, done: Math.min(done, S.taskTotal), taskTotal: S.taskTotal,
     best: Math.max(best, stars), record, total: 0 };
@@ -2431,6 +2433,10 @@ const jumpPtrs = new Set();
 document.getElementById('wrap').addEventListener('pointerdown', e => {
   if (S.state !== 'play' || e.target.closest('button, input')) return;
   e.preventDefault();
+  if (S.fixPl) {
+    const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height, b = fixRect();
+    if (x > b.x - 10 && x < b.x + b.w + 10 && y > b.y - 10 && y < b.y + b.h + 10) { e.stopPropagation(); openTrivia(S.fixPl); return; }
+  }
   S.p.buf = 8; keys.jump = true; jumpPtrs.add(e.pointerId);
 }, true);   // en captura: el toque que inicia la partida desde el menú no cuenta como salto
 for (const ev of ['pointerup', 'pointercancel'])
@@ -2771,6 +2777,14 @@ function update() {
     } else {
       S.lives = 1;
       hurt(S.mod === 'saltos' ? '¡Caíste! Sin vidas' : '¡Caíste! Una caída te deja fuera', true);
+    }
+  }
+
+  // Alféizar roto encima del bombero: aparece el botón para repararlo respondiendo una trivia
+  S.fixPl = null;
+  if (TRIVIA.length && p.ground) {
+    for (const q of S.plats) {
+      if (q.fragile && q.broken && q.y < p.y - 30 && p.y - q.y < 330 && q.y > S.camY + 70 && (!S.fixPl || q.y > S.fixPl.y)) S.fixPl = q;
     }
   }
 
@@ -5413,6 +5427,111 @@ function wrap(text, maxW) {
   return lines;
 }
 
+// Trivia para reparar un alféizar roto (preguntas en firejump_trivias.json).
+// Responder bien lo repara (y cuesta una estrella); responder mal termina el juego, porque ya no hay por dónde subir.
+let TRIVIA = [];
+const triviaSeen = new Set();
+fetch('firejump_trivias.json').then(r => r.json()).then(d => { TRIVIA = (d.preguntas || []).filter(q => q.opciones && q.opciones.length > 1); }).catch(() => {});
+// Dificultad según el módulo: los primeros con preguntas fáciles y medias; los últimos, medias y difíciles
+function triviaLevels() {
+  const i = MOD_LIST.findIndex(m => m[0] === S.mod);
+  return i < 4 ? ['facil', 'medio'] : i < 9 ? ['medio'] : ['medio', 'dificil'];
+}
+function pickQuestion() {
+  const lv = triviaLevels();
+  let pool = TRIVIA.filter(q => lv.includes(q.nivel) && !triviaSeen.has(q.id));
+  if (!pool.length) { pool = TRIVIA.filter(q => lv.includes(q.nivel)); pool.forEach(q => triviaSeen.delete(q.id)); }
+  if (!pool.length) pool = TRIVIA;
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  triviaSeen.add(q.id);
+  return q;
+}
+// Botón "REPARAR" sobre el alféizar roto (coordenadas de pantalla)
+function fixRect() {
+  const pl = S.fixPl, w = 140, h = 38;
+  return { x: Math.max(8, Math.min(W - w - 8, pl.x + pl.w / 2 - w / 2)), y: pl.y - S.camY - h - 14, w, h };
+}
+function drawFixButton() {
+  const b = fixRect(), k = 1 + Math.sin(performance.now() / 200) * 0.04;
+  ctx.save(); ctx.translate(b.x + b.w / 2, b.y + b.h / 2); ctx.scale(k, k);
+  ctx.fillStyle = '#111'; ctx.fillRect(-b.w / 2 - 3, -b.h / 2 - 3, b.w + 6, b.h + 6);
+  const g = ctx.createLinearGradient(0, -b.h / 2, 0, b.h / 2);
+  g.addColorStop(0, '#5fd17a'); g.addColorStop(1, '#1f8a3a');
+  ctx.fillStyle = g; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+  ctx.font = font(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#063015'; ctx.fillText('🔧 REPARAR', 1, 2);
+  ctx.fillStyle = '#fff'; ctx.fillText('🔧 REPARAR', 0, 0);
+  ctx.restore();
+}
+function openTrivia(pl) {
+  const q = pickQuestion(), order = q.opciones.map((t, i) => ({ t, ok: i === q.correcta })).sort(() => Math.random() - 0.5);
+  S.trivia = { q, pl, opts: order, pick: -1, btns: [], at: 0 };
+  S.state = 'trivia';
+  for (const k in keys) keys[k] = false;
+  SFX.play('click');
+}
+function triviaTap(x, y) {
+  const T = S.trivia;
+  if (T.pick < 0) {
+    const i = T.btns.findIndex(b => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h);
+    if (i < 0) return;
+    T.pick = i; T.at = performance.now();
+    SFX.play(T.opts[i].ok ? 'rescue' : 'hurt');
+    return;
+  }
+  if (performance.now() - T.at < 700) return;   // que alcance a leer la respuesta
+  S.state = 'play'; S.trivia = null;
+  if (T.opts[T.pick].ok) {
+    const pl = T.pl;
+    pl.broken = false; pl.fragile = false; pl.crackT = 0; pl.hits = 0;
+    delete pl._snapB; delete pl._snapC; delete pl._snapL;   // vuelve a dibujarse firme
+    S.repairs++; S.fixPl = null;
+    SFX.play('tools');
+    burst(pl.x + pl.w / 2, pl.y, 24, ['#7f7', '#fff', '#ffd166'], 3, 0.1, 40, 3);
+    toast('🔧 ¡Alféizar reparado! Cuesta una estrella', '#7f7');
+  } else {
+    S.lives = 1;
+    hurt('Respuesta incorrecta: ya no hay por dónde subir', true);
+  }
+}
+function drawTrivia() {
+  const T = S.trivia, q = T.q, done = T.pick >= 0, okPick = done && T.opts[T.pick].ok;
+  ctx.fillStyle = '#000d'; ctx.fillRect(0, -UIY, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(22); ctx.fillStyle = '#ffb000'; ctx.fillText('🔧 REPARA EL ALFÉIZAR', W / 2, 70, W - 24);
+  ctx.font = font(13); ctx.fillStyle = '#aaa'; ctx.fillText('Responde bien para repararlo  ·  cuesta una ★', W / 2, 98, W - 24);
+  ctx.font = font(14); ctx.fillStyle = '#ffd166'; ctx.fillText((q.categoria || '').toUpperCase(), W / 2, 130, W - 24);
+  ctx.font = font(19); ctx.fillStyle = '#fff';
+  let y = 160;
+  for (const l of wrap(q.pregunta, W - 48)) { ctx.fillText(l, W / 2, y); y += 26; }
+  y += 14;
+  ctx.font = font(16);
+  T.btns = T.opts.map((o, i) => {
+    const lines = wrap(o.t, W - 76), h = Math.max(52, lines.length * 21 + 22), b = { x: 20, y, w: W - 40, h };
+    let c = '#24344d';
+    if (done && o.ok) c = '#1f7a3a'; else if (done && i === T.pick) c = '#8a1f1f';
+    ctx.fillStyle = '#0b0f17'; ctx.fillRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4);
+    ctx.fillStyle = c; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = '#fff';
+    lines.forEach((l, k) => ctx.fillText(l, W / 2, b.y + b.h / 2 + (k - (lines.length - 1) / 2) * 21));
+    y += h + 12;
+    return b;
+  });
+  if (!done) return;
+  y += 10;
+  ctx.font = font(22); ctx.fillStyle = okPick ? '#7f7' : '#ff6b6b';
+  ctx.fillText(okPick ? '¡CORRECTO!' : 'INCORRECTO', W / 2, y); y += 28;
+  if (q.explicacion) {
+    ctx.font = font(14); ctx.fillStyle = '#ddd';
+    const ex = wrap(q.explicacion, W - 48);
+    if (y + ex.length * 19 < H - UIY - 50) for (const l of ex) { ctx.fillText(l, W / 2, y); y += 19; }
+  }
+  if (performance.now() - T.at > 700) {
+    ctx.font = font(16); ctx.fillStyle = '#ffd166';
+    ctx.fillText(okPick ? 'Toca para seguir subiendo' : 'Toca para continuar', W / 2, Math.min(y + 24, H - UIY - 24));
+  }
+}
+
 // Botón "toca para jugar" que late
 function tapButton(label, y) {
   const k = 1 + Math.sin(performance.now() / 260) * 0.05;
@@ -5551,7 +5670,7 @@ function drawTrainScreen(title, color) {
   }
   const m = Math.floor(F.secs / 60), sec = String(Math.floor(F.secs % 60)).padStart(2, '0');
   ctx.font = font(16); ctx.fillStyle = '#ddd';
-  ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m`, W / 2, 315, W - 24);
+  ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m` + (S.repairs ? `  ·  🔧 ${S.repairs}` : ''), W / 2, 315, W - 24);
   if (S.mod === 'medico') { ctx.fillStyle = '#7f7'; ctx.fillText(`Heridos curados: ${F.cured} de ${F.injTotal}`, W / 2, 340); }
   if (S.mod === 'gatos') { ctx.fillStyle = '#7f7'; ctx.fillText(`Gatitos rescatados: ${S.cats} de ${S.catTotal}`, W / 2, 340); }
   if (S.mod === 'forestal') { ctx.fillStyle = '#7f7'; ctx.fillText(`Fuegos apagados: ${S.grassOut} de ${S.grassTotal}`, W / 2, 340); }
@@ -5633,7 +5752,8 @@ function draw() {
   if (S.state === 'menu') {
     if (S.view === 'rank') drawRankScreen(true); else if (S.view === 'mods') drawModsScreen(); else drawMenu();
   } else {
-    ctx.save(); ctx.translate(0, -UIY); drawHUD(); ctx.restore();
+    ctx.save(); ctx.translate(0, -UIY); drawHUD(); if (S.state === 'play' && S.fixPl) drawFixButton(); ctx.restore();
+    if (S.state === 'trivia') drawTrivia();
     if (MODS[S.mod] && S.state === 'win' && S.winT < 170) {
       ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
