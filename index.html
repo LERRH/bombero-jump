@@ -1480,6 +1480,7 @@ function gen() {
     const p = addPlat(x, y, w, TL && Math.random() < (TL.win || 0) ? { kind: 'window' } : {});
     if (attachTheme()) treeify(p);
     if (TL && TL.crack) p.crackMax = Math.round(TL.crack * 1.8);
+    if (TL && TL.steps) p.steps = TL.steps;   // pisadas que aguanta si sale agrietado
     if (hurtHere) {
       p.injured = { who: pickWho(), side: Math.random() < 0.5 ? -1 : 1, state: 'hurt', t: 0 };
       S.injTotal++;
@@ -1622,17 +1623,17 @@ const LEVELS = [
 // gap = separación vertical entre alféizares, w = ancho, dx = distancia horizontal al anterior (px).
 // p.fragile = probabilidad de alféizar agrietado, chain = cuántos agrietados seguidos como máximo,
 // win = probabilidad de que sea ventana (solo las ventanas pueden estar agrietadas),
-// crack = cuadros que aguanta un agrietado antes de romperse (normal 24).
+// crack = cuadros que aguanta un agrietado antes de romperse (normal 24), steps = pisadas que aguanta (normal 1).
 // El salto más alto llega a ~165 px, por eso gap no pasa de 140 (en Saltos, 125: es el módulo para aprender).
 const TRAIN_LEVELS = [
   { name: 'Primeros saltos', hint: 'Salta de alféizar en alféizar', len: 800,
     gap: [60, 80], w: [85, 100], dx: [30, 130], p: {} },
   { name: 'Más alto', hint: 'Mantén el dedo en la pantalla para saltar más alto', len: 900,
-    gap: [80, 105], w: [75, 90], dx: [50, 150], p: { fragile: 0.1 }, chain: 1 },
-  { name: 'Alféizares agrietados', hint: 'Los agrietados se rompen al pisarlos: ¡salta rápido!', len: 1000,
-    gap: [80, 100], w: [72, 86], dx: [40, 150], p: { fragile: 0.35 }, chain: 1, win: 0.85, crack: 30 },
+    gap: [80, 105], w: [75, 90], dx: [50, 150], p: { fragile: 0.1 }, chain: 1, steps: 3 },
+  { name: 'Alféizares agrietados', hint: 'Los agrietados aguantan 2 pisadas: ¡no te quedes encima!', len: 1000,
+    gap: [80, 100], w: [72, 86], dx: [40, 150], p: { fragile: 0.35 }, chain: 1, win: 0.85, crack: 30, steps: 2 },
   { name: 'Saltos largos', hint: 'Más alto y más lejos: mantén el dedo', len: 1000,
-    gap: [95, 118], w: [64, 78], dx: [70, 170], p: { fragile: 0.35 }, chain: 2, win: 0.85, crack: 28 },
+    gap: [95, 118], w: [64, 78], dx: [70, 170], p: { fragile: 0.35 }, chain: 2, win: 0.85, crack: 28, steps: 2 },
   { name: 'Prueba final', hint: 'Muchos agrietados: ¡no te detengas!', len: 1100,
     gap: [100, 125], w: [58, 70], dx: [80, 180], p: { fragile: 0.6 }, chain: 3, win: 1, crack: 24 },
 ];
@@ -2488,7 +2489,7 @@ function update() {
       if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) {
         if (p.vy > 3) SFX.play('land');
         p.y = pl.y; p.vy = 0; p.ground = pl; S.landT = 10;
-        if (pl.fragile) { if (!pl.crackT) { pl.crackT = 1; SFX.play('crack'); } } else S.lastSafe = pl;
+        if (pl.fragile) { if (!pl.crackT) { pl.crackT = 1; SFX.play('crack'); } pl.hits = (pl.hits || 0) + 1; } else S.lastSafe = pl;
         burst(p.x, p.y, 4, ['#ccc'], 1.5, 0, 15, 3);
         break;
       }
@@ -2658,9 +2659,11 @@ function update() {
   for (const pl of S.plats) {
     if (pl.fragile && !pl.broken && !S.fragileWarned && pl.y > S.camY && pl.y < S.camY + H) {
       S.fragileWarned = true;
-      toast(theme() === 'tree' ? '¡Cuidado! Las ramas secas se quiebran al pisarlas' : '¡Cuidado! Los alféizares agrietados se rompen al pisarlos', '#ffd166');
+      toast(S.mod === 'saltos' ? '¡Cuidado! Los alféizares agrietados aguantan pocas pisadas: no te quedes encima' : theme() === 'tree' ? '¡Cuidado! Las ramas secas se quiebran al pisarlas' : '¡Cuidado! Los alféizares agrietados se rompen al pisarlos', '#ffd166');
     }
     if (!pl.crackT || pl.broken) continue;
+    // Con varias pisadas (Saltos): si te vas antes de que se rompa, deja de crujir y aguanta hasta la siguiente
+    if (pl.steps && pl.hits < pl.steps && S.p.ground !== pl) { pl.crackT = 0; continue; }
     pl.crackT++;
     const tree = theme() === 'tree', chips = tree ? ['#8a6a48', '#5e4630', '#a8916f'] : ['#c9c9c9', '#8d8d8d', '#a9a9a9'];
     if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, tree ? chips : ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
@@ -4489,6 +4492,8 @@ function drawFloorLedge(pl) {
   if (pl.fragile) {   // grietas
     ctx.strokeStyle = '#1e1e22'; ctx.lineWidth = 1.6; ctx.beginPath();
     for (const cx of [pl.x + pl.w * 0.3, pl.x + pl.w * 0.68]) { ctx.moveTo(cx, pl.y); ctx.lineTo(cx + 3, pl.y + 4); ctx.lineTo(cx - 2, pl.y + 8); ctx.lineTo(cx + 2, pl.y + 12); }
+    if (pl.hits) { ctx.moveTo(pl.x + pl.w * 0.1, pl.y + 3); ctx.lineTo(pl.x + pl.w * 0.2, pl.y + 8); ctx.lineTo(pl.x + pl.w * 0.45, pl.y + 6); }   // ya pisado: más grietas
+    if (pl.hits > 1) { ctx.moveTo(pl.x + pl.w * 0.78, pl.y + 1); ctx.lineTo(pl.x + pl.w * 0.86, pl.y + 7); ctx.lineTo(pl.x + pl.w * 0.95, pl.y + 5); }
     ctx.stroke();
   }
   ctx.restore();
@@ -4791,6 +4796,8 @@ function drawRoof(pl) {
         ctx.moveTo(cx, y); ctx.lineTo(cx + 3, y + 3); ctx.lineTo(cx - 2, y + 6); ctx.lineTo(cx + 2, y + 11);
       }
       ctx.moveTo(x + w * 0.45, y + 2); ctx.lineTo(x + w * 0.52, y + 5); ctx.lineTo(x + w * 0.6, y + 4);
+      if (pl.hits) { ctx.moveTo(x + w * 0.1, y + 3); ctx.lineTo(x + w * 0.2, y + 8); ctx.lineTo(x + w * 0.38, y + 6); ctx.lineTo(x + w * 0.47, y + 11); }   // ya pisado: más grietas
+      if (pl.hits > 1) { ctx.moveTo(x + w * 0.75, y + 1); ctx.lineTo(x + w * 0.82, y + 7); ctx.lineTo(x + w * 0.92, y + 5); }
       ctx.stroke();
       ctx.restore();
     } else {
