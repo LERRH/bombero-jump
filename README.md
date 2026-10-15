@@ -24,8 +24,8 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 | 2 | Paramédico | ✅ |
 | 3 | Fuego expuesto (EPP + pitón) | ✅ |
 | 4 | Gas Stop (recoger Gas Stop, balones con fuga de 4 s) | ✅ |
-| 5 | Gatitos en el árbol (entorno nocturno listo; faltan gatitos y mochila) | 🚧 |
-| 6 | Forestal (entorno listo; faltan matorrales, rocas/troncos que caen y ropa forestal) | 🚧 |
+| 5 | Gatitos en el árbol (mochila y rescate de gatitos) | ✅ |
+| 6 | Forestal (traje forestal, batefuego, rocas que caen) | ✅ |
 | 7 | Ascensor (recoger llave, abrir ascensores con gente atrapada) | ✅ |
 | 8 | Fuego interno (recoger halligan) | ✅ |
 | 9 | Postes eléctricos (chorros intermitentes) | ✅ |
@@ -37,7 +37,11 @@ Juego sencillo para bomberos: sube por la fachada del edificio saltando entre ve
 
 Cada módulo se desbloquea al superar el anterior.
 
-## Niveles de la emergencia
+## Modo Emergencia (oculto por ahora)
+
+El modo Emergencia y el ranking mundial están desactivados en el menú mientras se rediseñan.
+
+### Niveles de la emergencia
 
 Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad poco a poco y luego la combinan. En todos hay personas atrapadas para rescatar.
 
@@ -70,5 +74,7 @@ Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad po
 | Pitón | Apagar fuego |
 | Halligan | Forzar puertas, romper ventanas y romper el techo para ventilar |
 | 🔦 | Linterna (en la zona oscura) |
+| ‹ | Volver al menú (dos toques) |
+| 🔊 | Silenciar |
 
 Las herramientas aparecen al completar el EPP.

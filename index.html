@@ -102,7 +102,8 @@ const W = 400;
 // de alto y se dibujan centrados (UIY = margen superior).
 const H = Math.round(Math.min(960, Math.max(640, W * (innerHeight / Math.max(1, innerWidth)))));
 const UIY = Math.round((H - 640) / 2);
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const cv = document.getElementById('c');
+let ctx = cv.getContext('2d');   // let: se cambia un momento al armar las "fotos" de ramas y acantilados
 const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
 dark.width = W; dark.height = H;
 // Tipografía de acción (Google Fonts) con respaldo
@@ -110,9 +111,21 @@ const FONT = 'Bangers, Impact, "Arial Black", sans-serif';
 const font = px => `${Math.round(px * 1.15)}px ${FONT}, ${EMOJI}`;
 const EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 
+// Calidad automática: si el celular no alcanza 60 cuadros por segundo, se baja la resolución interna del
+// lienzo de a poco (2 → 1,6 → 1,3 → 1 píxeles por punto) hasta que el juego vaya fluido.
+const QUALITY = [2, 1.6, 1.3, 1];
+let qIdx = 0, perfT = 0, perfN = 0, perfSlow = 0;
+function checkPerf(dt) {
+  if (S.state !== 'play' || dt > 250) return;          // fuera del juego o volviendo de segundo plano: no cuenta
+  perfT += dt; perfN++;
+  if (perfN < 90) return;                               // cada ~1,5 s
+  const avg = perfT / perfN; perfT = 0; perfN = 0;
+  perfSlow = avg > 19 ? perfSlow + 1 : 0;               // menos de ~52 cuadros por segundo
+  if (perfSlow >= 2 && qIdx < QUALITY.length - 1 && QUALITY[qIdx + 1] < (devicePixelRatio || 1)) { qIdx++; perfSlow = 0; resize(); }
+}
 function resize() {
   // Resolución del lienzo: como máximo 2 píxeles por punto (en celulares de 3x se ve igual y pesa mucho menos)
-  const s = Math.min(innerWidth / W, innerHeight / H), d = Math.min(2, devicePixelRatio || 1);
+  const s = Math.min(innerWidth / W, innerHeight / H), d = Math.min(QUALITY[qIdx], devicePixelRatio || 1);
   cv.width = Math.round(W * s * d); cv.height = Math.round(H * s * d);
   cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
   ctx.setTransform(s * d, 0, 0, s * d, 0, 0);
@@ -3463,6 +3476,17 @@ function drawRocks() {
 
 // Cuerpo de roca del acantilado (se dibuja antes que el pasto de arriba, de arriba hacia abajo)
 function drawCliffBody(pl) {
+  const left = pl.side < 0, dir = left ? 1 : -1, y = pl.y, xt = left ? pl.x + pl.w : pl.x, xe = left ? -12 : W + 12;
+  const len = Math.abs(xt - xe), seed = Math.floor(Math.abs(pl.x * 11 + pl.y * 5)) % 89, depth = 150 + hash(seed, 2) * 60;
+  snap(pl, '_snapC', Math.min(xe, xt) - 12, y - 6, len + 24, depth + 44, () => drawCliffBodyStatic(pl));
+  // brasas que laten dentro de las grietas (animadas, fuera de la foto)
+  for (let k = 0; k < 3; k++) {
+    if (hash(seed, k + 9) <= 0.5) continue;
+    const cx = xt - dir * (16 + k * len * 0.22 + hash(seed, k + 4) * 10);
+    ctx.fillStyle = `rgba(255,${120 + Math.sin(S.t / 8 + k) * 40},30,0.9)`; ctx.fillRect(cx - 1, y + 30 + k * 20, 3, 5);
+  }
+}
+function drawCliffBodyStatic(pl) {
   const left = pl.side < 0, dir = left ? 1 : -1, y = pl.y;
   const xe = left ? -12 : W + 12, xt = left ? pl.x + pl.w : pl.x, len = Math.abs(xt - xe);
   const seed = Math.floor(Math.abs(pl.x * 11 + pl.y * 5)) % 89, depth = 150 + hash(seed, 2) * 60;
@@ -3497,7 +3521,6 @@ function drawCliffBody(pl) {
     ctx.beginPath(); ctx.moveTo(cx, y + 10);
     for (let q = 1; q <= 5; q++) ctx.lineTo(cx + Math.sin(q * 2 + k) * 5, y + 10 + q * depth * 0.15);
     ctx.stroke();
-    if (hash(seed, k + 9) > 0.5) { ctx.fillStyle = `rgba(255,${120 + Math.sin(S.t / 8 + k) * 40},30,0.9)`; ctx.fillRect(cx - 1, y + 30 + k * 20, 3, 5); }
   }
   // borde del acantilado iluminado por el incendio
   ctx.strokeStyle = 'rgba(255,140,60,0.45)'; ctx.lineWidth = 3;
@@ -3541,6 +3564,14 @@ function drawLedge(pl) {
   const xe = left ? -12 : W + 12, xt = left ? pl.x + pl.w : pl.x, len = Math.abs(xt - xe);
   const seed = Math.floor(Math.abs(pl.x * 11 + pl.y * 5)) % 89;
   const x0 = Math.min(xe, xt), x1 = Math.max(xe, xt);
+  snap(pl, '_snapL', x0 - 10, y - 150, x1 - x0 + 20, 160, () => drawLedgeStatic(pl, left, dir, y, xe, xt, len, seed, x0, x1));
+  grassBlades(x0, x1, y - 2, seed, 4, 7);
+  for (let k = 0; k < 3; k++) {   // mechones colgando en la punta, que también se mecen
+    const hx = xt - dir * (2 + k * 5), sw = Math.sin(S.t / 16 + k + seed) * 1.5;
+    ctx.fillStyle = '#c8902e'; ctx.beginPath(); ctx.moveTo(hx - 2, y + 4); ctx.lineTo(hx + sw, y + 12 + k * 2); ctx.lineTo(hx + 2, y + 4); ctx.fill();
+  }
+}
+function drawLedgeStatic(pl, left, dir, y, xe, xt, len, seed, x0, x1) {
   if (seed % 2 === 0) deadTree(xe + dir * (36 + hash(seed, 6) * 18), y, 80 + hash(seed, 7) * 50, dir, seed);
   // arbusto verde junto al borde
   drawLeaves(xe + dir * 44, y - 10, 58, seed);
@@ -3556,11 +3587,6 @@ function drawLedge(pl) {
   const gg = ctx.createLinearGradient(0, y - 4, 0, y + 6);
   gg.addColorStop(0, '#f0c050'); gg.addColorStop(0.5, '#c8902e'); gg.addColorStop(1, '#7a4e1a');
   ctx.fillStyle = gg; ctx.fillRect(x0, y - 3, x1 - x0, 8);
-  grassBlades(x0, x1, y - 2, seed, 4, 7);
-  for (let k = 0; k < 3; k++) {   // mechones colgando en la punta, que también se mecen
-    const hx = xt - dir * (2 + k * 5), sw = Math.sin(S.t / 16 + k + seed) * 1.5;
-    ctx.fillStyle = '#c8902e'; ctx.beginPath(); ctx.moveTo(hx - 2, y + 4); ctx.lineTo(hx + sw, y + 12 + k * 2); ctx.lineTo(hx + 2, y + 4); ctx.fill();
-  }
 }
 
 // Suelo del bosque al inicio
@@ -3669,16 +3695,33 @@ function drawTrunks() {
 }
 
 // Rama: sale del tronco (más gruesa) y se afina hacia la punta; arriba es plana para pararse
+// "Foto" de un elemento que no cambia (rama, acantilado): se dibuja una vez en un lienzo aparte y luego
+// solo se pega. Ahorra mucho en el celular. bx, by, bw, bh = rectángulo que ocupa en el mundo.
+const SNAP_SCALE = 2;
+function snap(pl, key, bx, by, bw, bh, fn) {
+  let c = pl[key];
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = Math.ceil(bw * SNAP_SCALE); c.height = Math.ceil(bh * SNAP_SCALE);
+    const main = ctx; ctx = c.getContext('2d');
+    ctx.setTransform(SNAP_SCALE, 0, 0, SNAP_SCALE, -bx * SNAP_SCALE, -by * SNAP_SCALE);
+    try { fn(); } finally { ctx = main; }
+    c.r = [bx, by, bw, bh]; pl[key] = c;
+  }
+  ctx.drawImage(c, c.r[0], c.r[1], c.r[2], c.r[3]);
+}
+
 function drawBranch(pl) {
   const left = pl.side < 0, dir = left ? 1 : -1;
   if (pl.fragile && pl.broken) { drawBrokenBranch(pl); return; }
   if (pl.fragile && pl.crackT) {   // cruje: tiembla y se dobla hacia abajo
     const k = Math.min(1, pl.crackT / (pl.crackMax || CRACK_T)), xb0 = left ? pl.x : pl.x + pl.w;
     ctx.save(); ctx.translate(xb0 + rand(-1, 1) * k * 2, pl.y); ctx.rotate(dir * k * 0.12); ctx.translate(-xb0, -pl.y);
-    drawBranchBody(pl, left, dir); ctx.restore(); return;
+    snapBranch(pl, left, dir); ctx.restore(); return;
   }
-  drawBranchBody(pl, left, dir);
+  snapBranch(pl, left, dir);
 }
+const snapBranch = (pl, left, dir) => snap(pl, '_snapB', pl.x - 70, pl.y - 70, pl.w + 140, 150, () => drawBranchBody(pl, left, dir));
 
 // Muñón que queda pegado al tronco cuando una rama seca se quiebra
 function drawBrokenBranch(pl) {
@@ -5583,6 +5626,7 @@ function draw() {
 // Bucle a 60 pasos/seg fijos
 let last = performance.now(), acc = 0;
 function loop(now) {
+  checkPerf(now - last);
   acc += Math.min(100, now - last); last = now;
   while (acc >= 1000 / 60) {
     if (S.state === 'play') update();
