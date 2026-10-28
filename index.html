@@ -148,7 +148,20 @@ const EPP = [
 const STAGES = 8;
 const PH = 58; // alto de la caja de colisión del bombero
 const IMG = {};
-function loadImg(key, src) { const im = new Image(); im.src = src; IMG[key] = im; }
+// Si una imagen no llega (mala señal), se vuelve a pedir varias veces y otra vez cuando vuelve internet
+const IMG_FAIL = new Set();
+function loadImg(key, src, tries = 0) {
+  const im = new Image();
+  im._src = src;
+  im.onload = () => IMG_FAIL.delete(key);
+  im.onerror = () => {
+    IMG_FAIL.add(key);
+    if (tries < 6) setTimeout(() => { if (IMG[key] === im) loadImg(key, src, tries + 1); }, 700 * (tries + 1));
+  };
+  im.src = tries ? `${src}?r=${tries}` : src;
+  IMG[key] = im;
+}
+addEventListener('online', () => { for (const k of IMG_FAIL) loadImg(k, IMG[k]._src, 1); });
 for (const pose of ['idle', 'salto', 'aire', 'aterriza'])
   for (let i = 1; i <= STAGES; i++) loadImg(`${pose}_${i}`, `img/bombero/${pose}_${i}.png`);
 for (let i = 1; i <= STAGES; i++)
@@ -1327,6 +1340,7 @@ function handleTap(e) {
   const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) * H / r.height - UIY;
   if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
   if (S.state === 'trivia') { triviaTap((e.clientX - r.left) * W / r.width, y); return; }
+  if (S.state === 'loading') return;
   if (S.state === 'menu') {
     if (S.view === 'rank') { S.view = 'menu'; return; }
     if (S.view === 'mods') {
@@ -1379,6 +1393,12 @@ function handleTap(e) {
   }
 }
 
+// Imágenes del bombero que ya cargaron, de cuántas hay
+function playerReady() {
+  const ks = Object.keys(IMG).filter(k => IMG[k]._src.startsWith('img/bombero/'));
+  return [ks.filter(k => IMG[k].complete && IMG[k].naturalWidth).length, ks.length];
+}
+const LOAD_MAX = 60 * 15;   // con señal muy mala, a los 15 s empieza igual (las que falten siguen llegando)
 function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
   S = {
     state, mod, falls: 0, prevCx: W / 2, medic: false, bagToPlace: mod === 'medico', grassOut: 0, grassTotal: 0, beatT: 0, gfTarget: null, gfWarned: false, carrier: false, sackToPlace: mod === 'gatos', catT: 0, cats: 0, catTotal: 0, catWarned: false, catTarget: null, cureT: 0, cured: 0, injTotal: 0, injWarned: false, t: 0, p: { x: W / 2, y: H - 20, vx: 0, vy: 0, dir: 1, ground: null, coyote: 0, buf: 0 },
@@ -1399,6 +1419,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
   S.p.ground = S.lastSafe = S.plats[0];
   updateControls();
   if (state === 'play') toast(MODS[mod] ? MODS[mod].start : 'Salta de ventana en ventana y recoge tu EPP', '#ffd166');
+  if (state === 'play') { const [ok, n] = playerReady(); if (ok < n) { S.state = 'loading'; S.loadT = 0; } }
   if (state === 'play' && matchMedia('(pointer: coarse)').matches) FS.enter();
 }
 
@@ -5539,6 +5560,18 @@ function drawTrivia() {
   }
 }
 
+// Pantalla de carga mientras llegan las imágenes del bombero
+function drawLoading() {
+  const [ok, n] = playerReady(), k = n ? ok / n : 1;
+  ctx.fillStyle = '#000d'; ctx.fillRect(0, -UIY, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(26); ctx.fillStyle = '#ffb000'; ctx.fillText('CARGANDO…', W / 2, 280);
+  ctx.fillStyle = '#333'; ctx.fillRect(60, 315, W - 120, 14);
+  ctx.fillStyle = '#ffb000'; ctx.fillRect(60, 315, (W - 120) * k, 14);
+  ctx.font = font(15); ctx.fillStyle = '#ddd'; ctx.fillText(`Preparando al bombero  ${Math.round(k * 100)} %`, W / 2, 355);
+  if (S.loadT > 60 * 4) { ctx.fillStyle = '#aaa'; ctx.fillText('La señal está lenta, un momento…', W / 2, 385, W - 24); }
+}
+
 // Botón "toca para jugar" que late
 function tapButton(label, y) {
   const k = 1 + Math.sin(performance.now() / 260) * 0.05;
@@ -5761,6 +5794,7 @@ function draw() {
   } else {
     ctx.save(); ctx.translate(0, -UIY); drawHUD(); if (S.state === 'play' && S.fixPl) drawFixButton(); ctx.restore();
     if (S.state === 'trivia') drawTrivia();
+    if (S.state === 'loading') drawLoading();
     if (MODS[S.mod] && S.state === 'win' && S.winT < 170) {
       ctx.font = font(22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000a'; ctx.fillRect(0, 70, W, 40);
@@ -5787,7 +5821,10 @@ function loop(now) {
   acc += Math.min(100, now - last); last = now;
   while (acc >= 1000 / 60) {
     if (S.state === 'play') update();
-    else {
+    else if (S.state === 'loading') {
+      const [ok, n] = playerReady();
+      if (ok >= n || ++S.loadT > LOAD_MAX) S.state = 'play';
+    } else {
       if (S.state === 'win') S.winT++;
       if (S.state === 'dying') {
         S.t++;
@@ -5806,6 +5843,9 @@ function loop(now) {
 }
 newGame('menu');
 requestAnimationFrame(loop);
+// Guarda las imágenes en el celular (ver sw.js)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost'))
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>
