@@ -75,7 +75,7 @@ Después de equiparte, la emergencia avanza en 8 niveles que suman dificultad po
 | Pitón | Apagar fuego |
 | Halligan | Forzar puertas, romper ventanas y romper el techo para ventilar |
 | 🔦 | Linterna (en la zona oscura) |
-| ‹ | Volver al menú (dos toques) |
+| ❚❚ | Pausa: continuar, reiniciar, ajustes (volumen de música y efectos) o salir |
 | 🔊 | Silenciar |
 
 Las herramientas aparecen al completar el EPP.
