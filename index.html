@@ -1323,55 +1323,53 @@ addEventListener('keydown', e => {
   if (S.state === 'play') pauseGame(); else if (S.state === 'pause') resumeGame();
 });
 
-// Mi bombero: nombre, compañía y color del uniforme (guardados en el celular)
-const PROFILE = { name: '', cia: '', color: 'rojo' };
+// Mi bombero: nombre, compañía, color del EPP y del casco (guardados en el celular)
+const PROFILE = { name: '', cia: '', color: 'rojo', helmet: 'rojo' };
 try { Object.assign(PROFILE, JSON.parse(localStorage.getItem('firejump_profile')) || {}); } catch (e) {}
 const saveProfile = () => { try { localStorage.setItem('firejump_profile', JSON.stringify(PROFILE)); } catch (e) {} };
-// Colores del uniforme: el rojo original se cambia por un degradado de sombra a luz
+// Colores: el rojo original se cambia por un degradado de sombra a luz
 const UNIFORM = {
   rojo: { label: 'ROJO', dot: '#d8231b' },
-  arena: { label: 'ARENA', dot: '#c9b277', dark: [92, 74, 38], light: [228, 205, 140] },
   negro: { label: 'NEGRO', dot: '#2b2b30', dark: [12, 12, 14], light: [86, 86, 96] },
-  azul: { label: 'AZUL', dot: '#2a4fa8', dark: [10, 24, 62], light: [76, 124, 222] },
-  verde: { label: 'VERDE', dot: '#3f7a36', dark: [22, 46, 20], light: [104, 168, 86] },
+  caqui: { label: 'CAQUI', dot: '#b9a36a', dark: [84, 72, 40], light: [216, 196, 132] },
 };
-// En las poses con casco, la parte de arriba (el casco) se queda roja
+const HELMET = {
+  rojo: { label: 'ROJO', dot: '#d8231b' },
+  negro: { label: 'NEGRO', dot: '#2b2b30', dark: [10, 10, 12], light: [92, 92, 102] },
+};
+if (!UNIFORM[PROFILE.color]) PROFILE.color = PROFILE.color === 'arena' ? 'caqui' : 'rojo';
+if (!HELMET[PROFILE.helmet]) PROFILE.helmet = 'rojo';
+// En las poses con casco, la parte de arriba del sprite es el casco
 const HELMET_KEY = /^(idle|salto|aire|aterriza)_(7|8|c)$|^camina_(7|8|c)_|^(apunta|piton|halligan|palanca|llavear|gasstop)_/;
 const TINTED = {};
 function tinted(im, key) {
-  const U = UNIFORM[PROFILE.color];
-  if (!U || !U.dark || !im || !im.complete || !im.naturalWidth) return im;
-  const cache = TINTED[PROFILE.color] || (TINTED[PROFILE.color] = new WeakMap());
+  const U = UNIFORM[PROFILE.color], Hm = HELMET[PROFILE.helmet], top = HELMET_KEY.test(key) ? 0.27 : 0;
+  if (!U.dark && (!Hm.dark || !top)) return im;
+  if (!im || !im.complete || !im.naturalWidth) return im;
+  const id = PROFILE.color + '|' + (top ? PROFILE.helmet : '-');
+  const cache = TINTED[id] || (TINTED[id] = new WeakMap());
   let c = cache.get(im);
   if (c) return c;
   c = document.createElement('canvas');
   const w = c.width = im.naturalWidth, h = c.height = im.naturalHeight, g = c.getContext('2d');
   g.drawImage(im, 0, 0);
-  const d = g.getImageData(0, 0, w, h), px = d.data, top = HELMET_KEY.test(key) ? Math.round(h * 0.27) : 0;
-  for (let i = top * w * 4; i < px.length; i += 4) {
+  const d = g.getImageData(0, 0, w, h), px = d.data, cut = Math.round(h * top) * w * 4;
+  for (let i = 0; i < px.length; i += 4) {
+    const P = i < cut ? Hm : U;
+    if (!P.dark || !px[i + 3]) continue;
     const r = px[i], gr = px[i + 1], b = px[i + 2];
-    if (!px[i + 3] || r < 70) continue;
+    if (r < 70) continue;
     const mx = Math.max(r, gr, b), mn = Math.min(r, gr, b), sat = (mx - mn) / mx;
     if (mx !== r || sat < 0.5) continue;
     const hue = 60 * ((gr - b) / (mx - mn));   // tono del rojo: entre -15° y 14°
     if (hue < -15 || hue > 14) continue;
     const t = Math.max(0, Math.min(1, (mx / 255 - 0.25) / 0.7));
-    for (let k = 0; k < 3; k++) px[i + k] = U.dark[k] + (U.light[k] - U.dark[k]) * t;
+    for (let k = 0; k < 3; k++) px[i + k] = P.dark[k] + (P.light[k] - P.dark[k]) * t;
   }
   g.putImageData(d, 0, 0);
   c.complete = true; c.naturalWidth = w; c.naturalHeight = h;
   cache.set(im, c);
   return c;
-}
-// Plaquita con la compañía (o el nombre) sobre el bombero
-function drawPlate(x, y, big) {
-  const txt = (PROFILE.cia || PROFILE.name || '').toUpperCase();
-  if (!txt) return;
-  ctx.font = font(big ? 18 : 10); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const w = ctx.measureText(txt).width + (big ? 18 : 10), h = big ? 26 : 15;
-  ctx.fillStyle = '#000b'; ctx.fillRect(x - w / 2, y - h / 2, w, h);
-  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = big ? 2 : 1; ctx.strokeRect(x - w / 2, y - h / 2, w, h);
-  ctx.fillStyle = '#ffd166'; ctx.fillText(txt, x, y + 1);
 }
 // Pantalla "Mi bombero"
 const profBox = document.getElementById('profBox'), profName = document.getElementById('profName'), profCia = document.getElementById('profCia');
@@ -1380,7 +1378,8 @@ for (const [inp, k, n] of [[profName, 'name', 14], [profCia, 'cia', 10]]) {
   inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9ÑÁÉÍÓÚÜ .-]/g, '').slice(0, n); PROFILE[k] = inp.value.trim(); saveProfile(); });
   inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') inp.blur(); });
 }
-const PROF_Y = { name: 310, cia: 392, colors: 474, back: 556 };
+const PROF_Y = { name: 292, cia: 360, epp: 436, helmet: 524, back: 600 };
+const PROF_DOTS = { epp: [UNIFORM, 'color', 80], helmet: [HELMET, 'helmet', 90] };
 function placeProfBox() {
   const on = S.state === 'menu' && S.view === 'profile';
   profBox.classList.toggle('on', on);
@@ -1394,33 +1393,37 @@ function placeProfBox() {
 function drawProfile() {
   drawMenuBg();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = font(34); ctx.fillStyle = '#ffb000'; ctx.fillText('MI BOMBERO', W / 2, 52);
+  ctx.font = font(34); ctx.fillStyle = '#ffb000'; ctx.fillText('MI BOMBERO', W / 2, 46);
   // Vista previa: el bombero con el EPP completo caminando en su lugar
   const f = 1 + Math.floor(performance.now() / 110) % (WALKN[8] || 6), key = `camina_8_${f}`, im = tinted(IMG[key], key);
   if (im && im.complete && im.naturalWidth) {
     const h = 150, w = im.naturalWidth * h / im.naturalHeight;
-    ctx.drawImage(im, W / 2 - w / 2, 250 - h, w, h);
+    ctx.drawImage(im, W / 2 - w / 2, 236 - h, w, h);
   }
-  drawPlate(W / 2, 84, true);
   ctx.font = font(13); ctx.fillStyle = '#aaa';
   ctx.fillText('NOMBRE', W / 2, PROF_Y.name - 34);
   ctx.fillText('COMPAÑÍA (ej. B-15)', W / 2, PROF_Y.cia - 34);
-  ctx.fillText('COLOR DEL UNIFORME', W / 2, PROF_Y.colors - 38);
-  Object.entries(UNIFORM).forEach(([id, U], i) => {
-    const x = W / 2 + (i - 2) * 64, sel = PROFILE.color === id;
-    ctx.beginPath(); ctx.arc(x, PROF_Y.colors, sel ? 21 : 18, 0, 7);
-    ctx.fillStyle = U.dot; ctx.fill();
-    ctx.lineWidth = sel ? 4 : 2; ctx.strokeStyle = sel ? '#fff' : '#0008'; ctx.stroke();
-    ctx.font = font(11); ctx.fillStyle = sel ? '#fff' : '#999'; ctx.fillText(U.label, x, PROF_Y.colors + 33);
-  });
+  for (const [row, label] of [['epp', 'COLOR DEL EPP'], ['helmet', 'COLOR DEL CASCO']]) {
+    const [set, prop, gap] = PROF_DOTS[row], ids = Object.keys(set), y = PROF_Y[row];
+    ctx.font = font(13); ctx.fillStyle = '#aaa'; ctx.fillText(label, W / 2, y - 36);
+    ids.forEach((id, i) => {
+      const x = W / 2 + (i - (ids.length - 1) / 2) * gap, sel = PROFILE[prop] === id;
+      ctx.beginPath(); ctx.arc(x, y, sel ? 21 : 18, 0, 7);
+      ctx.fillStyle = set[id].dot; ctx.fill();
+      ctx.lineWidth = sel ? 4 : 2; ctx.strokeStyle = sel ? '#fff' : '#0008'; ctx.stroke();
+      ctx.font = font(11); ctx.fillStyle = sel ? '#fff' : '#999'; ctx.fillText(set[id].label, x, y + 32);
+    });
+  }
   tapButton('‹ LISTO', PROF_Y.back);
 }
 // Devuelve true si se tocó "Listo"
 function profileTap(x, y) {
   if (Math.abs(y - PROF_Y.back) < 26 && Math.abs(x - W / 2) < 125) { profName.blur(); profCia.blur(); SFX.play('click'); return true; }
-  if (Math.abs(y - PROF_Y.colors) < 30) {
-    const i = Math.round((x - W / 2) / 64) + 2, id = Object.keys(UNIFORM)[i];
-    if (id) { PROFILE.color = id; saveProfile(); SFX.play('pickup'); buzz(15); }
+  for (const row of ['epp', 'helmet']) {
+    if (Math.abs(y - PROF_Y[row]) > 28) continue;
+    const [set, prop, gap] = PROF_DOTS[row], ids = Object.keys(set);
+    const id = ids[Math.round((x - W / 2) / gap + (ids.length - 1) / 2)];
+    if (id) { PROFILE[prop] = id; saveProfile(); SFX.play('pickup'); buzz(15); }
   }
   return false;
 }
@@ -5512,7 +5515,6 @@ function drawPlayer() {
   }
   // Pitón de la manguera
   ctx.restore();
-  if (S.state !== 'dying' && S.state !== 'over') drawPlate(x, y - (S.landT > 0 ? 62 : 82));
 }
 
 function drawDarkness() {
