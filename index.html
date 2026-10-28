@@ -1987,12 +1987,35 @@ function countTasks() {
   }
 }
 
+// Caída: quita un corazón y vuelves a un alféizar firme de la pantalla; si era el último, pierdes
+// (el fuego, las explosiones, la electricidad y las rocas también quitan un corazón)
+function fallHit() {
+  const p = S.p;
+  S.falls++;
+  if (S.lives > 1) {
+    const vis = S.plats.filter(q => !q.broken && !q.fragile && !q.roof && q.kind !== 'stairstep' && q.y > S.camY + 120 && q.y < S.camY + H - 30
+      && !(MODS[S.mod] && MODS[S.mod].race && q.y > S.fireY - 60));   // en Contrarreloj, nunca encima del fuego
+    const pl = vis.includes(S.lastSafe) ? S.lastSafe : vis.sort((a, b) => b.y - a.y)[0];
+    hurt('¡Caíste! Pierdes una vida', true);
+    p.vx = 0; p.vy = 0; p.buf = 0;
+    if (pl) { p.x = pl.x + pl.w / 2; p.y = pl.y; p.ground = S.lastSafe = pl; }
+    else { p.y = Math.min(S.camY + H - 40, S.fireY - 40); p.vy = -11.5; }   // sin alféizar firme a la vista: impulso hacia arriba
+    burst(p.x, p.y - 20, 14, ['#fff', '#ffd166'], 3, 0.05, 30, 3);
+  } else {
+    S.lives = 1;
+    hurt('¡Caíste! Sin vidas', true);
+  }
+}
+
 // Contrarreloj: el incendio sube desde abajo cada vez más rápido y nunca se detiene
 function updateRace() {
   if (S.t < 180) return;   // 3 segundos de ventaja al empezar
   S.fireV = Math.min(1.05, 0.5 + (S.t - 180) / 60 * 0.004);
   S.fireY = Math.min(S.fireY - S.fireV, S.camY + H + 140);   // nunca se queda muy atrás
-  if (S.p.y - 12 > S.fireY && S.state === 'play') { S.lives = 1; hurt('¡El fuego te alcanzó!', true); }
+  if (S.p.y - 12 > S.fireY && S.state === 'play') {
+    if (!S.p.ground && S.p.vy > 0) fallHit();   // cayó al fuego: cuenta como caída (pierde una vida)
+    else { S.lives = 1; hurt('¡El fuego te alcanzó!', true); }
+  }
 }
 
 // Muro de fuego del contrarreloj
@@ -2762,23 +2785,7 @@ function update() {
   }
 
   // Caída
-  // Caerse es perder todas las vidas; el fuego, las explosiones, la electricidad y las rocas quitan un corazón
-  if (p.y > S.camY + H + 40) {
-    S.falls++;
-    // En Saltos (solo hay caídas) una caída quita un corazón y vuelves a un alféizar firme de la pantalla
-    if (S.mod === 'saltos' && S.lives > 1) {
-      const vis = S.plats.filter(q => !q.broken && !q.fragile && !q.roof && q.y > S.camY + 120 && q.y < S.camY + H - 30);
-      const pl = vis.includes(S.lastSafe) ? S.lastSafe : vis.sort((a, b) => b.y - a.y)[0];
-      hurt('¡Caíste! Pierdes una vida', true);
-      p.vx = 0; p.vy = 0; p.buf = 0;
-      if (pl) { p.x = pl.x + pl.w / 2; p.y = pl.y; p.ground = S.lastSafe = pl; }
-      else { p.y = S.camY + H - 40; p.vy = -11.5; }   // sin alféizar firme a la vista: impulso hacia arriba
-      burst(p.x, p.y - 20, 14, ['#fff', '#ffd166'], 3, 0.05, 30, 3);
-    } else {
-      S.lives = 1;
-      hurt(S.mod === 'saltos' ? '¡Caíste! Sin vidas' : '¡Caíste! Una caída te deja fuera', true);
-    }
-  }
+  if (p.y > S.camY + H + 40) fallHit();
 
   // Alféizar roto encima del bombero: aparece el botón para repararlo respondiendo una trivia
   S.fixPl = null;
