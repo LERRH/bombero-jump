@@ -166,6 +166,10 @@ function loadImg(key, src, tries = 0) {
 addEventListener('online', () => { for (const k of IMG_FAIL) loadImg(k, IMG[k]._src, 1); });
 loadImg('logo', 'img/logo.webp');   // primero el logo, para que la pantalla de inicio no espere a las demás
 const BOOT = performance.now();
+// Vibración del celular (se puede apagar en Ajustes)
+const VIB = { on: true };
+try { VIB.on = localStorage.getItem('firejump_vib') !== '0'; } catch (e) {}
+function buzz(pattern) { if (VIB.on && navigator.vibrate) try { navigator.vibrate(pattern); } catch (e) {} }
 const logoReady = () => IMG.logo.complete && IMG.logo.naturalWidth > 0;
 const MENU_WAIT = 15000;   // con señal muy mala, a los 15 s el menú responde igual
 for (const pose of ['idle', 'salto', 'aire', 'aterriza'])
@@ -233,6 +237,8 @@ function aimPose(sx, sy, tx, ty) {
 for (let f = 1; f <= 3; f++) { loadImg(`llama_${f}`, `img/fuego/llama_${f}.png`); loadImg(`apaga_${f}`, `img/fuego/apaga_${f}.png`); }
 for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
 loadImg('camion', 'img/camion.png');
+for (const id of ['saltos', 'medico', 'fuego', 'gas', 'gatos', 'forestal', 'ascensor', 'interno', 'postes', 'backdraft', 'forzada', 'linterna', 'extremo', 'reloj'])
+  loadImg('mod_' + id, `img/mods/${id}.webp`);   // miniaturas del selector de módulos
 for (const t of ['piton', 'halligan']) loadImg(`tool_${t}`, `img/${t}.png`);
 loadImg('tool_linterna', 'img/botones/linterna.png');
 loadImg('tool_gasstop', 'img/gas/gasstop.png');
@@ -2184,8 +2190,9 @@ function hurt(msg, force) {
   if (S.inv > 0 && !force) return;
   S.lives--; S.inv = 100; S.shake = 12; S.hurtT = 40;
   toast(msg, '#ff8a8a');
-  if (S.lives > 0) SFX.play('hurt');
+  if (S.lives > 0) { SFX.play('hurt'); buzz(70); }
   if (S.lives <= 0) {
+    buzz([90, 60, 180]);
     SFX.play('death'); SFX.music(0); SFX.jet(0);
     S.final = finalResult(false);
     // Derrota: el bombero cae y queda en el suelo antes de la pantalla final
@@ -2586,6 +2593,7 @@ function update() {
   if (p.buf > 0 && p.coyote > 0) {
     p.vy = -11.5; p.ground = null; p.coyote = 0; p.buf = 0;
     SFX.play('jump');
+    burst(p.x, p.y, 6, ['#d8d8d8', '#b5b5b5'], 1.6, 0.02, 16, 2.8);   // polvito al despegar
   }
   // Salto corto si suelta el botón
   if (!keys.jump && p.vy < -5) p.vy = -5;
@@ -2601,8 +2609,11 @@ function update() {
       if (pl.broken || (pl.kind === 'stairstep' && !pl.bar.open)) continue;
       if (py <= pl.y && p.y >= pl.y && p.x + 8 > pl.x && p.x - 8 < pl.x + pl.w) {
         if (p.vy > 3) SFX.play('land');
+        S.landK = Math.min(1, p.vy / 11);   // qué tan fuerte cayó (aplasta más al bombero)
+        if (p.vy > 8) burst(p.x, p.y, 10, ['#cfcfcf', '#a9a9a9', '#e6e6e6'], 2.4, 0.03, 22, 3.5);   // polvo al caer fuerte
+        if (p.vy > 11) buzz(12);
         p.y = pl.y; p.vy = 0; p.ground = pl; S.landT = 10;
-        if (pl.fragile) { if (!pl.crackT) { pl.crackT = 1; SFX.play('crack'); } pl.hits = (pl.hits || 0) + 1; } else S.lastSafe = pl;
+        if (pl.fragile) { if (!pl.crackT) { pl.crackT = 1; SFX.play('crack'); buzz(10); } pl.hits = (pl.hits || 0) + 1; } else S.lastSafe = pl;
         burst(p.x, p.y, 4, ['#ccc'], 1.5, 0, 15, 3);
         break;
       }
@@ -2782,7 +2793,7 @@ function update() {
     if (pl.crackT % 6 === 0) burst(pl.x + rand(0, pl.w), pl.y + 6, 2, tree ? chips : ['#bdbdbd', '#8d8d8d'], 1, 0.3, 18, 1.5);
     if (pl.crackT >= (pl.crackMax || CRACK_T)) {
       pl.broken = true;
-      SFX.play('crumble');
+      SFX.play('crumble'); buzz(30);
       for (let k = 0; k < 22; k++) {
         S.parts.push({ x: pl.x + rand(0, pl.w), y: pl.y + rand(0, 10), vx: rand(-1.5, 1.5), vy: rand(-1.5, 1), g: 0.35,
           life: 50, max: 50, c: chips[k % 3], s: rand(1.8, 4) });
@@ -2863,7 +2874,7 @@ function update() {
 
   // Entrenamiento: gana al pisar la azotea
   if (MODS[S.mod] && p.ground && p.ground.roof) {
-    S.state = 'win'; S.winT = 0; S.final = trainResult(true);
+    S.state = 'win'; S.winT = 0; S.final = trainResult(true); buzz([30, 50, 30, 50, 90]);
     SFX.music(0); SFX.play('win');
     burst(p.x, p.y - 30, 60, ['#ffd166', '#7f7', '#7fd3ff', '#fff'], 5, 0.1, 80, 4);
   }
@@ -5371,9 +5382,16 @@ function drawPlayer() {
   else if (!p.ground) [key, h] = p.vy < -3 ? [`salto_${stage}`, 60] : [`aire_${stage}`, 58];
   else if (S.landT > 0) [key, h] = [`aterriza_${stage}`, 46];
   else if (Math.abs(p.vx) > 0.8) key = `camina_${stage}_${1 + Math.floor(S.t / (WALKN[stage] ? 5 : 6)) % (WALKN[stage] || 6)}`;
+  // Se estira al subir rápido y se aplasta un poco al aterrizar (solo en las poses de moverse)
+  let sx = 1, sy = 1;
+  if (/^(idle|salto|aire|aterriza|camina)_/.test(key)) {
+    if (!p.ground && p.vy < -4) sy = 1 + Math.min(0.1, -p.vy * 0.009);
+    else if (S.landT > 0) sy = 1 - 0.09 * (S.landK || 0) * S.landT / 10;
+    sx = 2 - sy;
+  }
   ctx.save();
   ctx.translate(x, y + 2);
-  ctx.scale(d, 1);
+  ctx.scale(d * sx, sy);
   if (rot) ctx.rotate(rot);
   const im = IMG[key];
   if (im && im.complete && im.naturalWidth) {
@@ -5669,7 +5687,7 @@ function pauseTap(x, y) {
 }
 // Ajustes: volumen de la música y de los efectos (se guardan en el celular)
 const SET_ROWS = [['music', '🎵 MÚSICA', 230], ['sfx', '🔊 EFECTOS', 340]];
-const SET_BAR = { x: 100, w: 200 }, SET_BACK = 470;
+const SET_BAR = { x: 100, w: 200 }, SET_VIB = 430, SET_BACK = 540;
 function drawSettings() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(36); ctx.fillStyle = '#ffb000'; ctx.fillText('AJUSTES', W / 2, 120);
@@ -5684,12 +5702,21 @@ function drawSettings() {
     ctx.fillStyle = '#ffb000'; ctx.fillRect(SET_BAR.x, y - 8, SET_BAR.w * v, 16);
     ctx.fillStyle = '#fff'; ctx.fillRect(SET_BAR.x + SET_BAR.w * v - 3, y - 13, 6, 26);
   }
-  if (SFX.muted) { ctx.font = font(14); ctx.fillStyle = '#ff8a8a'; ctx.fillText('El sonido está apagado: tócalo arriba a la derecha 🔇', W / 2, 400, W - 24); }
+  ctx.font = font(19); ctx.fillStyle = '#fff'; ctx.fillText('📳 VIBRACIÓN', W / 2 - 50, SET_VIB);
+  ctx.fillStyle = VIB.on ? '#1f7a3a' : '#5a2020'; ctx.fillRect(W / 2 + 40, SET_VIB - 18, 84, 36);
+  ctx.font = font(18); ctx.fillStyle = '#fff'; ctx.fillText(VIB.on ? 'SÍ' : 'NO', W / 2 + 82, SET_VIB + 1);
+  if (SFX.muted) { ctx.font = font(14); ctx.fillStyle = '#ff8a8a'; ctx.fillText('El sonido está apagado: tócalo arriba a la derecha 🔇', W / 2, 485, W - 24); }
   tapButton('‹ VOLVER', SET_BACK);
 }
 // Devuelve true si se tocó "Volver"
 function settingsTap(x, y) {
   if (Math.abs(y - SET_BACK) < 26 && Math.abs(x - W / 2) < 125) { SFX.play('click'); return true; }
+  if (Math.abs(y - SET_VIB) < 24 && Math.abs(x - W / 2) < 140) {
+    VIB.on = !VIB.on;
+    try { localStorage.setItem('firejump_vib', VIB.on ? '1' : '0'); } catch (e) {}
+    SFX.play('click'); buzz(40);
+    return false;
+  }
   for (const [kind, , yb] of SET_ROWS) {
     if (Math.abs(y - yb) > 26) continue;
     const v = SFX.vol[kind];
@@ -5704,7 +5731,7 @@ function settingsTap(x, y) {
 let fadeA = 1, fadeKey = '', fadeLast = 0;
 function drawFade() {
   const now = performance.now(), key = S.state === 'menu' ? 'menu:' + S.view : 'game';
-  if (key !== fadeKey) { if (fadeKey) fadeA = 1; fadeKey = key; }
+  if (key !== fadeKey) { if (fadeKey) fadeA = 1; fadeKey = key; S.modsAt = now; }
   const dt = Math.min(100, now - (fadeLast || now)); fadeLast = now;
   if (fadeA <= 0) return;
   ctx.fillStyle = `rgba(0,0,0,${fadeA})`; ctx.fillRect(0, 0, W, H);
@@ -5750,19 +5777,35 @@ function drawModsScreen() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(24); ctx.fillStyle = '#ffd166'; ctx.fillText('MÓDULOS DE ENTRENAMIENTO', W / 2, 32);
   const pr = Progress.get();
+  const since = performance.now() - (S.modsAt || 0);
   MOD_LIST.forEach(([id, name], i) => {
-    const x = TILE.x[i % 2], y = TILE.y0 + Math.floor(i / 2) * TILE.dy, soon = !MODS[id] || !modUnlocked(id);
+    const x = TILE.x[i % 2], soon = !MODS[id] || !modUnlocked(id), stars = pr[id] || 0;
+    // Las tarjetas entran una tras otra, subiendo un poco
+    const k = Math.max(0, Math.min(1, (since - i * 35) / 220)), y = TILE.y0 + Math.floor(i / 2) * TILE.dy + (1 - k) * 18;
+    ctx.save(); ctx.globalAlpha = k;
     ctx.fillStyle = '#111'; ctx.fillRect(x - 2, y - 2, TILE.w + 4, TILE.h + 4);
-    const g = ctx.createLinearGradient(0, y, 0, y + TILE.h);
-    g.addColorStop(0, soon ? '#2a2d36' : '#d9481c'); g.addColorStop(1, soon ? '#1b1d24' : '#7a1d12');
-    ctx.fillStyle = g; ctx.fillRect(x, y, TILE.w, TILE.h);
+    const im = IMG['mod_' + id];
+    if (im && im.complete && im.naturalWidth) {
+      ctx.save(); if (soon) ctx.filter = 'grayscale(1) brightness(0.45)';
+      ctx.drawImage(im, x, y, TILE.w, TILE.h); ctx.restore();
+    } else {
+      const g = ctx.createLinearGradient(0, y, 0, y + TILE.h);
+      g.addColorStop(0, soon ? '#2a2d36' : '#d9481c'); g.addColorStop(1, soon ? '#1b1d24' : '#7a1d12');
+      ctx.fillStyle = g; ctx.fillRect(x, y, TILE.w, TILE.h);
+    }
+    const sh = ctx.createLinearGradient(x, 0, x + TILE.w, 0);   // sombra para que se lea el texto
+    sh.addColorStop(0, 'rgba(0,0,0,0.88)'); sh.addColorStop(0.6, 'rgba(0,0,0,0.4)'); sh.addColorStop(1, 'rgba(0,0,0,0.05)');
+    ctx.fillStyle = sh; ctx.fillRect(x, y, TILE.w, TILE.h);
+    ctx.strokeStyle = soon ? '#3a3d46' : stars === 3 ? '#ffd166' : '#e8430c'; ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, TILE.w - 2, TILE.h - 2);
     ctx.font = font(34); ctx.textAlign = 'center'; ctx.fillStyle = soon ? '#555' : '#ffd166';
     ctx.fillText(i + 1, x + 24, y + TILE.h / 2 + 2);
     ctx.textAlign = 'left'; ctx.font = font(15); ctx.fillStyle = soon ? '#888' : '#fff';
     ctx.fillText(name, x + 46, y + 23, TILE.w - 52);
     ctx.font = font(soon ? 11 : 15);
     ctx.fillStyle = soon ? '#777' : '#ffe9a8';
-    ctx.fillText(!MODS[id] ? '🔒 PRÓXIMAMENTE' : soon ? '🔒 SUPERA EL ANTERIOR' : '★'.repeat(pr[id] || 0) + '☆'.repeat(3 - (pr[id] || 0)), x + 46, y + 46);
+    ctx.fillText(!MODS[id] ? '🔒 PRÓXIMAMENTE' : soon ? '🔒 SUPERA EL ANTERIOR' : '★'.repeat(stars) + '☆'.repeat(3 - stars), x + 46, y + 46);
+    ctx.restore();
   });
   ctx.textAlign = 'center'; ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MENÚ', W / 2, 612);
   if (S.lockMsg && S.lockMsg.t-- > 0) {
