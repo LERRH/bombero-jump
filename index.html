@@ -162,6 +162,10 @@ function loadImg(key, src, tries = 0) {
   IMG[key] = im;
 }
 addEventListener('online', () => { for (const k of IMG_FAIL) loadImg(k, IMG[k]._src, 1); });
+loadImg('logo', 'img/logo.webp');   // primero el logo, para que la pantalla de inicio no espere a las demás
+const BOOT = performance.now();
+const logoReady = () => IMG.logo.complete && IMG.logo.naturalWidth > 0;
+const MENU_WAIT = 15000;   // con señal muy mala, a los 15 s el menú responde igual
 for (const pose of ['idle', 'salto', 'aire', 'aterriza'])
   for (let i = 1; i <= STAGES; i++) loadImg(`${pose}_${i}`, `img/bombero/${pose}_${i}.png`);
 for (let i = 1; i <= STAGES; i++)
@@ -227,7 +231,6 @@ function aimPose(sx, sy, tx, ty) {
 for (let f = 1; f <= 3; f++) { loadImg(`llama_${f}`, `img/fuego/llama_${f}.png`); loadImg(`apaga_${f}`, `img/fuego/apaga_${f}.png`); }
 for (const it of EPP) loadImg(it.f, `img/epp/${it.f}.png`);
 loadImg('camion', 'img/camion.png');
-loadImg('logo', 'img/logo.png');
 for (const t of ['piton', 'halligan']) loadImg(`tool_${t}`, `img/${t}.png`);
 loadImg('tool_linterna', 'img/botones/linterna.png');
 loadImg('tool_gasstop', 'img/gas/gasstop.png');
@@ -1368,6 +1371,7 @@ function handleTap(e) {
       });
       return;
     }
+    if (!logoReady() && performance.now() - BOOT < MENU_WAIT) return;   // aún cargando
     if (SHOW_EMERGENCY && Math.abs(y - 614) < 18) { refreshRank(); S.view = 'rank'; return; }
     if (Math.abs(y - MENU_Y.modulos) < 27) { S.view = 'mods'; return; }
     if (SHOW_EMERGENCY && Math.abs(y - MENU_Y.emergencia) < 27) newGame('play', 'emergencia');
@@ -1395,7 +1399,7 @@ function handleTap(e) {
 
 // Imágenes del bombero que ya cargaron, de cuántas hay
 function playerReady() {
-  const ks = Object.keys(IMG).filter(k => IMG[k]._src.startsWith('img/bombero/'));
+  const ks = Object.keys(IMG).filter(k => IMG[k]._src.startsWith('img/bombero/') || k === 'camion');
   return [ks.filter(k => IMG[k].complete && IMG[k].naturalWidth).length, ks.length];
 }
 const LOAD_MAX = 60 * 15;   // con señal muy mala, a los 15 s empieza igual (las que falten siguen llegando)
@@ -5650,15 +5654,22 @@ function drawMenu() {
   }
   ctx.globalAlpha = 1;
   const lg = IMG.logo;
-  if (lg && lg.complete && lg.naturalWidth) {
+  if (logoReady()) {
     const lw = W - 16, lh = lw * lg.naturalHeight / lg.naturalWidth, bob = Math.sin(t * 2) * 4;
     ctx.drawImage(lg, 8, 70 + bob, lw, lh);
+  } else {   // mientras llega el logo
+    const all = Object.values(IMG), k = all.filter(im => im.complete && im.naturalWidth).length / all.length;
+    ctx.font = font(26); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffb000'; ctx.fillText('CARGANDO…', W / 2, 220);
+    ctx.fillStyle = '#333'; ctx.fillRect(60, 252, W - 120, 14);
+    ctx.fillStyle = '#ffb000'; ctx.fillRect(60, 252, (W - 120) * k, 14);
+    if (performance.now() - BOOT > 4000) { ctx.font = font(15); ctx.fillStyle = '#aaa'; ctx.fillText('La señal está lenta, un momento…', W / 2, 292, W - 24); }
   }
   ctx.font = font(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffd166'; ctx.fillText('EQUÍPATE · APAGA · RESCATA', W / 2, 388);
   const pr = Progress.get(), st = n => '★'.repeat(n || 0) + '☆'.repeat(3 - (n || 0));
   const got = MOD_LIST.reduce((a, [id]) => a + (pr[id] || 0), 0), playable = MOD_LIST.filter(([id]) => MODS[id]).length;
-  moduleButton('MÓDULOS', `${MOD_LIST.length} entrenamientos · ★ ${got}/${playable * 3}`, MENU_Y.modulos, true);
+  if (logoReady() || performance.now() - BOOT >= MENU_WAIT) moduleButton('MÓDULOS', `${MOD_LIST.length} entrenamientos · ★ ${got}/${playable * 3}`, MENU_Y.modulos, true);   // aparece cuando ya cargó
   if (SHOW_EMERGENCY) moduleButton('EMERGENCIA', 'Todo junto · ranking mundial', MENU_Y.emergencia, false);
   if (SHOW_EMERGENCY) {
     ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
