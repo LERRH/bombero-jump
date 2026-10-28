@@ -1339,24 +1339,34 @@ const HELMET = {
 };
 if (!UNIFORM[PROFILE.color]) PROFILE.color = PROFILE.color === 'arena' ? 'caqui' : 'rojo';
 if (!HELMET[PROFILE.helmet]) PROFILE.helmet = 'rojo';
-// En las poses con casco, la parte de arriba del sprite es el casco
-const HELMET_KEY = /^(idle|salto|aire|aterriza)_(7|8|c)$|^camina_(7|8|c)_|^(apunta|piton|halligan|palanca|llavear|gasstop)_/;
+// Qué parte de cada sprite se recolorea. Solo cambia el EPP: con polo, pantalón y borceguíes sigue rojo.
+// helmet = fracción de arriba que es el casco; body = desde qué altura empieza el EPP (null = nada)
+function tintZone(key) {
+  const st = (key.match(/^(?:idle|salto|aire|aterriza)_(\w)$|^camina_(\w)_/) || []).slice(1).find(Boolean);
+  if (/^(apunta|piton|halligan|palanca|gasstop)_/.test(key)) return { helmet: 0.27, body: 0 };   // equipo completo
+  if (/^llavear_/.test(key) || st === 'c') return { helmet: 0.27, body: null };                  // ascensor: polo y casco
+  if (st === '7' || st === '8') return { helmet: 0.27, body: 0 };
+  if (st >= '4' && st <= '6') return { helmet: 0, body: 0 };                                      // ya con la chaqueta
+  if (st === '3') return { helmet: 0, body: 0.5 };                                                // solo el pantalón del EPP
+  return { helmet: 0, body: null };
+}
 const TINTED = {};
 function tinted(im, key) {
-  const U = UNIFORM[PROFILE.color], Hm = HELMET[PROFILE.helmet], top = HELMET_KEY.test(key) ? 0.27 : 0;
-  if (!U.dark && (!Hm.dark || !top)) return im;
+  const U = UNIFORM[PROFILE.color], Hm = HELMET[PROFILE.helmet], z = tintZone(key);
+  if ((!U.dark || z.body === null) && (!Hm.dark || !z.helmet)) return im;
   if (!im || !im.complete || !im.naturalWidth) return im;
-  const id = PROFILE.color + '|' + (top ? PROFILE.helmet : '-');
+  const id = (z.body === null ? '-' : PROFILE.color + z.body) + '|' + (z.helmet ? PROFILE.helmet : '-');
   const cache = TINTED[id] || (TINTED[id] = new WeakMap());
   let c = cache.get(im);
   if (c) return c;
   c = document.createElement('canvas');
   const w = c.width = im.naturalWidth, h = c.height = im.naturalHeight, g = c.getContext('2d');
   g.drawImage(im, 0, 0);
-  const d = g.getImageData(0, 0, w, h), px = d.data, cut = Math.round(h * top) * w * 4;
+  const d = g.getImageData(0, 0, w, h), px = d.data, cut = Math.round(h * z.helmet) * w * 4;
+  const from = z.body === null ? Infinity : Math.round(h * z.body) * w * 4;
   for (let i = 0; i < px.length; i += 4) {
-    const P = i < cut ? Hm : U;
-    if (!P.dark || !px[i + 3]) continue;
+    const P = i < cut ? Hm : i >= from ? U : null;
+    if (!P || !P.dark || !px[i + 3]) continue;
     const r = px[i], gr = px[i + 1], b = px[i + 2];
     if (r < 70) continue;
     const mx = Math.max(r, gr, b), mn = Math.min(r, gr, b), sat = (mx - mn) / mx;
