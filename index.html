@@ -1405,10 +1405,20 @@ function drawProfile() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(34); ctx.fillStyle = '#ffb000'; ctx.fillText('MI BOMBERO', W / 2, 46);
   // Vista previa: el bombero con el EPP completo caminando en su lugar
-  const f = 1 + Math.floor(performance.now() / 110) % (WALKN[8] || 6), key = `camina_8_${f}`, im = tinted(IMG[key], key);
-  if (im && im.complete && im.naturalWidth) {
-    const h = 150, w = im.naturalWidth * h / im.naturalHeight;
+  // (solo con los cuadros que ya cargaron; si aún no hay ninguno, parado o un aviso de carga)
+  const ready = k => IMG[k] && IMG[k].complete && IMG[k].naturalWidth;
+  const frames = Array.from({ length: WALKN[8] || 6 }, (_, i) => `camina_8_${i + 1}`).filter(ready);
+  const key = frames.length ? frames[Math.floor(performance.now() / 110) % frames.length] : ready('idle_8') ? 'idle_8' : null;
+  if (key) {
+    const im = tinted(IMG[key], key), h = 150, w = im.naturalWidth * h / im.naturalHeight;
     ctx.drawImage(im, W / 2 - w / 2, 236 - h, w, h);
+  } else {
+    const a = performance.now() / 150;
+    ctx.strokeStyle = '#ffb000'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(W / 2, 160, 26, a, a + 4.2); ctx.stroke(); ctx.lineCap = 'butt';
+    ctx.font = font(14); ctx.fillStyle = '#aaa'; ctx.fillText('Cargando al bombero…', W / 2, 212);
+    // Si alguna de estas imágenes falló, se vuelve a pedir enseguida
+    for (const k of ['idle_8', 'camina_8_1']) if (IMG[k] && IMG[k].complete && !IMG[k].naturalWidth && !IMG[k]._retry) { IMG[k]._retry = true; loadImg(k, IMG[k]._src, 1); }
   }
   ctx.font = font(13); ctx.fillStyle = '#aaa';
   ctx.fillText('NOMBRE', W / 2, PROF_Y.name - 34);
