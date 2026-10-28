@@ -63,6 +63,10 @@
   #back::before{left:9px} #back::after{right:9px}
   #controls.catmode .cat, #controls.forestmode .forest{display:block}
   #nameBox{position:fixed;display:none;gap:8px;align-items:center;z-index:5}
+  #profBox{position:fixed;display:none;flex-direction:column;z-index:5}
+  #profBox.on{display:flex}
+  #profBox input{box-sizing:border-box;font-family:Bangers,Impact,sans-serif;letter-spacing:2px;text-align:center;text-transform:uppercase;
+    padding:0 10px;border:3px solid #ffb000;border-radius:8px;background:#1a1410;color:#ffd166;outline:none;user-select:text;-webkit-user-select:text}
   #nameBox.on{display:flex}
   #nameBox input{width:150px;font:24px Bangers,Impact,sans-serif;letter-spacing:2px;text-transform:uppercase;
     padding:6px 10px;border:3px solid #ffb000;border-radius:8px;background:#1a1410;color:#ffd166;outline:none;
@@ -77,6 +81,7 @@
   <button id="mute" aria-label="Sonido">🔊</button>
   <button id="back" aria-label="Pausa"></button>
   <div id="nameBox"><input id="nameIn" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><button id="nameOk">GUARDAR</button></div>
+  <div id="profBox"><input id="profName" maxlength="14" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU NOMBRE"><input id="profCia" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TU COMPAÑÍA"></div>
   <div id="controls">
     <div class="row">
       <div class="grp">
@@ -1312,11 +1317,113 @@ function resumeGame() { S.state = 'play'; SFX.duck(false); SFX.play('click'); }
 // Si el celular cambia de app o se apaga la pantalla, la partida queda en pausa
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
 
-addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && document.activeElement !== nameIn) { SFX.toggleMute(); showMute(); } });
+addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && !(document.activeElement && document.activeElement.tagName === 'INPUT')) { SFX.toggleMute(); showMute(); } });
 addEventListener('keydown', e => {
   if ((e.code !== 'Escape' && e.code !== 'KeyP') || e.repeat) return;
   if (S.state === 'play') pauseGame(); else if (S.state === 'pause') resumeGame();
 });
+
+// Mi bombero: nombre, compañía y color del uniforme (guardados en el celular)
+const PROFILE = { name: '', cia: '', color: 'rojo' };
+try { Object.assign(PROFILE, JSON.parse(localStorage.getItem('firejump_profile')) || {}); } catch (e) {}
+const saveProfile = () => { try { localStorage.setItem('firejump_profile', JSON.stringify(PROFILE)); } catch (e) {} };
+// Colores del uniforme: el rojo original se cambia por un degradado de sombra a luz
+const UNIFORM = {
+  rojo: { label: 'ROJO', dot: '#d8231b' },
+  arena: { label: 'ARENA', dot: '#c9b277', dark: [92, 74, 38], light: [228, 205, 140] },
+  negro: { label: 'NEGRO', dot: '#2b2b30', dark: [12, 12, 14], light: [86, 86, 96] },
+  azul: { label: 'AZUL', dot: '#2a4fa8', dark: [10, 24, 62], light: [76, 124, 222] },
+  verde: { label: 'VERDE', dot: '#3f7a36', dark: [22, 46, 20], light: [104, 168, 86] },
+};
+// En las poses con casco, la parte de arriba (el casco) se queda roja
+const HELMET_KEY = /^(idle|salto|aire|aterriza)_(7|8|c)$|^camina_(7|8|c)_|^(apunta|piton|halligan|palanca|llavear|gasstop)_/;
+const TINTED = {};
+function tinted(im, key) {
+  const U = UNIFORM[PROFILE.color];
+  if (!U || !U.dark || !im || !im.complete || !im.naturalWidth) return im;
+  const cache = TINTED[PROFILE.color] || (TINTED[PROFILE.color] = new WeakMap());
+  let c = cache.get(im);
+  if (c) return c;
+  c = document.createElement('canvas');
+  const w = c.width = im.naturalWidth, h = c.height = im.naturalHeight, g = c.getContext('2d');
+  g.drawImage(im, 0, 0);
+  const d = g.getImageData(0, 0, w, h), px = d.data, top = HELMET_KEY.test(key) ? Math.round(h * 0.27) : 0;
+  for (let i = top * w * 4; i < px.length; i += 4) {
+    const r = px[i], gr = px[i + 1], b = px[i + 2];
+    if (!px[i + 3] || r < 70) continue;
+    const mx = Math.max(r, gr, b), mn = Math.min(r, gr, b), sat = (mx - mn) / mx;
+    if (mx !== r || sat < 0.5) continue;
+    const hue = 60 * ((gr - b) / (mx - mn));   // tono del rojo: entre -15° y 14°
+    if (hue < -15 || hue > 14) continue;
+    const t = Math.max(0, Math.min(1, (mx / 255 - 0.25) / 0.7));
+    for (let k = 0; k < 3; k++) px[i + k] = U.dark[k] + (U.light[k] - U.dark[k]) * t;
+  }
+  g.putImageData(d, 0, 0);
+  c.complete = true; c.naturalWidth = w; c.naturalHeight = h;
+  cache.set(im, c);
+  return c;
+}
+// Plaquita con la compañía (o el nombre) sobre el bombero
+function drawPlate(x, y, big) {
+  const txt = (PROFILE.cia || PROFILE.name || '').toUpperCase();
+  if (!txt) return;
+  ctx.font = font(big ? 18 : 10); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(txt).width + (big ? 18 : 10), h = big ? 26 : 15;
+  ctx.fillStyle = '#000b'; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = big ? 2 : 1; ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+  ctx.fillStyle = '#ffd166'; ctx.fillText(txt, x, y + 1);
+}
+// Pantalla "Mi bombero"
+const profBox = document.getElementById('profBox'), profName = document.getElementById('profName'), profCia = document.getElementById('profCia');
+profName.value = PROFILE.name; profCia.value = PROFILE.cia;
+for (const [inp, k, n] of [[profName, 'name', 14], [profCia, 'cia', 10]]) {
+  inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9ÑÁÉÍÓÚÜ .-]/g, '').slice(0, n); PROFILE[k] = inp.value.trim(); saveProfile(); });
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') inp.blur(); });
+}
+const PROF_Y = { name: 310, cia: 392, colors: 474, back: 556 };
+function placeProfBox() {
+  const on = S.state === 'menu' && S.view === 'profile';
+  profBox.classList.toggle('on', on);
+  if (!on) return;
+  const r = cv.getBoundingClientRect(), k = r.width / W;
+  profBox.style.left = (r.left + r.width / 2 - 120 * k) + 'px';
+  profBox.style.top = (r.top + (PROF_Y.name + UIY - 22) * k) + 'px';
+  profBox.style.gap = ((PROF_Y.cia - PROF_Y.name - 44) * k) + 'px';
+  for (const inp of [profName, profCia]) { inp.style.width = (240 * k) + 'px'; inp.style.height = (44 * k) + 'px'; inp.style.fontSize = (20 * k) + 'px'; }
+}
+function drawProfile() {
+  drawMenuBg();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = font(34); ctx.fillStyle = '#ffb000'; ctx.fillText('MI BOMBERO', W / 2, 52);
+  // Vista previa: el bombero con el EPP completo caminando en su lugar
+  const f = 1 + Math.floor(performance.now() / 110) % (WALKN[8] || 6), key = `camina_8_${f}`, im = tinted(IMG[key], key);
+  if (im && im.complete && im.naturalWidth) {
+    const h = 150, w = im.naturalWidth * h / im.naturalHeight;
+    ctx.drawImage(im, W / 2 - w / 2, 250 - h, w, h);
+  }
+  drawPlate(W / 2, 84, true);
+  ctx.font = font(13); ctx.fillStyle = '#aaa';
+  ctx.fillText('NOMBRE', W / 2, PROF_Y.name - 34);
+  ctx.fillText('COMPAÑÍA (ej. B-15)', W / 2, PROF_Y.cia - 34);
+  ctx.fillText('COLOR DEL UNIFORME', W / 2, PROF_Y.colors - 38);
+  Object.entries(UNIFORM).forEach(([id, U], i) => {
+    const x = W / 2 + (i - 2) * 64, sel = PROFILE.color === id;
+    ctx.beginPath(); ctx.arc(x, PROF_Y.colors, sel ? 21 : 18, 0, 7);
+    ctx.fillStyle = U.dot; ctx.fill();
+    ctx.lineWidth = sel ? 4 : 2; ctx.strokeStyle = sel ? '#fff' : '#0008'; ctx.stroke();
+    ctx.font = font(11); ctx.fillStyle = sel ? '#fff' : '#999'; ctx.fillText(U.label, x, PROF_Y.colors + 33);
+  });
+  tapButton('‹ LISTO', PROF_Y.back);
+}
+// Devuelve true si se tocó "Listo"
+function profileTap(x, y) {
+  if (Math.abs(y - PROF_Y.back) < 26 && Math.abs(x - W / 2) < 125) { profName.blur(); profCia.blur(); SFX.play('click'); return true; }
+  if (Math.abs(y - PROF_Y.colors) < 30) {
+    const i = Math.round((x - W / 2) / 64) + 2, id = Object.keys(UNIFORM)[i];
+    if (id) { PROFILE.color = id; saveProfile(); SFX.play('pickup'); buzz(15); }
+  }
+  return false;
+}
 
 // Ranking TOP 10 compartido en Firebase (Firestore, por su API REST). Si no hay conexión,
 // se usa una copia guardada en el celular y el puntaje se sube cuando vuelva internet.
@@ -1407,6 +1514,7 @@ function handleTap(e) {
   const x = (e.clientX - r.left) * W / r.width;
   if (S.state === 'pause') { pauseTap(x, y); return; }
   if (S.state === 'menu' && S.view === 'settings') { if (settingsTap(x, y)) S.view = 'menu'; return; }
+  if (S.state === 'menu' && S.view === 'profile') { if (profileTap(x, y)) S.view = 'menu'; return; }
   if (S.state === 'menu') {
     if (S.view === 'rank') { S.view = 'menu'; return; }
     if (S.view === 'mods') {
@@ -1435,7 +1543,8 @@ function handleTap(e) {
       return;
     }
     if (!logoReady() && performance.now() - BOOT < MENU_WAIT) return;   // aún cargando
-    if (Math.abs(y - MENU_Y.ajustes) < 22 && Math.abs(x - W / 2) < 90) { S.view = 'settings'; SFX.play('click'); return; }
+    if (Math.abs(y - MENU_Y.ajustes) < 20 && Math.abs(x - W / 2) < 90) { S.view = 'settings'; SFX.play('click'); return; }
+    if (Math.abs(y - MENU_Y.perfil) < 20 && Math.abs(x - W / 2) < 150) { S.view = 'profile'; SFX.play('click'); return; }
     if (SHOW_EMERGENCY && Math.abs(y - 614) < 18) { refreshRank(); S.view = 'rank'; return; }
     if (Math.abs(y - MENU_Y.modulos) < 27) { S.view = 'mods'; return; }
     if (SHOW_EMERGENCY && Math.abs(y - MENU_Y.emergencia) < 27) newGame('play', 'emergencia');
@@ -5393,7 +5502,7 @@ function drawPlayer() {
   ctx.translate(x, y + 2);
   ctx.scale(d * sx, sy);
   if (rot) ctx.rotate(rot);
-  const im = IMG[key];
+  const im = tinted(IMG[key], key);
   if (im && im.complete && im.naturalWidth) {
     if (!h) h = im.naturalHeight / 2; // daño y derrota: misma escala que el resto (exportados al doble)
     if (h < 0) h = im.naturalHeight * 70 / 152; // halligan: misma escala que idle_7
@@ -5403,6 +5512,7 @@ function drawPlayer() {
   }
   // Pitón de la manguera
   ctx.restore();
+  if (S.state !== 'dying' && S.state !== 'over') drawPlate(x, y - (S.landT > 0 ? 62 : 82));
 }
 
 function drawDarkness() {
@@ -5755,7 +5865,7 @@ function tapButton(label, y) {
 // Botones de los módulos en el menú (el primero late)
 // Por ahora el menú solo tiene MÓDULOS; la Emergencia y el ranking quedan guardados para adaptarlos después
 const SHOW_EMERGENCY = false;
-const MENU_Y = { modulos: SHOW_EMERGENCY ? 450 : 480, emergencia: 520, ajustes: SHOW_EMERGENCY ? 570 : 560 };
+const MENU_Y = { modulos: SHOW_EMERGENCY ? 450 : 480, emergencia: 520, perfil: SHOW_EMERGENCY ? 570 : 548, ajustes: SHOW_EMERGENCY ? 610 : 592 };
 function moduleButton(label, sub, y, pulse) {
   const k = pulse ? 1 + Math.sin(performance.now() / 260) * 0.04 : 1;
   ctx.save(); ctx.translate(W / 2, y); ctx.scale(k, k);
@@ -5856,6 +5966,7 @@ function drawMenu() {
   if (logoReady() || performance.now() - BOOT >= MENU_WAIT) {
     ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ffd166'; ctx.fillText('⚙ AJUSTES', W / 2, MENU_Y.ajustes);
+    ctx.fillStyle = '#fff'; ctx.fillText(PROFILE.name ? `👤 ${PROFILE.name}${PROFILE.cia ? ' · ' + PROFILE.cia : ''}` : '👤 MI BOMBERO', W / 2, MENU_Y.perfil, W - 40);
   }
   if (SHOW_EMERGENCY) {
     ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -5988,7 +6099,8 @@ function draw() {
   ctx.save(); ctx.translate(0, UIY);   // menús y pantallas finales centrados
   if (S.state === 'menu') {
     if (S.view === 'rank') drawRankScreen(true); else if (S.view === 'mods') drawModsScreen();
-    else if (S.view === 'settings') { drawMenuBg(); drawSettings(); } else drawMenu();
+    else if (S.view === 'settings') { drawMenuBg(); drawSettings(); }
+    else if (S.view === 'profile') drawProfile(); else drawMenu();
   } else {
     ctx.save(); ctx.translate(0, -UIY); drawHUD(); if (S.state === 'play' && S.fixPl) drawFixButton(); ctx.restore();
     if (S.state === 'trivia') drawTrivia();
@@ -6039,6 +6151,7 @@ function loop(now) {
   }
   draw();
   document.getElementById('controls').classList.toggle('on', S.state === 'play');
+  placeProfBox();
   backBtn.classList.toggle('on', S.state === 'play');
   requestAnimationFrame(loop);
 }
