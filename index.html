@@ -594,7 +594,7 @@ const SFX = (() => {
   const DRUM1 = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
   const DRUM2 = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1];
   const st = (f, n) => f * Math.pow(2, n / 12);
-  const spb = () => mood === 17 ? 60 / (150 + (typeof S !== 'undefined' && S && S.fireV ? clamp((S.fireV - 0.5) / 0.55, 0, 1) * 30 : 0)) / 4 : mood === 16 ? 60 / 66 / 4 : mood === 15 ? 60 / 160 / 4 : mood === 14 ? 60 / 150 / 4 : mood === 13 ? 60 / 124 / 4 : mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : mood === 9 ? 60 / 120 / 4 : mood === 10 ? 60 / 126 / 3 : mood === 11 ? 60 / 140 / 4 : mood === 12 ? 60 / 120 / 4 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
+  const spb = () => mood === 17 ? 60 / (150 + (typeof S !== 'undefined' && S && S.fireV ? clamp((S.fireV - 0.5) / 0.55, 0, 1) * 30 : 0)) / 4 : mood === 16 ? 60 / 66 / 4 : mood === 15 ? 60 / 160 / 4 : mood === 14 ? 60 / 150 / 4 : mood === 13 ? 60 / 124 / 4 : mood === 7 ? 60 / 96 / 3 : mood === 8 ? 60 / 104 / 4 : mood === 9 ? 60 / 120 / 4 : mood === 10 ? 60 / 126 / 3 : mood === 11 ? 60 / 140 / 4 : mood === 12 ? 60 / 168 / 4 : 60 / (mood === 2 ? 128 : mood === 3 ? 112 : mood === 4 ? 138 : mood === 5 ? 118 : mood === 6 ? 126 : 96) / 4;   // semicorchea (en mood 7: corchea de tresillo)
 
   // mood 7 = sabana (Forestal): ritmo africano en 12/8 con djembé y shaker, kalimba en pentatónica de La menor,
   // drone grave y terroso, una flauta lejana de vez en cuando, y el cerro ardiendo: fuego, chasquidos y viento.
@@ -891,37 +891,62 @@ const SFX = (() => {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(musicBus); send(g, 0.2); o.start(t); vib.start(t); o.stop(t + dur + 0.02); vib.stop(t + dur + 0.02);
   }
-  // mood 12 = canción oficial de Fire Jump: adaptación del Himno a los Bomberos Voluntarios del Perú
-  // (arreglo para bombardino de Rodolfo Stwars Rueda Coronado) como marcha heroica a 120 BPM: bronces
-  // con la melodía, bajo tipo tuba en "oom-pah", acordes en los tiempos débiles, redoblante y platillos.
-  const HYMN_MEL = [[8,65,8],[16,63,16],[32,65,2],[36,70,4],[42,74,2],[44,72,2],[46,70,2],[48,70,8],[56,69,8],[64,70,4],[68,70,3],[71,70,1],[72,70,4],[82,74,2],[84,74,2],[86,74,2],[90,72,2],[92,74,2],[94,72,2],[96,72,4],[100,70,4],[112,67,4],[116,70,3],[119,72,1],[120,74,4],[124,72,3],[127,70,1],[128,72,8],[144,71,4],[148,67,4],[152,67,3],[155,67,1],[156,69,3],[159,71,1],[160,74,4],[164,72,4],[176,74,8],[184,72,8],[192,70,8],[208,65,4],[212,70,4],[216,74,4],[220,72,4],[224,69,4],[228,67,4],[240,72,8],[248,70,4],[252,70,4],[256,74,8],[272,71,4],[276,67,4],[280,68,4],[284,67,3],[287,67,1],[288,65,4],[292,63,4],[304,65,4],[312,72,4],[316,70,3],[319,67,1],[320,65,4],[338,74,2],[340,74,2],[342,74,2],[346,72,2],[348,74,2],[350,72,2],[352,72,4],[356,70,4],[368,71,4],[372,67,4],[376,67,3],[379,67,1],[380,69,3],[383,71,1],[384,72,4],[388,74,4],[392,75,4],[400,67,8],[408,72,3],[411,70,1],[412,70,3],[415,72,1],[416,74,8],[432,72,8],[440,74,8],[448,70,8],[466,74,2],[468,74,2],[470,74,2],[474,72,2],[476,74,2],[478,72,2],[480,72,4],[484,70,4],[496,67,4],[500,70,3],[503,72,1],[504,74,4],[508,72,3],[511,70,1],[512,72,8],[528,71,4],[532,67,4],[536,67,3],[539,67,1],[540,69,3],[543,71,1],[544,74,4],[548,72,4],[560,74,8],[568,72,8],[576,70,8],[592,65,4],[596,70,4],[600,74,4],[604,72,4],[608,69,4],[612,67,4],[624,72,8],[632,70,4],[636,70,4],[640,74,8],[656,71,4],[660,67,4],[664,67,3],[667,67,1],[668,69,3],[671,71,1],[672,74,4],[676,72,4],[688,74,4],[696,72,4],[700,74,3],[703,72,1],[704,70,8],[722,74,2],[724,74,2],[726,74,2],[730,72,2],[732,74,2],[734,72,2],[736,72,4],[740,70,4],[752,67,4],[756,70,3],[759,72,1],[760,74,4],[764,72,3],[767,70,1],[768,72,8],[784,71,4],[788,67,4],[792,67,3],[795,67,1],[796,69,3],[799,71,1],[800,74,4],[804,72,4],[816,74,8],[824,72,8],[832,70,8],[848,71,4],[852,67,4],[856,67,3],[859,67,1],[860,69,3],[863,71,1],[864,74,4],[868,72,4],[880,74,8],[888,72,8],[896,70,2],[898,70,2],[900,70,2],[902,70,2],[904,70,2],[906,68,2],[908,69,4],[912,70,2],[914,74,2],[916,77,2],[918,74,2],[920,70,2],[924,74,1],[925,74,1],[926,74,2],[928,70,4]];
-  const HYMN_CH = [[[53,57,60],[53,57,60]],[[53,57,60,63],[53,57,60,63]],[[58,62,65],[58,62,65]],[[58,62,65],[53,57,60]],[[58,62,65],[58,62,65]],[[58,62,65],[53,57,60]],[[53,57,60],[58,62,65]],[[48,51,55],[53,57,60]],[[53,57,60],[53,57,60]],[[55,59,62,65],[55,59,62,65]],[[48,52,55],[48,52,55,58]],[[58,62,65],[53,57,60]],[[58,62,65],[58,62,65]],[[58,62,65],[58,62,65]],[[53,57,60],[48,52,55,58]],[[53,57,60,63],[53,57,60,63]],[[58,62,65],[58,62,65]],[[55,59,62,65],[55,59,62,65]],[[48,51,55],[53,57,60,63]],[[53,57,60,63],[53,57,60,63]],[[53,57,60,63],[53,57,60,63]],[[58,62,65],[53,57,60]],[[53,57,60],[58,62,65]],[[55,59,62,65],[55,59,62,65]],[[48,51,55],[48,51,55]],[[48,51,55],[53,57,60]],[[58,62,65],[58,62,65]],[[53,57,60],[58,62,65]],[[58,62,65],[58,62,65]],[[58,62,65],[53,57,60]],[[53,57,60],[58,62,65]],[[48,51,55],[53,57,60]],[[53,57,60],[53,57,60]],[[55,59,62,65],[55,59,62,65]],[[48,52,55],[48,52,55,58]],[[58,62,65],[53,57,60]],[[58,62,65],[58,62,65]],[[58,62,65],[58,62,65]],[[53,57,60],[48,52,55,58]],[[53,57,60,63],[53,57,60,63]],[[58,62,65],[58,62,65]],[[55,59,62,65],[55,59,62,65]],[[48,52,55],[48,52,55,58]],[[58,62,65],[53,57,60]],[[58,62,65],[58,62,65]],[[58,62,65],[53,57,60]],[[53,57,60],[58,62,65]],[[48,51,55],[53,57,60]],[[53,57,60],[53,57,60]],[[55,59,62,65],[55,59,62,65]],[[48,52,55],[48,52,55,58]],[[58,62,65],[53,57,60]],[[58,62,65],[58,62,65]],[[55,59,62,65],[55,59,62,65]],[[48,52,55],[48,52,55,58]],[[58,62,65],[53,57,60]],[[58,62,65],[53,57,60,63]],[[58,62,65],[58,62,65]],[[58,62,65],[58,62,65]]];
-  const HYMN_LEN = HYMN_CH.length * 16;
-  const HYMN_AT = {};
-  for (const [p, n, dur] of HYMN_MEL) HYMN_AT[p] = [n, dur];
-  const mf = n => 440 * Math.pow(2, (n - 69) / 12);
-  function brass(f, at, dur, vol) {   // bronce: dos sierras desafinadas con filtro que se abre al atacar
-    const t = ac.currentTime + at, lp = ac.createBiquadFilter(), g = ac.createGain();
-    lp.type = 'lowpass'; lp.Q.value = 1.5;
-    lp.frequency.setValueAtTime(700, t); lp.frequency.exponentialRampToValueAtTime(2600, t + 0.05); lp.frequency.exponentialRampToValueAtTime(1400, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.03);
-    g.gain.setValueAtTime(vol * 0.85, t + Math.max(0.04, dur * 0.8)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    for (const det of [-7, 7]) {
+  // mood 12 = canción del menú: power metal alegre y heroico en Mi mayor a 168 BPM.
+  // Vuelta de 20 compases: intro con el estribillo (4), estrofa con galope (8) y estribillo (8).
+  // Guitarras distorsionadas, guitarra solista con vibrato, bajo, doble bombo, caja y platillos.
+  const A_INTRO = 4, A_VERSE = 8, A_LEN = 20;
+  const A_CHORD = [0, 7, 9, 5, 0, 7, 5, 7];             // estribillo: Mi – Si – Do#m – La – Mi – Si – La – Si
+  const A_VCHORD = [0, 0, 9, 9, 5, 5, 7, 7];            // estrofa:    Mi – Mi – Do#m – Do#m – La – La – Si – Si
+  // Melodía de la solista en corcheas (semitonos sobre Mi4; '-' = sigue sonando, null = silencio)
+  const A_MEL = [[7, '-', 9, '-', 11, '-', 12, '-'], [14, '-', '-', '-', 11, '-', 7, '-'], [16, '-', '-', 14, 12, '-', 9, '-'], [9, '-', '-', '-', 12, '-', 9, '-'],
+                 [7, '-', 9, '-', 11, '-', 12, '-'], [14, '-', 16, '-', 14, '-', 11, '-'], [12, '-', 14, '-', 16, '-', 17, '-'], [19, '-', '-', '-', '-', '-', null, null]];
+  // Gancho corto de la solista al final de cada medio verso
+  const A_HOOK = [12, 14, 16, 19, 16, 14, 12, 11];
+  function lead(f, at, dur, vol) {   // guitarra solista: sierras saturadas con vibrato que entra de a poco
+    const t = ac.currentTime + at, ws = dist(), lp = ac.createBiquadFilter(), g = ac.createGain();
+    const vib = ac.createOscillator(), vg = ac.createGain();
+    vib.frequency.value = 5.5; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.012, t + Math.min(0.25, dur));
+    vib.connect(vg);
+    for (const det of [-6, 6]) {
       const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det;
-      o.connect(lp); o.start(t); o.stop(t + dur + 0.02);
+      vg.connect(o.frequency); o.connect(ws); o.start(t); o.stop(t + dur + 0.05);
     }
-    lp.connect(g); g.connect(musicBus); send(g, 0.3);
+    lp.type = 'lowpass'; lp.frequency.value = 3800; lp.Q.value = 0.8;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.setValueAtTime(vol * 0.8, t + dur * 0.85); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.04);
+    ws.connect(lp); lp.connect(g); g.connect(musicBus); send(g, 0.35);
+    vib.start(t); vib.stop(t + dur + 0.05);
   }
-  function playHymn(at, d) {
-    const p = step % HYMN_LEN, s = p % 16, bar = Math.floor(p / 16), half = s < 8 ? 0 : 1, ch = HYMN_CH[bar][half];
-    const n = HYMN_AT[p];
-    if (n) { brass(mf(n[0]), at, d * n[1] * 0.95, 0.11); brass(mf(n[0] - 12), at, d * n[1] * 0.9, 0.04); }   // melodía + octava baja
-    if (s % 8 === 0) brass(mf(ch[0] - 24), at, d * 3, 0.13);                      // tuba: fundamental…
-    if (s % 8 === 4) for (const c of ch) brass(mf(c), at, d * 1.6, 0.025);        // …y acorde (pah)
-    if (s % 8 === 0) tone('sine', 140, 48, 0.16, 0.34, at, musicBus);           // bombo
-    if (s === 4 || s === 12) noise(0.1, 0.2, 'bandpass', 2000, 1400, at, 1.3, musicBus);   // redoblante
-    if (s === 14 || s === 15) noise(0.04, 0.08, 'bandpass', 2400, 1800, at, 1.3, musicBus);   // redoble antes del compás
-    if (s === 0 && bar % 4 === 0) noise(1.1, 0.07, 'highpass', 6000, 4000, at, 0.7, musicBus, 0.3);   // platillo
+  function playAnthem(at, d) {
+    const p = step % (A_LEN * 16), s = p % 16, bar = Math.floor(p / 16), E = 82.41, E4 = 329.63;
+    const intro = bar < A_INTRO, verse = !intro && bar < A_INTRO + A_VERSE, k = intro ? bar : verse ? bar - A_INTRO : bar - A_INTRO - A_VERSE;
+    const root = verse ? A_VCHORD[k] : A_CHORD[k];
+    // Batería: en la estrofa el bombo galopa; en la intro y el estribillo, doble bombo en semicorcheas
+    if (verse ? (s % 4 !== 1) : true) tone('sine', 150, 50, 0.09, verse ? 0.45 : 0.4, at, musicBus);
+    if (s === 4 || s === 12) { noise(0.16, 0.5, 'bandpass', 2100, 1100, at, 0.8, musicBus, 0.3); tone('triangle', 250, 170, 0.08, 0.28, at, musicBus); }
+    if (s % 2 === 0) noise(0.06, verse ? 0.06 : 0.09, 'highpass', 7000, 5000, at, 0.8, musicBus);
+    if (s === 0 && (k % 4 === 0 || intro)) noise(1.3, 0.17, 'highpass', 4000, 2500, at, 0.6, musicBus, 0.4);   // platillo de golpe
+    if (bar === A_INTRO + A_VERSE - 1 && s >= 8 && s % 2 === 0) tone('sine', 220 - s * 8, 90, 0.12, 0.32, at, musicBus);   // redoble de toms antes del estribillo
+    // Guitarra rítmica y bajo
+    if (verse) {
+      // Galope apagado con la palma (corchea + dos semicorcheas) y acorde abierto al empezar cada compás
+      if (s === 0) gtr(st(E, root), at, d * 3, 0.13, false);
+      else if (s % 4 !== 1) gtr(st(E, root), at, d * 0.9, 0.14, true);
+      if (s % 4 !== 1) pluck(st(E / 2, root), at, d * 1.2, 0.22, 'square');
+    } else {
+      // Acordes de quinta abiertos, re-atacados en corcheas
+      if (s % 2 === 0) gtr(st(E, root), at, d * (s === 0 ? 3.5 : 1.9), s === 0 ? 0.14 : 0.1, false);
+      if (s % 2 === 0) pluck(st(E / 2, root), at, d * 1.8, 0.22, 'square');
+    }
+    // Guitarra solista
+    if (!verse && s % 2 === 0) {
+      const mel = A_MEL[k], n = mel[s / 2];
+      if (typeof n === 'number') {
+        let len = 1; while (s / 2 + len < 8 && mel[s / 2 + len] === '-') len++;
+        lead(st(intro ? E4 / 2 : E4, n), at, d * 2 * len * 0.95, intro ? 0.07 : 0.085);
+      }
+    }
+    if (verse && (k === 3 || k === 7) && s >= 8 && s % 2 === 0) lead(st(E4, A_HOOK[(s - 8) / 2 + (k === 7 ? 4 : 0)]), at, d * 1.9, 0.07);
   }
 
   // mood 11 = Saltos: chiptune alegre de juego de plataformas en Do mayor (Do – Sol – Lam – Fa), 140 BPM.
@@ -1087,7 +1112,7 @@ const SFX = (() => {
     if (mood === 5) { playThriller(at, d); return; }
     if (mood === 6) { playHappy(at, d); return; }
     if (mood === 11) { playJump(at, d); return; }
-    if (mood === 12) { playHymn(at, d); return; }
+    if (mood === 12) { playAnthem(at, d); return; }
     if (mood === 7) { playSavanna(at, d); return; }
     if (mood === 8) { playLounge(at, d); return; }
     if (mood === 9) { playFlamenco(at, d); return; }
