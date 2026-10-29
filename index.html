@@ -293,7 +293,7 @@ let S;
 // Todo se sintetiza con Web Audio (sin archivos). El navegador solo deja sonar después del primer toque,
 // por eso init() se llama en cada toque/tecla.
 const SFX = (() => {
-  let ac = null, comp, out, sfxBus, musicBus, musicLP, musicVol, revIn, noiseBuf, jetGain, jetBP;
+  let ac = null, comp, out, sfxBus, musicBus, musicLP, musicVol, revIn, revMus, revSfx, noiseBuf, jetGain, jetBP;
   // Volumen elegido en Ajustes (0..1), guardado en el celular
   const VOL = { music: 1, sfx: 1 };
   try { Object.assign(VOL, JSON.parse(localStorage.getItem('firejump_vol')) || {}); } catch (e) {}
@@ -323,6 +323,9 @@ const SFX = (() => {
     const conv = ac.createConvolver(); conv.buffer = ir;
     revIn = ac.createGain(); revIn.gain.value = 0.5;
     revIn.connect(conv); conv.connect(comp);
+    // El eco de la música y el de los efectos siguen cada uno su volumen
+    revMus = ac.createGain(); revMus.gain.value = VOL.music; revMus.connect(revIn);
+    revSfx = ac.createGain(); revSfx.gain.value = VOL.sfx; revSfx.connect(revIn);
     musicLP = ac.createBiquadFilter(); musicLP.type = 'lowpass'; musicLP.frequency.value = 12000;
     musicBus = ac.createGain(); musicBus.gain.value = 0.4;
     musicVol = ac.createGain(); musicVol.gain.value = VOL.music;
@@ -353,8 +356,9 @@ const SFX = (() => {
     lfo(0.13, 0.35, roar.gain);
     fire.connect(fLP); fLP.connect(roar); roar.connect(fireGain); fireGain.connect(sfxBus);
 
-    // Capa de la oscuridad: drone que "late" (dos notas casi iguales) y un racimo agudo disonante
-    darkGain = ac.createGain(); darkGain.gain.value = 0; darkGain.connect(comp);
+    // Capa de la oscuridad: drone que "late" (dos notas casi iguales) y un racimo agudo disonante.
+    // Todo pasa por darkGain (en 0 fuera de la oscuridad) y por el volumen de efectos.
+    darkGain = ac.createGain(); darkGain.gain.value = 0; darkGain.connect(sfxBus);
     const lowLP = ac.createBiquadFilter(); lowLP.type = 'lowpass'; lowLP.frequency.value = 150;
     for (const f of [36.7, 37.5, 55.4]) {
       const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lowLP); o.start();
@@ -364,7 +368,7 @@ const SFX = (() => {
       const o = ac.createOscillator(), g = ac.createGain();
       o.type = 'sine'; o.frequency.value = f; g.gain.value = 0.012;
       lfo(r, 0.012, g.gain);
-      o.connect(g); g.connect(darkGain); g.connect(revIn); o.start();
+      o.connect(g); g.connect(darkGain); o.start();
     });
     if (mood) startSeq();
   }
@@ -375,7 +379,7 @@ const SFX = (() => {
     const o = ac.createOscillator(), g = ac.createGain();
     o.frequency.value = rate; g.gain.value = depth; o.connect(g); g.connect(param); o.start();
   }
-  function send(node, rev) { if (rev) { const g = ac.createGain(); g.gain.value = rev; node.connect(g); g.connect(revIn); } }
+  function send(node, rev, bus = musicBus) { if (rev) { const g = ac.createGain(); g.gain.value = rev; node.connect(g); g.connect(bus === sfxBus ? revSfx : revMus); } }
 
   // Tono con barrido de frecuencia y envolvente de volumen
   function tone(type, f0, f1, dur, vol, at = 0, bus = sfxBus, rev = 0) {
@@ -385,7 +389,7 @@ const SFX = (() => {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.01, dur / 4));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(bus); send(g, rev); o.start(t); o.stop(t + dur + 0.02);
+    o.connect(g); g.connect(bus); send(g, rev, bus); o.start(t); o.stop(t + dur + 0.02);
   }
   // Ruido filtrado (golpes, vidrio, vapor, explosiones). atk > 0: entra de a poco (respiración, soplidos)
   function noise(dur, vol, type, f0, f1 = f0, at = 0, q = 1, bus = sfxBus, rev = 0, atk = 0) {
@@ -396,7 +400,7 @@ const SFX = (() => {
     if (atk) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + atk); }
     else g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(bus); send(g, rev);
+    s.connect(f); f.connect(g); g.connect(bus); send(g, rev, bus);
     s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
   }
   const notes = (seq, type, vol, len) => seq.forEach((f, i) => f && tone(type, f, f, len, vol, i * len * 0.9));
@@ -442,7 +446,7 @@ const SFX = (() => {
     }
     const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = behindGlass ? 1000 : 4500;
     const vol = ac.createGain(); vol.gain.value = (behindGlass ? 0.16 : 0.35) * level;
-    env.connect(lp); lp.connect(vol); vol.connect(sfxBus); send(vol, behindGlass ? 0.2 : 0.25);
+    env.connect(lp); lp.connect(vol); vol.connect(sfxBus); send(vol, behindGlass ? 0.2 : 0.25, sfxBus);
     for (const n of [o, vib, br]) { n.start(t, n === br ? Math.random() * 0.5 : 0); n.stop(t + dur + 0.05); }
   }
 
@@ -482,7 +486,7 @@ const SFX = (() => {
     br.connect(bh); bh.connect(bg); bg.connect(sum);
     sum.connect(env);
     const out = ac.createGain(); out.gain.value = happy ? 0.32 : 0.26;
-    env.connect(out); out.connect(sfxBus); send(out, 0.12);
+    env.connect(out); out.connect(sfxBus); send(out, 0.12, sfxBus);
     for (const n of [o, vib, br]) { n.start(t, n === br ? Math.random() : 0); n.stop(T(1) + 0.05); }
   }
 
@@ -1207,7 +1211,12 @@ const SFX = (() => {
     clearInterval(seqT); seqT = null;
     if (!ac) return;
     const now = ac.currentTime;
-    for (const g of [droneGain, fireGain, darkGain]) g.gain.setTargetAtTime(0, now, 0.4);
+    for (const g of [droneGain, fireGain]) g.gain.setTargetAtTime(0, now, 0.4);
+    stopDark();
+  }
+  function stopDark() {
+    const now = ac.currentTime;
+    darkGain.gain.setTargetAtTime(0, now, 0.4);
     musicLP.frequency.setTargetAtTime(12000, now, 0.3); musicBus.gain.setTargetAtTime(0.4, now, 0.3);
     darkMusic = 0;
   }
@@ -1256,6 +1265,7 @@ const SFX = (() => {
       if (m === mood) return;
       mood = m;
       if (!ac) return;
+      if (darkMusic) stopDark();   // al cambiar de pantalla la oscuridad no se queda sonando
       if (!m) stopSeq(); else startSeq();
     },
     // Volumen del chorro (0..1); suena más agudo cuando pega en el fuego
@@ -1292,7 +1302,9 @@ const SFX = (() => {
   function applyVol() {
     if (!ac) return;
     musicVol.gain.setTargetAtTime(VOL.music * (duck ? 0.35 : 1), ac.currentTime, 0.08);
+    revMus.gain.setTargetAtTime(VOL.music * (duck ? 0.35 : 1), ac.currentTime, 0.08);
     sfxBus.gain.setTargetAtTime(VOL.sfx, ac.currentTime, 0.05);
+    revSfx.gain.setTargetAtTime(VOL.sfx, ac.currentTime, 0.05);
   }
 })();
 addEventListener('pointerdown', SFX.init, true);
