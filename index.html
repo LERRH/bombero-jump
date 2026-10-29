@@ -184,20 +184,20 @@ for (let i = 1; i <= STAGES; i++)
 for (let f = 1; f <= 7; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
 for (let f = 1; f <= 5; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
 // Bombera: sprites propios donde se le ve la cara o el pelo; con casco, máscara y capucha se usa el mismo del bombero
-const FEM_WALK = { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, p: 5, g: 4, c: 6 };   // cuadros de caminar de cada etapa
+const FEM_WALK = { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, p: 5, g: 4, c: 6, f: 7, m: 7 };   // cuadros de caminar de cada etapa
 for (const st in FEM_WALK) {
   for (const pose of ['idle', 'salto', 'aire', 'aterriza']) loadImg(`${pose}_${st}_b`, `img/bombero/${pose}_${st}_b.png`);
   for (let f = 1; f <= FEM_WALK[st]; f++) loadImg(`camina_${st}_${f}_b`, `img/bombero/camina_${st}_${f}_b.png`);
 }
 for (const [pose, frames] of [['dano', [1, 2, 3, 4, 5, 6, 7]], ['derrota', [1, 2, 3, 4, 5]], ['curar', [1, 2, 3]], ['rescate', [1, 2, 3, 4, 5, 6]],
-  ['llavear', [1, 2, 3, 7, 10]], ['electro', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]]])
+  ['llavear', [1, 2, 3, 7, 10]], ['bate', [1, 2, 3, 4, 5, 6, 7, 8]], ['chorro', [1, 2, 3, 4]], ['electro', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]]])
   for (const f of frames) loadImg(`${pose}_${f}_b`, `img/bombero/${pose}_${f}_b.png`);
 // Sprite de la bombera que corresponde a una pose del bombero (null si no hay o aún no cargó)
 function femKey(key, t) {
   let k = null;
-  const w = key.match(/^camina_([1-5pgc])_\d+$/);
+  const w = key.match(/^camina_([1-5pgcfm])_\d+$/);
   if (w) k = `camina_${w[1]}_${1 + Math.floor(t / 6) % FEM_WALK[w[1]]}_b`;
-  else if (/^(idle|salto|aire|aterriza)_[1-5pgc]$|^(dano|derrota|curar|rescate|llavear|electro)_\d+$/.test(key)) k = key + '_b';
+  else if (/^(idle|salto|aire|aterriza)_[1-5pgcfm]$|^(dano|derrota|curar|rescate|llavear|bate|chorro|electro)_\d+$/.test(key)) k = key + '_b';
   return k && IMG[k] && IMG[k].complete && IMG[k].naturalWidth ? k : null;
 }
 // Recibir daño: impacto, retroceso y se recompone (40 cuadros). Derrota: retrocede, cae de rodillas y se desvanece.
