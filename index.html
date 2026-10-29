@@ -130,12 +130,16 @@ function checkPerf(dt) {
   perfSlow = avg > 19 ? perfSlow + 1 : 0;               // menos de ~52 cuadros por segundo
   if (perfSlow >= 2 && qIdx < QUALITY.length - 1 && QUALITY[qIdx + 1] < (devicePixelRatio || 1)) { qIdx++; perfSlow = 0; resize(); }
 }
+// Escala con la que se dibuja y tamaño de pantalla con que se calculó (para notar cambios sin aviso)
+const VIEW = { k: 1, iw: 0, ih: 0, dpr: 0 };
 function resize() {
   // Resolución del lienzo: como máximo 2 píxeles por punto (en celulares de 3x se ve igual y pesa mucho menos)
   const s = Math.min(innerWidth / W, innerHeight / H), d = Math.min(QUALITY[qIdx], devicePixelRatio || 1);
+  if (!(s > 0)) return;   // en segundo plano algunos celulares informan una pantalla de 0 × 0
   cv.width = Math.round(W * s * d); cv.height = Math.round(H * s * d);
   cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
-  ctx.setTransform(s * d, 0, 0, s * d, 0, 0);
+  VIEW.k = s * d; VIEW.iw = innerWidth; VIEW.ih = innerHeight; VIEW.dpr = devicePixelRatio || 1;
+  ctx.setTransform(VIEW.k, 0, 0, VIEW.k, 0, 0);
   // Botón de sonido: esquina superior derecha del juego, bajo la barra del HUD
   const r = cv.getBoundingClientRect(), mb = document.getElementById('mute');
   mb.style.left = (r.right - 42) + 'px'; mb.style.top = (r.top + 40 * s) + 'px';
@@ -143,6 +147,12 @@ function resize() {
   bb.style.left = (r.left + 4 * s) + 'px'; bb.style.top = (r.top + 17 * s - 15) + 'px';
 }
 addEventListener('resize', resize); resize();
+// Al volver de otra app, Android puede devolver el lienzo "reiniciado" (escala 1, contenido viejo) sin avisar
+// con un resize: se recalcula al volver y otra vez un momento después, cuando la pantalla ya se acomodó.
+const refit = () => { resize(); setTimeout(resize, 300); setTimeout(resize, 1000); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refit(); });
+addEventListener('pageshow', refit); addEventListener('focus', refit);
+cv.addEventListener('contextrestored', refit);
 
 // EPP a recoger, en orden (el bombero parte con polo, pantalón institucional y borceguíes)
 const EPP = [
@@ -6439,6 +6449,8 @@ function drawScreen(title, lines, color) {
 }
 
 function draw() {
+  if (innerWidth !== VIEW.iw || innerHeight !== VIEW.ih || (devicePixelRatio || 1) !== VIEW.dpr) resize();
+  ctx.setTransform(VIEW.k, 0, 0, VIEW.k, 0, 0);   // por si el lienzo se reinició (vuelve de segundo plano)
   ctx.save();
   if (S.shake) ctx.translate(rand(-S.shake, S.shake) / 2, rand(-S.shake, S.shake) / 2);
   drawBg();
