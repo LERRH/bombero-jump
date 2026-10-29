@@ -1713,7 +1713,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
   gen();
   S.p.ground = S.lastSafe = S.plats[0];
   updateControls();
-  if (state === 'play') toast(MODS[mod] ? MODS[mod].start : 'Salta de ventana en ventana y recoge tu EPP', '#ffd166');
+  if (state === 'play' && !(mod === 'saltos' && !TUT.seen.jump)) toast(MODS[mod] ? MODS[mod].start : 'Salta de ventana en ventana y recoge tu EPP', '#ffd166');   // en el tutorial lo explica la pista
   if (state === 'play') { const [ok, n] = playerReady(); if (ok < n) { S.state = 'loading'; S.loadT = 0; } }
   fadeA = 1;   // cada partida (o reinicio) aparece desde negro
   if (state === 'play' && matchMedia('(pointer: coarse)').matches) FS.enter();
@@ -2790,15 +2790,126 @@ document.querySelectorAll('#controls button').forEach(btn => {
     if (S.state === 'dying' || (S.state === 'win' && S.winT < 170)) return;
     if (S.state !== 'play') { newGame(); return; }
     if (k) keys[k] = true;
+    S.pressed = k || a;
     if (a === 'hal') halligan();
     if (a === 'lamp') toggleLamp();
   });
   if (k) for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => keys[k] = false);
 });
 
+
+// ---------- Tutorial ----------
+// Pistas cortas sobre el juego real, solo la primera vez: una manito señala qué tocar y la pista
+// desaparece apenas el jugador lo hace. Lo ya visto se guarda en el celular.
+const TUT = { seen: {} };
+try { TUT.seen = JSON.parse(localStorage.getItem('firejump_tut')) || {}; } catch (e) {}
+const tutDone = id => { TUT.seen[id] = 1; try { localStorage.setItem('firejump_tut', JSON.stringify(TUT.seen)); } catch (e) {} };
+function tutReset() { TUT.seen = {}; try { localStorage.removeItem('firejump_tut'); } catch (e) {} }
+// Herramientas: botón y pista la primera vez que se puede usar
+const TUT_TOOLS = [
+  ['hose', '[data-k=hose]', 'Mantén presionado el PITÓN para lanzar agua al fuego'],
+  ['hal', '[data-a=hal]', 'Toca la HALLIGAN junto a una puerta o ventana para forzarla'],
+  ['lamp', '[data-a=lamp]', 'Toca la LINTERNA para iluminar en la oscuridad'],
+  ['cure', '[data-k=cure]', 'Junto a un herido, mantén presionado el MALETÍN para curarlo'],
+  ['cat', '[data-k=cat]', 'Junto a un gatito, mantén presionada la MOCHILA para rescatarlo'],
+  ['beat', '[data-k=beat]', 'Junto al pasto encendido, mantén presionado el BATEFUEGO'],
+  ['gas', '[data-k=gas]', 'Junto a un balón con fuga, mantén presionado el GAS STOP'],
+  ['key', '[data-k=key]', 'Frente al ascensor, mantén presionada la LLAVE'],
+];
+// Botón visible y encendido (las herramientas se apagan hasta tener el EPP: sin la clase "tools" o con "off")
+const tutBtnOk = el => el && el.getClientRects().length > 0 && !el.classList.contains('off') && document.getElementById('controls').classList.contains('tools');
+function showHint(id, text, target, done, max = 600) {
+  S.hint = { id, text, target, done, max, t: 0, x0: S.p.x, j0: S.jumps || 0 };
+}
+function updateTutorial() {
+  const p = S.p, h = S.hint;
+  if (h) {
+    h.t++;
+    if (h.done(h) || h.t > h.max) { tutDone(h.id); S.hint = null; S.hintGap = 40; }
+    return;
+  }
+  if (S.hintGap > 0) { S.hintGap--; return; }
+  if (S.mod === 'saltos') {
+    if (!TUT.seen.move) return showHint('move', 'Usa las FLECHAS para moverte a los lados', { btn: '[data-k=left]', btn2: '[data-k=right]' },
+      h => Math.abs(S.p.x - h.x0) > 40);
+    if (!TUT.seen.jump) return showHint('jump', 'TOCA la pantalla para saltar · mantén el dedo para saltar más alto', { tap: true },
+      h => (S.jumps || 0) - h.j0 >= 2);
+    if (!TUT.seen.fragile) {
+      const pl = S.plats.find(o => o.fragile && !o.broken && o.y > S.camY + 120 && o.y < S.camY + H - 160);
+      if (pl) { S.fragileWarned = true; return showHint('fragile', 'Alféizar RAJADO: se rompe después de unos saltos, ¡no te quedes ahí!', { pl }, h => h.t > 60 && (pl.broken || (p.ground && p.ground.fragile)), 300); }
+    }
+  }
+  if (S.fixPl && !TUT.seen.repair) return showHint('repair', 'Sin camino: toca 🔧 REPARAR y responde la trivia (cuesta una estrella)', { fix: true }, () => !S.fixPl, 900);
+  if (S.t % 15) return;
+  for (const [id, sel, text] of TUT_TOOLS) {
+    if (TUT.seen['tool_' + id] || !tutBtnOk(document.querySelector(sel))) continue;
+    return showHint('tool_' + id, text, { btn: sel }, () => S.pressed === id, 360);
+  }
+}
+// Posición de un botón de la pantalla en coordenadas del lienzo (centro y borde de arriba)
+function btnPos(sel) {
+  const el = document.querySelector(sel);
+  if (!el) return null;
+  const r = el.getBoundingClientRect(), c = cv.getBoundingClientRect();
+  if (!r.width) return null;
+  return { x: (r.left + r.width / 2 - c.left) * W / c.width, y: (r.top + r.height / 2 - c.top) * H / c.height, r: r.width / 2 * W / c.width };
+}
+// Manito: apunta hacia abajo (a un botón o lugar) o toca la pantalla
+function drawHand(x, y, down, t) {
+  ctx.save(); ctx.font = '38px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#000a'; ctx.shadowBlur = 6;
+  ctx.fillText(down ? '👇' : '👆', x, y);
+  ctx.restore();
+}
+function drawHint() {
+  const h = S.hint;
+  if (!h || S.state !== 'play') return;
+  const t = h.t, a = Math.min(1, t / 12) * Math.min(1, (h.max - t) / 12);
+  ctx.save(); ctx.globalAlpha = Math.max(0, a);
+  let bx = W / 2, by = H * 0.3;   // dónde va el globo de texto
+  const ring = (x, y, r) => {
+    const k = (t % 50) / 50;
+    ctx.strokeStyle = `rgba(255,209,102,${1 - k})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(x, y, r + k * 16, 0, 7); ctx.stroke();
+  };
+  if (h.target.btn) {
+    const pts = [btnPos(h.target.btn), h.target.btn2 && btnPos(h.target.btn2)].filter(Boolean);
+    for (const q of pts) ring(q.x, q.y, q.r + 4);
+    if (pts.length) {
+      const cx = pts.reduce((s, q) => s + q.x, 0) / pts.length, top = Math.min(...pts.map(q => q.y - q.r));
+      drawHand(cx, top - 26 - Math.abs(Math.sin(t / 9)) * 10, true, t);
+      bx = Math.min(W - 130, Math.max(130, cx)); by = top - 92;
+    }
+  } else if (h.target.tap) {
+    const x = W / 2, y = H * 0.5, press = (t % 60) < 14;
+    if ((t % 60) < 30) { const k = (t % 60) / 30; ctx.strokeStyle = `rgba(255,255,255,${0.8 - k * 0.8})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y - 18, 8 + k * 30, 0, 7); ctx.stroke(); }
+    drawHand(x + 6, y + (press ? 0 : 10), false, t);
+    by = y - 90;
+  } else if (h.target.pl) {
+    const pl = h.target.pl, x = pl.x + pl.w / 2, y = pl.y - S.camY;
+    ring(x, y + 4, pl.w / 2);
+    drawHand(x, y - 34 - Math.abs(Math.sin(t / 9)) * 10, true, t);
+    bx = Math.min(W - 130, Math.max(130, x)); by = Math.max(130, y - 110);
+  } else if (h.target.fix && S.fixPl) {
+    const b = fixRect();
+    ring(b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h) / 2);
+    drawHand(b.x + b.w / 2, b.y - 26 - Math.abs(Math.sin(t / 9)) * 10, true, t);
+    by = Math.max(130, b.y - 100);
+  }
+  // Globo con el texto
+  ctx.font = font(15); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const lines = wrap(h.text, 236), bw = 256, bh = lines.length * 20 + 18;
+  rrect(bx - bw / 2, by - bh / 2, bw, bh, 12);
+  ctx.fillStyle = 'rgba(20,14,8,0.92)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#ffb000'; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  lines.forEach((l, i) => ctx.fillText(l, bx, by - (lines.length - 1) * 10 + i * 20));
+  ctx.restore();
+}
+
 // ---------- Lógica ----------
 function update() {
   S.t++;
+  updateTutorial();
   const p = S.p;
   // Mientras usa la halligan en el suelo, no camina
   // Sacar el pitón: cuadros 1-2 (0-11) y luego cuadro 3 mientras se mantenga la tecla
@@ -2818,7 +2929,7 @@ function update() {
   if (p.ground) p.coyote = 6; else if (p.coyote > 0) p.coyote--;
   if (p.buf > 0) p.buf--;
   if (p.buf > 0 && p.coyote > 0) {
-    p.vy = -11.5; p.ground = null; p.coyote = 0; p.buf = 0;
+    p.vy = -11.5; p.ground = null; p.coyote = 0; p.buf = 0; S.jumps = (S.jumps || 0) + 1;
     SFX.play('jump');
     burst(p.x, p.y, 6, ['#d8d8d8', '#b5b5b5'], 1.6, 0.02, 16, 2.8);   // polvito al despegar
   }
@@ -5915,7 +6026,7 @@ function pauseTap(x, y) {
 }
 // Ajustes: volumen de la música y de los efectos (se guardan en el celular)
 const SET_ROWS = [['music', '🎵 MÚSICA', 230], ['sfx', '🔊 EFECTOS', 340]];
-const SET_BAR = { x: 100, w: 200 }, SET_VIB = 430, SET_BACK = 540;
+const SET_BAR = { x: 100, w: 200 }, SET_VIB = 420, SET_TUT = 476, SET_BACK = 540;
 function drawSettings() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = font(36); ctx.fillStyle = '#ffb000'; ctx.fillText('AJUSTES', W / 2, 120);
@@ -5933,12 +6044,16 @@ function drawSettings() {
   ctx.font = font(19); ctx.fillStyle = '#fff'; ctx.fillText('📳 VIBRACIÓN', W / 2 - 50, SET_VIB);
   ctx.fillStyle = VIB.on ? '#1f7a3a' : '#5a2020'; ctx.fillRect(W / 2 + 40, SET_VIB - 18, 84, 36);
   ctx.font = font(18); ctx.fillStyle = '#fff'; ctx.fillText(VIB.on ? 'SÍ' : 'NO', W / 2 + 82, SET_VIB + 1);
-  if (SFX.muted) { ctx.font = font(14); ctx.fillStyle = '#ff8a8a'; ctx.fillText('El sonido está apagado: tócalo arriba a la derecha 🔇', W / 2, 485, W - 24); }
+  const tutNew = !Object.keys(TUT.seen).length;
+  ctx.font = font(18); ctx.fillStyle = tutNew ? '#7f7' : '#ffd166';
+  ctx.fillText(tutNew ? '✓ EL TUTORIAL SE MOSTRARÁ' : '↺ REPETIR TUTORIAL', W / 2, SET_TUT);
+  if (SFX.muted) { ctx.font = font(14); ctx.fillStyle = '#ff8a8a'; ctx.fillText('El sonido está apagado: tócalo arriba a la derecha 🔇', W / 2, 590, W - 24); }
   tapButton('‹ VOLVER', SET_BACK);
 }
 // Devuelve true si se tocó "Volver"
 function settingsTap(x, y) {
   if (Math.abs(y - SET_BACK) < 26 && Math.abs(x - W / 2) < 125) { SFX.play('click'); return true; }
+  if (Math.abs(y - SET_TUT) < 20 && Math.abs(x - W / 2) < 140) { tutReset(); SFX.play('pickup'); buzz(20); return false; }
   if (Math.abs(y - SET_VIB) < 24 && Math.abs(x - W / 2) < 140) {
     VIB.on = !VIB.on;
     try { localStorage.setItem('firejump_vib', VIB.on ? '1' : '0'); } catch (e) {}
@@ -6337,7 +6452,7 @@ function draw() {
     else if (S.view === 'settings') { drawMenuBg(); drawSettings(); }
     else if (S.view === 'profile') drawProfile(); else drawMenu();
   } else {
-    ctx.save(); ctx.translate(0, -UIY); drawHUD(); if (S.state === 'play' && S.fixPl) drawFixButton(); ctx.restore();
+    ctx.save(); ctx.translate(0, -UIY); drawHUD(); if (S.state === 'play' && S.fixPl) drawFixButton(); drawHint(); ctx.restore();
     if (S.state === 'trivia') drawTrivia();
     if (S.state === 'loading') drawLoading();
     if (S.state === 'pause') drawPause();
