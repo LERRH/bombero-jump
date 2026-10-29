@@ -558,7 +558,18 @@ const SFX = (() => {
     out.gain.value = 0.22; out.connect(sfxBus); o.start(t + 0.05); o.stop(t + 0.32);
   }
 
+  // Campanita brillante de cada estrella de la pantalla final
+  function chime(f, vol) {
+    tone('triangle', f, f, 0.55, vol, 0, sfxBus, 0.35);
+    tone('sine', f * 2, f * 2, 0.35, vol * 0.4, 0.01, sfxBus, 0.35);
+    noise(0.12, 0.04, 'highpass', 7000, 7000, 0, 1);
+  }
+
   const FX = {
+    star1() { chime(880, 0.13); },
+    star2() { chime(1109, 0.13); },
+    star3() { chime(1319, 0.14); tone('triangle', 1760, 1760, 0.6, 0.06, 0.08, sfxBus, 0.4); },
+    record() { notes([784, 988, 1175, 1568], 'square', 0.07, 0.1); },
     jump() { tone('square', 260, 640, 0.13, 0.07); tone('triangle', 130, 320, 0.13, 0.1); },
     land() { noise(0.07, 0.12, 'lowpass', 500); },
     pickup() { notes([660, 880, 1320], 'square', 0.07, 0.08); },
@@ -1658,6 +1669,7 @@ function handleTap(e) {
   }
   // Módulos de entrenamiento: sin ranking, solo reintentar o volver al menú
   if ((S.state === 'over' || S.state === 'win') && MODS[S.mod]) {
+    if (S.endT < END_READY) { S.endT = END_READY; return; }
     const nx = nextMod();
     if (nx && Math.abs(y - 470) < 28) newGame('play', nx);
     else if (nx ? Math.abs(y - 540) < 22 : Math.abs(y - 500) < 28) newGame('play', S.mod);
@@ -1688,7 +1700,7 @@ function newGame(state = 'play', mod = S ? S.mod : 'emergencia') {
     camY: 0, plats: [], items: [], flames: [], bars: [], parts: [], events: [],
     victim: null, genY: H - 20, lives: 3, inv: 0, epp: 0, phase: 1,
     itemToPlace: 0, nextItemMinY: H - 200, roofY: -1e9, levels: [], darkZones: [], levelIdx: -1, levelMax: -1, banner: null,
-    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, poles: [], shock: 0, hoseLock: false, poleWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90, fixPl: null, trivia: null, repairs: 0
+    goalPlaced: false, aim: 'frente', people: [], saved: [], winT: 0, endT: 0, rescued: 0, trappedWarned: false, smokeWarned: false, fragileWarned: false, lastFragile: false, fragRun: 0, smoke: [], jet: null, jetLen: 0, innerWarned: false, eppLock: false, halT: 0, hoseT: 0, tool: 'halligan', lastSafe: null, landT: 0, hurtT: 0, dieT: 0, msg: null, shake: 0, swing: 0, flamesOut: 0, extOut: 0, inOut: 0, vented: 0, taskTotal: 0, keyT: 0, elevWarned: false, rocks: [], rockWarns: [], rockT: 150, gasT: 0, gasFixed: 0, gasWarned: false, poles: [], shock: 0, hoseLock: false, poleWarned: false, have: {}, toolQueue: [], toolMinY: 0, fireY: H + 80, fireV: 0.5, final: null, view: 'menu', savedEntry: false, myEntry: null, lamp: false, helpT: 90, fixPl: null, trivia: null, repairs: 0
   };
   SFX.music(state === 'menu' ? 12 : state !== 'play' ? 0 : (MODS[mod] && MODS[mod].music) || 1); SFX.jet(0);
   addPlat(-20, H - 20, W + 40, { ground: true });
@@ -6109,36 +6121,153 @@ function drawScoreScreen(title, color) {
   tapButton(qualifies(F.total) && !S.savedEntry ? '¡TOP 10! ANOTA TU NOMBRE' : 'VER RANKING', 560);
 }
 
-// Pantalla final del entrenamiento: estrellas, tiempo y caídas
-function drawTrainScreen(title, color) {
-  const F = S.final;
-  ctx.fillStyle = '#000d'; ctx.fillRect(0, -UIY, W, H);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = font(30); ctx.fillStyle = color; ctx.fillText(title, W / 2, 110, W - 24);
-  ctx.font = font(15); ctx.fillStyle = '#ffd166'; ctx.fillText(modTitle(S.mod), W / 2, 150);
-  for (let i = 0; i < 3; i++) {
-    const on = i < F.stars, pop = on ? 1 + Math.max(0, 1 - (S.winT - 170 - i * 15) / 12) * 0.4 : 1;
-    ctx.save(); ctx.translate(W / 2 + (i - 1) * 78, 235); ctx.scale(Math.min(pop, 1.4), Math.min(pop, 1.4));
-    ctx.font = font(64); ctx.fillStyle = on ? '#ffd166' : '#444'; ctx.fillText('★', 0, 0);
+// Pantalla final del entrenamiento, animada: el panel sube, las estrellas aparecen de a una con su
+// campanita, el personaje celebra (o queda de rodillas), los números cuentan y al final salen los botones.
+const END_STAR = [34, 52, 70], END_COUNT = 84, END_RECORD = 118, END_READY = 124;
+const easeOut = k => 1 - Math.pow(1 - Math.max(0, Math.min(1, k)), 3);
+const popIn = k => { k = Math.max(0, Math.min(1, k)); return k < 0.6 ? k / 0.6 * 1.25 : 1.25 - (k - 0.6) / 0.4 * 0.25; };
+function endTick() {
+  S.endT++;
+  if (!MODS[S.mod] || !S.final) return;
+  const i = END_STAR.indexOf(S.endT);
+  if (i >= 0 && i < S.final.stars) { SFX.play('star' + (i + 1)); buzz(15 + i * 10); }
+  if (S.endT === END_RECORD && S.final.record && S.final.stars) SFX.play('record');
+}
+// Etapa del personaje (la misma ropa con la que terminó)
+const endStage = () => S.medic ? 'p' : S.carrier ? 'g' : S.have.mochilaf ? 'm' : S.have.traje ? 'f'
+  : S.mod === 'ascensor' ? (S.have.casco ? 'c' : 3) : Math.min(STAGES, 1 + S.epp);
+// El personaje grande en la pantalla final: salta celebrando o queda de rodillas
+function drawEndHero(won, t, x, floor) {
+  const st = endStage(), K = 110 / 70;
+  let key = 'derrota_1', gh = 0, lift = 0;
+  if (won) {
+    const ph = t % 48, air = ph < 22;
+    lift = air ? Math.sin(ph / 22 * Math.PI) * 26 : 0;
+    key = air ? `aire_${st}` : `idle_${st}`; gh = air ? 58 : 70;
+  }
+  const fk = fem() ? femKey(key, t) : null, src = fk ? IMG[fk] : IMG[key];
+  if (!src || !src.complete || !src.naturalWidth) return;
+  const im = tinted(src, key), h = (fk || !gh ? im.naturalHeight / 2 : gh) * K, w = im.naturalWidth * h / im.naturalHeight;
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(x, floor, 34 - lift * 0.4, 7, 0, 0, 7); ctx.fill();
+  ctx.drawImage(im, x - w / 2, floor - h - lift, w, h);
+}
+// Confeti que cae al ganar
+function drawConfetti(t) {
+  const cols = ['#ffd166', '#7f7', '#7fd3ff', '#ff6b6b', '#fff', '#ec5fa4'];
+  ctx.globalAlpha = easeOut(t / 20);
+  for (let i = 0; i < 40; i++) {
+    const sp = 1.3 + (i % 5) * 0.35, y = (t * sp + i * 53) % (H + 40) - 20 - UIY;
+    const x = (i * 97) % W + Math.sin(t / 18 + i) * 14;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(t / 9 + i);
+    ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(-4, -2, 8, 4);
     ctx.restore();
   }
-  const m = Math.floor(F.secs / 60), sec = String(Math.floor(F.secs % 60)).padStart(2, '0');
-  ctx.font = font(16); ctx.fillStyle = '#ddd';
-  ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${Math.max(0, Math.round((H - 20 - S.p.y) / 30))} m` + (S.repairs ? `  ·  🔧 ${S.repairs}` : ''), W / 2, 315, W - 24);
-  if (S.mod === 'medico') { ctx.fillStyle = '#7f7'; ctx.fillText(`Heridos curados: ${F.cured} de ${F.injTotal}`, W / 2, 340); }
-  if (S.mod === 'gatos') { ctx.fillStyle = '#7f7'; ctx.fillText(`Gatitos rescatados: ${S.cats} de ${S.catTotal}`, W / 2, 340); }
-  if (S.mod === 'forestal') { ctx.fillStyle = '#7f7'; ctx.fillText(`Fuegos apagados: ${S.grassOut} de ${S.grassTotal}`, W / 2, 340); }
-  if (MODS[S.mod].tasks) { ctx.fillStyle = '#7f7'; ctx.fillText(`Tareas resueltas: ${F.done} de ${F.taskTotal}`, W / 2, 340); }
-  ctx.font = font(14); ctx.fillStyle = '#aaa';
-  ctx.fillText(MODS[S.mod].rule, W / 2, 368, W - 24);
-  ctx.font = font(16); ctx.fillStyle = F.record ? '#7f7' : '#bbb';
-  ctx.fillText(F.record ? '¡NUEVO RÉCORD!' : `Tu mejor resultado: ${'★'.repeat(F.best) || 'sin estrellas'}`, W / 2, 400);
+  ctx.globalAlpha = 1;
+}
+// Estrella de 5 puntas
+function starPath(r) {
+  ctx.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r;
+    ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+}
+function drawTrainScreen(title, color) {
+  const F = S.final, t = S.endT, won = S.state === 'win';
+  ctx.fillStyle = `rgba(0,0,0,${0.9 * easeOut(t / 18)})`; ctx.fillRect(0, -UIY, W, H);
+  if (won && F.stars && t > END_STAR[0]) drawConfetti(t - END_STAR[0]);
+  ctx.save();
+  ctx.translate(0, (1 - easeOut(t / 26)) * 260);   // el panel sube desde abajo
+  ctx.globalAlpha = easeOut(t / 14);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // Título con rebote
+  const ts = popIn((t - 6) / 20);
+  ctx.save(); ctx.translate(W / 2, 60); ctx.scale(ts, ts);
+  ctx.font = font(30); ctx.fillStyle = '#3a0d00'; ctx.fillText(title, 2, 3, W - 24);
+  ctx.fillStyle = color; ctx.fillText(title, 0, 0, W - 24);
+  ctx.restore();
+  ctx.font = font(15); ctx.fillStyle = '#ffd166'; ctx.fillText(modTitle(S.mod), W / 2, 94);
+  // Estrellas: las vacías siempre; las ganadas aparecen de a una con destellos
+  for (let i = 0; i < 3; i++) {
+    const x = W / 2 + (i - 1) * 84, y = i === 1 ? 140 : 152, R = i === 1 ? 34 : 29;
+    ctx.save(); ctx.translate(x, y);
+    starPath(R); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.stroke();
+    const k = (t - END_STAR[i]) / 16;
+    if (i < F.stars && k > 0) {
+      if (k < 1.6) {   // destellos
+        ctx.strokeStyle = `rgba(255,220,120,${1 - k / 1.6})`; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        for (let r = 0; r < 8; r++) {
+          const a = r * Math.PI / 4, r0 = R + 4 + k * 18, r1 = r0 + 12;
+          ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke();
+        }
+        ctx.lineCap = 'butt';
+      }
+      const sc = popIn(k);
+      ctx.rotate((1 - easeOut(k)) * -0.8); ctx.scale(sc, sc);
+      const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, R * 1.6);
+      glow.addColorStop(0, 'rgba(255,200,80,0.45)'); glow.addColorStop(1, 'rgba(255,200,80,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, R * 1.6, 0, 7); ctx.fill();
+      const g = ctx.createLinearGradient(0, -R, 0, R); g.addColorStop(0, '#fff3b0'); g.addColorStop(0.5, '#ffd166'); g.addColorStop(1, '#f0a020');
+      starPath(R); ctx.fillStyle = g; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = '#8a4a00'; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // El personaje sobre un foco de luz
+  const lg = ctx.createRadialGradient(W / 2, 296, 6, W / 2, 296, 90);
+  lg.addColorStop(0, won ? 'rgba(255,190,90,0.35)' : 'rgba(255,90,70,0.18)'); lg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = lg; ctx.save(); ctx.translate(W / 2, 296); ctx.scale(1, 0.35); ctx.beginPath(); ctx.arc(0, 0, 90, 0, 7); ctx.restore(); ctx.fill();
+  drawEndHero(won, t, W / 2, 296);
+  // Datos: aparecen y los números cuentan hacia arriba
+  const ca = easeOut((t - END_COUNT + 10) / 12), ck = easeOut((t - END_COUNT) / 30);
+  if (ca > 0) {
+    ctx.globalAlpha *= ca;
+    rrect(24, 314, W - 48, 94, 14); ctx.fillStyle = 'rgba(12,10,9,0.82)'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,176,0,0.35)'; ctx.stroke();
+    const secs = F.secs * ck, m = Math.floor(secs / 60), sec = String(Math.floor(secs % 60)).padStart(2, '0');
+    const alt = Math.round(Math.max(0, Math.round((H - 20 - S.p.y) / 30)) * ck);
+    ctx.font = font(16); ctx.fillStyle = '#ddd';
+    ctx.fillText(`Tiempo ${m}:${sec}  ·  Vidas ${Math.max(0, S.lives)}  ·  Altura ${alt} m` + (S.repairs ? `  ·  🔧 ${S.repairs}` : ''), W / 2, 336, W - 64);
+    const cnt = n => Math.round(n * ck);
+    let extra = null;
+    if (S.mod === 'medico') extra = `Heridos curados: ${cnt(F.cured)} de ${F.injTotal}`;
+    if (S.mod === 'gatos') extra = `Gatitos rescatados: ${cnt(S.cats)} de ${S.catTotal}`;
+    if (S.mod === 'forestal') extra = `Fuegos apagados: ${cnt(S.grassOut)} de ${S.grassTotal}`;
+    if (MODS[S.mod].tasks) extra = `Tareas resueltas: ${cnt(F.done)} de ${F.taskTotal}`;
+    if (extra) { ctx.fillStyle = '#7f7'; ctx.fillText(extra, W / 2, 362, W - 64); }
+    ctx.font = font(13); ctx.fillStyle = '#9a8a7a'; ctx.fillText(MODS[S.mod].rule, W / 2, extra ? 389 : 375, W - 64);
+  }
+  // Récord: listón que late; si no, el mejor resultado
+  const rk = (t - END_RECORD) / 14;
+  if (rk > 0) {
+    if (F.record && F.stars) {
+      const sc = popIn(rk) * (1 + Math.sin(t / 8) * 0.03);
+      ctx.save(); ctx.translate(W / 2, 430); ctx.scale(sc, sc);
+      rrect(-112, -15, 224, 30, 15);
+      const rg = ctx.createLinearGradient(0, -15, 0, 15); rg.addColorStop(0, '#5fd35f'); rg.addColorStop(1, '#2a8a2a');
+      ctx.fillStyle = rg; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#d8ffd0'; ctx.stroke();
+      ctx.font = font(18); ctx.fillStyle = '#fff'; ctx.fillText('★ ¡NUEVO RÉCORD! ★', 0, 1);
+      ctx.restore();
+    } else {
+      ctx.globalAlpha *= easeOut(rk);
+      ctx.font = font(15); ctx.fillStyle = '#bbb';
+      ctx.fillText(`Tu mejor resultado: ${'★'.repeat(F.best) || 'sin estrellas'}`, W / 2, 430);
+    }
+  }
+  ctx.restore();
+  // Botones (aparecen al final)
+  if (t < END_READY) return;
+  ctx.globalAlpha = easeOut((t - END_READY) / 14);
   const nx = nextMod();
   if (nx) {   // superado y hay otro módulo: el botón principal pasa al siguiente
     tapButton(`SIGUIENTE: ${MOD_LIST.find(m => m[0] === nx)[1]} ›`, 470);
     ctx.font = font(19); ctx.fillStyle = '#fff'; ctx.fillText('↻ REINTENTAR', W / 2, 540);
   } else tapButton('REINTENTAR', 500);
   ctx.font = font(18); ctx.fillStyle = '#ffd166'; ctx.fillText('‹ MÓDULOS', W / 2, 590);
+  ctx.globalAlpha = 1;
 }
 // Módulo que sigue al actual, si este se superó y el siguiente ya está desbloqueado (si no, null)
 function nextMod() {
@@ -6245,6 +6374,7 @@ function loop(now) {
       if (ok >= n || ++S.loadT > LOAD_MAX) S.state = 'play';
     } else {
       if (S.state === 'win') S.winT++;
+      if (S.state === 'over' || (S.state === 'win' && S.winT >= 170)) endTick();
       if (S.state === 'dying') {
         S.t++;
         dyingFall();
