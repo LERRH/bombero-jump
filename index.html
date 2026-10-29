@@ -183,6 +183,22 @@ for (let i = 1; i <= STAGES; i++)
   for (let f = 1; f <= 6; f++) loadImg(`camina_${i}_${f}`, `img/bombero/camina_${i}_${f}.png`);
 for (let f = 1; f <= 7; f++) loadImg(`dano_${f}`, `img/bombero/dano_${f}.png`);
 for (let f = 1; f <= 5; f++) loadImg(`derrota_${f}`, `img/bombero/derrota_${f}.png`);
+// Bombera: etapas 1 a 4 (camina en 5 cuadros), daño y derrota; con casco y máscara se usa el mismo sprite
+const FEM_WALK = 5;
+for (let st = 1; st <= 4; st++) {
+  for (const pose of ['idle', 'salto', 'aire', 'aterriza']) loadImg(`${pose}_${st}_b`, `img/bombero/${pose}_${st}_b.png`);
+  for (let f = 1; f <= FEM_WALK; f++) loadImg(`camina_${st}_${f}_b`, `img/bombero/camina_${st}_${f}_b.png`);
+}
+for (let f = 1; f <= 7; f++) loadImg(`dano_${f}_b`, `img/bombero/dano_${f}_b.png`);
+for (let f = 1; f <= 5; f++) loadImg(`derrota_${f}_b`, `img/bombero/derrota_${f}_b.png`);
+// Sprite de la bombera que corresponde a una pose del bombero (null si no hay o aún no cargó)
+function femKey(key, t) {
+  let k = null;
+  const w = key.match(/^camina_([1-4])_\d+$/);
+  if (w) k = `camina_${w[1]}_${1 + Math.floor(t / 6) % FEM_WALK}_b`;
+  else if (/^(idle|salto|aire|aterriza)_[1-4]$|^dano_\d$|^derrota_\d$/.test(key)) k = key + '_b';
+  return k && IMG[k] && IMG[k].complete && IMG[k].naturalWidth ? k : null;
+}
 // Recibir daño: impacto, retroceso y se recompone (40 cuadros). Derrota: retrocede, cae de rodillas y se desvanece.
 const HURT_SEQ = [2, 3, 4, 5, 4, 3, 2];
 // Electrocución (postes): susto y descarga al perder un corazón; si muere, sale despedido, cae y queda tendido
@@ -1324,7 +1340,7 @@ addEventListener('keydown', e => {
 });
 
 // Mi bombero: nombre, compañía, color del EPP y del casco (guardados en el celular)
-const PROFILE = { name: '', cia: '', color: 'rojo', helmet: 'rojo' };
+const PROFILE = { name: '', cia: '', color: 'rojo', helmet: 'rojo', gender: 'm' };
 try { Object.assign(PROFILE, JSON.parse(localStorage.getItem('firejump_profile')) || {}); } catch (e) {}
 const saveProfile = () => { try { localStorage.setItem('firejump_profile', JSON.stringify(PROFILE)); } catch (e) {} };
 // Colores: el rojo original se cambia por un degradado de sombra a luz
@@ -1339,6 +1355,7 @@ const HELMET = {
 };
 if (!UNIFORM[PROFILE.color]) PROFILE.color = PROFILE.color === 'arena' ? 'caqui' : 'rojo';
 if (!HELMET[PROFILE.helmet]) PROFILE.helmet = 'rojo';
+const fem = () => PROFILE.gender === 'f';
 // Qué parte de cada sprite se recolorea. Solo cambia el EPP: con polo, pantalón y borceguíes sigue rojo.
 // helmet = fracción de arriba que es el casco; body = desde qué altura empieza el EPP (null = nada)
 function tintZone(key) {
@@ -1403,22 +1420,33 @@ function placeProfBox() {
 function drawProfile() {
   drawMenuBg();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = font(34); ctx.fillStyle = '#ffb000'; ctx.fillText('MI BOMBERO', W / 2, 46);
-  // Vista previa: el bombero con el EPP completo caminando en su lugar
-  // (solo con los cuadros que ya cargaron; si aún no hay ninguno, parado o un aviso de carga)
+  ctx.font = font(34); ctx.fillStyle = '#ffb000'; ctx.fillText(fem() ? 'MI BOMBERA' : 'MI BOMBERO', W / 2, 40);
+  for (const [g, label, gx] of [['m', 'BOMBERO', W / 2 - 62], ['f', 'BOMBERA', W / 2 + 62]]) {
+    const sel = PROFILE.gender === g;
+    ctx.fillStyle = sel ? '#e8430c' : '#000a'; ctx.fillRect(gx - 56, 62, 112, 30);
+    ctx.strokeStyle = sel ? '#ffd166' : '#555'; ctx.lineWidth = 2; ctx.strokeRect(gx - 56, 62, 112, 30);
+    ctx.font = font(16); ctx.fillStyle = sel ? '#fff' : '#999'; ctx.fillText(label, gx, 78);
+  }
+  // Vista previa: con la chaqueta (se ve la cara) y con el EPP completo, caminando en su lugar
+  // (solo con los cuadros que ya cargaron; si aún no hay ninguno, un aviso de carga)
   const ready = k => IMG[k] && IMG[k].complete && IMG[k].naturalWidth;
-  const frames = Array.from({ length: WALKN[8] || 6 }, (_, i) => `camina_8_${i + 1}`).filter(ready);
-  const key = frames.length ? frames[Math.floor(performance.now() / 110) % frames.length] : ready('idle_8') ? 'idle_8' : null;
-  if (key) {
-    const im = tinted(IMG[key], key), h = 150, w = im.naturalWidth * h / im.naturalHeight;
-    ctx.drawImage(im, W / 2 - w / 2, 236 - h, w, h);
-  } else {
+  const t = Math.floor(performance.now() / 110);
+  let shown = 0;
+  for (const [st, px] of [[4, W / 2 - 62], [8, W / 2 + 62]]) {
+    const frames = Array.from({ length: WALKN[st] || 6 }, (_, i) => `camina_${st}_${i + 1}`).filter(ready);
+    const key = frames.length ? frames[t % frames.length] : ready(`idle_${st}`) ? `idle_${st}` : null;
+    if (!key) continue;
+    const fk = fem() ? femKey(key, t) : null, im = fk ? tinted(IMG[fk], key) : tinted(IMG[key], key);
+    const h = fk ? im.naturalHeight * 130 / 140 : 130, w = im.naturalWidth * h / im.naturalHeight;
+    ctx.drawImage(im, px - w / 2, 236 - h, w, h);
+    shown++;
+  }
+  if (!shown) {
     const a = performance.now() / 150;
     ctx.strokeStyle = '#ffb000'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(W / 2, 160, 26, a, a + 4.2); ctx.stroke(); ctx.lineCap = 'butt';
-    ctx.font = font(14); ctx.fillStyle = '#aaa'; ctx.fillText('Cargando al bombero…', W / 2, 212);
-    // Si alguna de estas imágenes falló, se vuelve a pedir enseguida
-    for (const k of ['idle_8', 'camina_8_1']) if (IMG[k] && IMG[k].complete && !IMG[k].naturalWidth && !IMG[k]._retry) { IMG[k]._retry = true; loadImg(k, IMG[k]._src, 1); }
+    ctx.beginPath(); ctx.arc(W / 2, 165, 26, a, a + 4.2); ctx.stroke(); ctx.lineCap = 'butt';
+    ctx.font = font(14); ctx.fillStyle = '#aaa'; ctx.fillText('Cargando al personaje…', W / 2, 214);
+    for (const k of ['idle_8', 'camina_8_1', 'idle_4']) if (IMG[k] && IMG[k].complete && !IMG[k].naturalWidth && !IMG[k]._retry) { IMG[k]._retry = true; loadImg(k, IMG[k]._src, 1); }
   }
   ctx.font = font(13); ctx.fillStyle = '#aaa';
   ctx.fillText('NOMBRE', W / 2, PROF_Y.name - 34);
@@ -1439,6 +1467,7 @@ function drawProfile() {
 // Devuelve true si se tocó "Listo"
 function profileTap(x, y) {
   if (Math.abs(y - PROF_Y.back) < 26 && Math.abs(x - W / 2) < 125) { profName.blur(); profCia.blur(); SFX.play('click'); return true; }
+  if (Math.abs(y - 77) < 20 && Math.abs(x - W / 2) < 125) { PROFILE.gender = x < W / 2 ? 'm' : 'f'; saveProfile(); SFX.play('pickup'); buzz(15); return false; }
   for (const row of ['epp', 'helmet']) {
     if (Math.abs(y - PROF_Y[row]) > 28) continue;
     const [set, prop, gap] = PROF_DOTS[row], ids = Object.keys(set);
@@ -5525,9 +5554,10 @@ function drawPlayer() {
   ctx.translate(x, y + 2);
   ctx.scale(d * sx, sy);
   if (rot) ctx.rotate(rot);
-  const im = tinted(IMG[key], key);
+  const fk = fem() ? femKey(key, S.t) : null;
+  const im = fk ? tinted(IMG[fk], key) : tinted(IMG[key], key);
   if (im && im.complete && im.naturalWidth) {
-    if (!h) h = im.naturalHeight / 2; // daño y derrota: misma escala que el resto (exportados al doble)
+    if (fk || !h) h = im.naturalHeight / 2; // daño, derrota y bombera: misma escala que el resto (exportados al doble)
     if (h < 0) h = im.naturalHeight * 70 / 152; // halligan: misma escala que idle_7
     const w = im.naturalWidth * h / im.naturalHeight;
     const ax = POSE[key] ? POSE[key].ax * w : w / 2;   // las poses con manguera se apoyan en las botas
@@ -5988,7 +6018,7 @@ function drawMenu() {
   if (logoReady() || performance.now() - BOOT >= MENU_WAIT) {
     ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ffd166'; ctx.fillText('⚙ AJUSTES', W / 2, MENU_Y.ajustes);
-    ctx.fillStyle = '#fff'; ctx.fillText(PROFILE.name ? `👤 ${PROFILE.name}${PROFILE.cia ? ' · ' + PROFILE.cia : ''}` : '👤 MI BOMBERO', W / 2, MENU_Y.perfil, W - 40);
+    ctx.fillStyle = '#fff'; ctx.fillText(PROFILE.name ? `👤 ${PROFILE.name}${PROFILE.cia ? ' · ' + PROFILE.cia : ''}` : fem() ? '👤 MI BOMBERA' : '👤 MI BOMBERO', W / 2, MENU_Y.perfil, W - 40);
   }
   if (SHOW_EMERGENCY) {
     ctx.font = font(18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
